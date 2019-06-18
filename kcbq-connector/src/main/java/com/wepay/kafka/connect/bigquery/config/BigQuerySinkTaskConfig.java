@@ -167,4 +167,8 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
     super(config, properties);
     checkAutoUpdateSchemas();
   }
+
+  public static void main(String[] args) {
+    System.out.println(config.toEnrichedRst());
+  }
 }

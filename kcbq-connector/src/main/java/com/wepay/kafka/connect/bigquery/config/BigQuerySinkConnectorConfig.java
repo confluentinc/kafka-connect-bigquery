@@ -79,4 +79,8 @@ public class BigQuerySinkConnectorConfig extends BigQuerySinkConfig {
     super(config, properties);
     checkAutoCreateTables();
   }
+
+  public static void main(String[] args) {
+    System.out.println(config.toEnrichedRst());
+  }
 }
