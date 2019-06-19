@@ -58,14 +58,14 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final ConfigDef.Type TOPICS_TYPE =              ConfigDef.Type.LIST;
   private static final ConfigDef.Importance TOPICS_IMPORTANCE =  ConfigDef.Importance.HIGH;
   private static final String TOPICS_DOC =
-      "A list of Kafka topics to read from";
+      "A list of Kafka topics to read from.";
 
   public static final String ENABLE_BATCH_CONFIG =                         "enableBatchLoad";
   private static final ConfigDef.Type ENABLE_BATCH_TYPE =                  ConfigDef.Type.LIST;
   private static final List<String> ENABLE_BATCH_DEFAULT =                 Collections.emptyList();
   private static final ConfigDef.Importance ENABLE_BATCH_IMPORTANCE =      ConfigDef.Importance.LOW;
   private static final String ENABLE_BATCH_DOC =
-      "Beta Feature; use with caution: The sublist of topics to be batch loaded through GCS";
+      "**Beta Feature** Use with caution. The sublist of topics to be batch loaded through GCS.";
 
   public static final String BATCH_LOAD_INTERVAL_SEC_CONFIG =             "batchLoadIntervalSec";
   private static final ConfigDef.Type BATCH_LOAD_INTERVAL_SEC_TYPE =      ConfigDef.Type.INT;
@@ -73,16 +73,16 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final ConfigDef.Importance BATCH_LOAD_INTERVAL_SEC_IMPORTANCE =
       ConfigDef.Importance.LOW;
   private static final String BATCH_LOAD_INTERVAL_SEC_DOC =
-      "The interval, in seconds, in which to attempt to run GCS to BQ load jobs. Only relevant "
-      + "if enableBatchLoad is configured.";
+      "The interval, in seconds, in which to attempt to run GCS to |bq| load jobs. Only relevant "
+      + "if ``enableBatchLoad`` is configured.";
 
   public static final String GCS_BUCKET_NAME_CONFIG =                     "gcsBucketName";
   private static final ConfigDef.Type GCS_BUCKET_NAME_TYPE =              ConfigDef.Type.STRING;
   private static final Object GCS_BUCKET_NAME_DEFAULT =                   "";
   private static final ConfigDef.Importance GCS_BUCKET_NAME_IMPORTANCE =  ConfigDef.Importance.HIGH;
   private static final String GCS_BUCKET_NAME_DOC =
-      "The name of the bucket in which gcs blobs used to batch load to BigQuery "
-      + "should be located. Only relevant if enableBatchLoad is configured.";
+      "The name of the bucket in where Google Cloud Storage (GCS) blobs used to batch load to "
+      + "|bq| should be located. Only relevant if enableBatchLoad is configured.";
 
   public static final String TOPICS_TO_TABLES_CONFIG =                     "topicsToTables";
   private static final ConfigDef.Type TOPICS_TO_TABLES_TYPE =              ConfigDef.Type.LIST;
@@ -91,14 +91,14 @@ public class BigQuerySinkConfig extends AbstractConfig {
   public static final Object TOPICS_TO_TABLES_DEFAULT =                    null;
   private static final String TOPICS_TO_TABLES_DOC =
       "A list of mappings from topic regexes to table names. Note the regex must include "
-      + "capture groups that are referenced in the format string using placeholders (i.e. $1) "
-      + "(form of <topic regex>=<format string>)";
+      + "capture groups that are referenced in the format string using placeholders (for"
+      + "example, ``$1``). These take the form of ``<topic regex>=<format string>``.";
 
   public static final String PROJECT_CONFIG =                     "project";
   private static final ConfigDef.Type PROJECT_TYPE =              ConfigDef.Type.STRING;
   private static final ConfigDef.Importance PROJECT_IMPORTANCE =  ConfigDef.Importance.HIGH;
   private static final String PROJECT_DOC =
-      "The BigQuery project to write to";
+      "The |bq| project to write to.";
 
   public static final String DATASETS_CONFIG =                     "datasets";
   private static final ConfigDef.Type DATASETS_TYPE =              ConfigDef.Type.LIST;
@@ -106,8 +106,8 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final ConfigDef.Validator DATASETS_VALIDATOR =    validator;
   private static final ConfigDef.Importance DATASETS_IMPORTANCE =  ConfigDef.Importance.HIGH;
   private static final String DATASETS_DOC =
-      "Names for the datasets kafka topics will write to "
-      + "(form of <topic regex>=<dataset>)";
+      "Names for the datasets |ak| topics will write to "
+      + "(form of ``<topic regex>=<dataset>``).";
 
   public static final String SCHEMA_RETRIEVER_CONFIG =         "schemaRetriever";
   private static final ConfigDef.Type SCHEMA_RETRIEVER_TYPE =  ConfigDef.Type.CLASS;
@@ -115,14 +115,14 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final ConfigDef.Importance SCHEMA_RETRIEVER_IMPORTANCE =
       ConfigDef.Importance.MEDIUM;
   private static final String SCHEMA_RETRIEVER_DOC =
-      "A class that can be used for automatically creating tables and/or updating schemas";
+      "A class that can be used for automatically creating tables and/or updating schemas.";
 
   public static final String KEYFILE_CONFIG =                     "keyfile";
   private static final ConfigDef.Type KEYFILE_TYPE =              ConfigDef.Type.STRING;
   public static final String KEYFILE_DEFAULT =                    null;
   private static final ConfigDef.Importance KEYFILE_IMPORTANCE =  ConfigDef.Importance.MEDIUM;
   private static final String KEYFILE_DOC =
-      "The file containing a JSON key with BigQuery service account credentials";
+      "The file containing a JSON key with |bq| service account credentials.";
 
   public static final String SANITIZE_TOPICS_CONFIG =                     "sanitizeTopics";
   private static final ConfigDef.Type SANITIZE_TOPICS_TYPE =              ConfigDef.Type.BOOLEAN;
@@ -131,7 +131,7 @@ public class BigQuerySinkConfig extends AbstractConfig {
       ConfigDef.Importance.MEDIUM;
   private static final String SANITIZE_TOPICS_DOC =
       "Whether to automatically sanitize topic names before using them as table names;"
-      + " if not enabled topic names will be used directly as table names";
+      + " if not enabled topic names will be used directly as table names.";
 
   public static final String INCLUDE_KAFKA_DATA_CONFIG =                   "includeKafkaData";
   public static final ConfigDef.Type INCLUDE_KAFKA_DATA_TYPE =             ConfigDef.Type.BOOLEAN;
@@ -139,8 +139,8 @@ public class BigQuerySinkConfig extends AbstractConfig {
   public static final ConfigDef.Importance INCLUDE_KAFKA_DATA_IMPORTANCE =
       ConfigDef.Importance.LOW;
   public static final String INSTANCE_KAFKA_DATA_DOC =
-      "Whether to include an extra block containing the Kafka source topic, offset, "
-      + "and partition information in the resulting BigQuery rows.";
+      "Whether to include an extra block containing the |ak| source topic, offset, "
+      + "and partition information in the resulting |bq| rows.";
 
   public static final String AVRO_DATA_CACHE_SIZE_CONFIG =                 "avroDataCacheSize";
   private static final ConfigDef.Type AVRO_DATA_CACHE_SIZE_TYPE =          ConfigDef.Type.INT;
@@ -150,16 +150,16 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final ConfigDef.Importance AVRO_DATA_CACHE_SIZE_IMPORTANCE =
       ConfigDef.Importance.LOW;
   private static final String AVRO_DATA_CACHE_SIZE_DOC =
-      "The size of the cache to use when converting schemas from Avro to Kafka Connect";
+      "The size of the cache to use when converting schemas from Avro to |kconnect-long|.";
 
   public static final String CONVERT_DOUBLE_SPECIAL_VALUES_CONFIG =    "convertDoubleSpecialValues";
   public static final ConfigDef.Type CONVERT_DOUBLE_SPECIAL_VALUES_TYPE =   ConfigDef.Type.BOOLEAN;
   public static final Boolean CONVERT_DOUBLE_SPECIAL_VALUES_DEFAULT =       false;
   public static final ConfigDef.Importance CONVERT_DOUBLE_SPECIAL_VALUES_IMPORTANCE =
       ConfigDef.Importance.LOW;
-  public static final String CONVERT_DOUBLE_SPECIAL_VALUES_DOC =
-          "Should +Infinity be converted to Double.MAX_VALUE and -Infinity and NaN be "
-          + "converted to Double.MIN_VALUE so they can make it to BigQuery";
+  public static final String CONVERT_DOUBLE_SPECIAL_VALUES_DOC = "Designates whether +Infinity is "
+      + "converted to Double.MAX_VALUE and whether -Infinity and NaN are converted to "
+      + "Double.MIN_VALUE to ensure successfull delivery to |bq|.";
 
   public static final String ALL_BQ_FIELDS_NULLABLE_CONFIG = "allBQFieldsNullable";
   private static final ConfigDef.Type ALL_BQ_FIELDS_NULLABLE_TYPE = ConfigDef.Type.BOOLEAN;
@@ -167,8 +167,8 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final ConfigDef.Importance ALL_BQ_FIELDS_NULLABLE_IMPORTANCE =
       ConfigDef.Importance.LOW;
   private static final String ALL_BQ_FIELDS_NULLABLE_DOC =
-      "If true, no fields in any produced BigQuery schema will be REQUIRED. All "
-      + "non-nullable avro fields will be translated as NULLABLE (or REPEATED, if arrays).";
+      "If true, no fields in any produced  |bq| schema will be REQUIRED. All "
+      + "non-nullable Avro fields are translated as ``NULLABLE`` (or ``REPEATED``, if arrays).";
 
   static {
     config = new ConfigDef()

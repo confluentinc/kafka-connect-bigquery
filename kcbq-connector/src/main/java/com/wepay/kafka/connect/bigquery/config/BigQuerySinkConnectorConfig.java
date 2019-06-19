@@ -38,7 +38,7 @@ public class BigQuerySinkConnectorConfig extends BigQuerySinkConfig {
   public static final boolean TABLE_CREATE_DEFAULT =                   false;
   private static final ConfigDef.Importance TABLE_CREATE_IMPORTANCE =  ConfigDef.Importance.HIGH;
   private static final String TABLE_CREATE_DOC =
-      "Automatically create BigQuery tables if they don't already exist";
+      "Automatically create |bq| tables if they don't already exist.";
 
   static {
     config = BigQuerySinkConfig.getConfig()

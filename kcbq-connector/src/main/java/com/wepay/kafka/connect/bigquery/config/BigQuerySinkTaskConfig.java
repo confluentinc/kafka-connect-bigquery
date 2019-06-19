@@ -38,7 +38,7 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
   public static final Boolean SCHEMA_UPDATE_DEFAULT =                   false;
   private static final ConfigDef.Importance SCHEMA_UPDATE_IMPORTANCE =  ConfigDef.Importance.HIGH;
   private static final String SCHEMA_UPDATE_DOC =
-      "Whether or not to automatically update BigQuery schemas";
+      "Whether or not to automatically update |bq| schemas.";
 
   public static final String THREAD_POOL_SIZE_CONFIG =                  "threadPoolSize";
   private static final ConfigDef.Type THREAD_POOL_SIZE_TYPE =           ConfigDef.Type.INT;
@@ -47,8 +47,8 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
   private static final ConfigDef.Importance THREAD_POOL_SIZE_IMPORTANCE =
       ConfigDef.Importance.MEDIUM;
   private static final String THREAD_POOL_SIZE_DOC =
-      "The size of the BigQuery write thread pool. This establishes the maximum number of "
-      + "concurrent writes to BigQuery.";
+      "The size of the |bq| write thread pool. This establishes the maximum number of "
+      + "concurrent writes to |bq|.";
 
   public static final String QUEUE_SIZE_CONFIG =                    "queueSize";
   private static final ConfigDef.Type QUEUE_SIZE_TYPE =             ConfigDef.Type.LONG;
@@ -59,7 +59,7 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
   private static final String QUEUE_SIZE_DOC =
       "The maximum size (or -1 for no maximum size) of the worker queue for bigQuery write "
       + "requests before all topics are paused. This is a soft limit; the size of the queue can "
-      + "go over this before topics are paused. All topics will be resumed once a flush is "
+      + "go over this before topics are paused. All topics resume once a flush is "
       + "requested or the size of the queue drops under half of the maximum size.";
 
   public static final String BIGQUERY_RETRY_CONFIG =                    "bigQueryRetry";
@@ -69,8 +69,8 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
   private static final ConfigDef.Importance BIGQUERY_RETRY_IMPORTANCE =
       ConfigDef.Importance.MEDIUM;
   private static final String BIGQUERY_RETRY_DOC =
-      "The number of retry attempts that will be made per BigQuery request that fails with a "
-      + "backend error or a quota exceeded error";
+      "The number of retry attempts made for a |bq| request that fails with a "
+      + "backend error or a quota exceeded error.";
 
   public static final String BIGQUERY_RETRY_WAIT_CONFIG =               "bigQueryRetryWait";
   private static final ConfigDef.Type BIGQUERY_RETRY_WAIT_CONFIG_TYPE = ConfigDef.Type.LONG;
@@ -80,8 +80,8 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
   private static final ConfigDef.Importance BIGQUERY_RETRY_WAIT_IMPORTANCE =
       ConfigDef.Importance.MEDIUM;
   private static final String BIGQUERY_RETRY_WAIT_DOC =
-      "The minimum amount of time, in milliseconds, to wait between BigQuery backend or quota "
-      +  "exceeded error retry attempts.";
+      "The minimum amount of time, in milliseconds, to wait between retry attempts for |bq| "
+      + "backend or quota exceeded error.";
 
   public static final String BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG =
       "bigQueryMessageTimePartitioning";
@@ -92,7 +92,7 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
       ConfigDef.Importance.HIGH;
   private static final String BIGQUERY_MESSAGE_TIME_PARTITIONING_DOC =
       "Whether or not to use the message time when inserting records. "
-      + "Default uses the connector processing time.";
+      + "The default is the connector processing time.";
 
   static {
     config = BigQuerySinkConfig.getConfig()
