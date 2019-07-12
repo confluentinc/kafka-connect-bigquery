@@ -35,6 +35,7 @@ import com.wepay.kafka.connect.bigquery.exception.SinkConfigConnectException;
 import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
 import com.wepay.kafka.connect.bigquery.utils.TopicToTableResolver;
 import com.wepay.kafka.connect.bigquery.utils.Version;
+import com.wepay.kafka.connect.bigquery.transformer.FilterTransformer;
 
 import com.wepay.kafka.connect.bigquery.write.batch.GCSBatchTableWriter;
 import com.wepay.kafka.connect.bigquery.write.batch.KCBQThreadPoolExecutor;
@@ -83,6 +84,7 @@ public class BigQuerySinkTask extends SinkTask {
   private boolean useMessageTimeDatePartitioning;
 
   private TopicPartitionManager topicPartitionManager;
+  private FilterTransformer filterTransformer;
 
   private KCBQThreadPoolExecutor executor;
   private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SEC = 30;
@@ -175,6 +177,11 @@ public class BigQuerySinkTask extends SinkTask {
     Map<PartitionedTableId, TableWriterBuilder> tableWriterBuilders = new HashMap<>();
 
     for (SinkRecord record : records) {
+      if (filterTransformer.getFilterType() != null) {
+        if (filterTransformer.shouldSkip(record)) {
+          continue;
+        }
+      }
       if (record.value() != null) {
         PartitionedTableId table = getRecordTable(record);
         if (schemaRetriever != null) {
@@ -289,6 +296,7 @@ public class BigQuerySinkTask extends SinkTask {
       );
     }
 
+    filterTransformer = new FilterTransformer(config);
     bigQueryWriter = getBigQueryWriter();
     gcsToBQWriter = getGcsWriter();
     topicsToBaseTableIds = TopicToTableResolver.getTopicsToTables(config);

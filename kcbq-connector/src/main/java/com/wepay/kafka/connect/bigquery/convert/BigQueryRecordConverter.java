@@ -72,10 +72,13 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
    * @return The result BigQuery row content.
    */
   public Map<String, Object> convertRecord(SinkRecord kafkaConnectRecord) {
+    if (kafkaConnectRecord instanceof Map) {
+      return (HashMap<String, Object>)(kafkaConnectRecord.value());
+    }
     Schema kafkaConnectSchema = kafkaConnectRecord.valueSchema();
     if (kafkaConnectSchema.type() != Schema.Type.STRUCT) {
       throw new
-          ConversionConnectException("Top-level Kafka Connect schema must be of type 'struct'");
+              ConversionConnectException("Top-level Kafka Connect schema must be of type 'struct'");
     }
     return convertStruct(kafkaConnectRecord.value(), kafkaConnectSchema);
   }

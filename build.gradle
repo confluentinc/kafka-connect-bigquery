@@ -9,7 +9,7 @@ project.ext {
     apacheHttpClientVersion = '4.5.6'
     avroVersion = '1.8.1'
     debeziumVersion = '0.6.1'
-    googleCloudVersion = '0.47.0-alpha'
+    googleCloudVersion = '1.79.0'
     googleAuthVersion = '0.9.0'
     googleCloudGsonVersion = '2.8.5'
     ioConfluentVersion = '5.1.1'
@@ -17,6 +17,7 @@ project.ext {
     kafkaVersion = '1.1.1'
     mockitoVersion = '1.10.19'
     slf4jVersion = '1.6.1'
+    jacksonVersion = '2.9.9.1'
 }
 
 // BEGIN SUBPROJECTS //
@@ -117,7 +118,6 @@ subprojects { subproject ->
 // BEGIN INDIVIDUAL PROJECTS
 project(':kcbq-connector') {
     apply plugin: 'jacoco'
-
     jar {
         manifest {
             attributes  'Implementation-Title': 'Kafka Connect BigQuery Connector',
@@ -127,7 +127,15 @@ project(':kcbq-connector') {
     }
 
     repositories {
+        mavenLocal()
         mavenCentral()
+        maven{
+            url 'http://maven.icm.edu.pl/artifactory/repo/'
+        }
+        maven{
+            url 'http://packages.confluent.io/maven'
+        }
+        jcenter()
     }
 
     sourceSets {
@@ -195,14 +203,19 @@ project(':kcbq-connector') {
         compile (
                 project(':kcbq-api'),
 
-                "com.google.cloud:google-cloud:$googleCloudVersion",
+                "com.google.cloud:google-cloud-bigquery:1.51.0",
+                "com.google.cloud:google-cloud-storage:1.51.0",
                 "com.google.auth:google-auth-library-oauth2-http:$googleAuthVersion",
-                "com.google.code.gson:gson:$googleCloudVersion",
+                "com.google.code.gson:gson:$googleCloudGsonVersion",
                 "io.debezium:debezium-core:$debeziumVersion",
+
+                "io.confluent:kafka-connect-avro-converter:$ioConfluentVersion",
+                "io.confluent:kafka-schema-registry-client:$ioConfluentVersion",
+                "org.apache.avro:avro:$avroVersion",
                 "org.apache.kafka:connect-api:$kafkaVersion",
                 "org.apache.kafka:kafka-clients:$kafkaVersion",
                 "org.slf4j:slf4j-api:$slf4jVersion",
-                "org.slf4j:slf4j-simple:$slf4jVersion",
+                "org.slf4j:slf4j-simple:$slf4jVersion"
         )
 
         testCompile (
@@ -248,7 +261,8 @@ project('kcbq-api') {
 
     dependencies {
         compile (
-                "com.google.cloud:google-cloud:$googleCloudVersion",
+                "com.google.cloud:google-cloud-bigquery:1.51.0",
+                "com.google.cloud:google-cloud-storage:1.51.0",
                 "org.apache.kafka:connect-api:$kafkaVersion"
         )
     }
@@ -277,7 +291,7 @@ project('kcbq-confluent') {
     configurations.all {
         resolutionStrategy {
             // depending on debezium results in us pulling in the most recent kafka version, but we want to use 1.1.1.
-            force 'org.apache.kafka:connect-api:1.1.1', 'org.apache.kafka:kafka-clients:1.1.1'
+            force 'org.apache.kafka:connect-api:2.0.0', 'org.apache.kafka:kafka-clients:2.0.0'
         }
     }
 
@@ -298,10 +312,16 @@ project('kcbq-confluent') {
     }
 
     repositories {
+        mavenLocal()
         mavenCentral()
         maven {
             url 'http://packages.confluent.io/maven'
         }
+        maven {
+            url 'http://github.com/FasterXML/jackson'
+        }
+        maven { url 'http://kafka.apache.org' }
+        maven { url "http://repo.typesafe.com/typesafe/releases/" }
         jcenter()
     }
 
@@ -316,13 +336,16 @@ project('kcbq-confluent') {
         compile (
                 project(':kcbq-api'),
 
-                "com.google.cloud:google-cloud:$googleCloudVersion",
+                "com.google.cloud:google-cloud-bigquery:1.51.0",
+                "com.google.cloud:google-cloud-storage:1.51.0",
                 "io.confluent:kafka-connect-avro-converter:$ioConfluentVersion",
                 "io.confluent:kafka-schema-registry-client:$ioConfluentVersion",
                 "org.apache.avro:avro:$avroVersion",
                 "org.apache.kafka:connect-api:$kafkaVersion",
                 "org.apache.kafka:kafka-clients:$kafkaVersion",
                 "org.slf4j:slf4j-api:$slf4jVersion",
+                "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
+                "org.apache.kafka:connect-transforms:$kafkaVersion"
         )
 
         testCompile (
