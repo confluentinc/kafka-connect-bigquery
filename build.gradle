@@ -121,7 +121,7 @@ project(':kcbq-connector') {
     jar {
         manifest {
             attributes  'Implementation-Title': 'Kafka Connect BigQuery Connector',
-                        'Implementation-Version': version
+                    'Implementation-Version': version
 
         }
     }
@@ -246,7 +246,7 @@ project('kcbq-api') {
     jar {
         manifest {
             attributes  'Implementation-Title': 'Kafka Connect BigQuery API',
-                        'Implementation-Version': version
+                    'Implementation-Version': version
         }
     }
 
@@ -307,7 +307,7 @@ project('kcbq-confluent') {
     jar {
         manifest {
             attributes  'Implementation-Title': 'Kafka Connect BigQuery Schema Registry Schema Retriever',
-                        'Implementation-Version': version
+                    'Implementation-Version': version
         }
     }
 
