@@ -67,6 +67,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * A {@link SinkTask} used to translate Kafka Connect {@link SinkRecord SinkRecords} into BigQuery
@@ -140,6 +141,27 @@ public class BigQuerySinkTask extends SinkTask {
     }
   }
 
+  private static String sanitizeName(String name) {
+    name = name.replaceAll("^[^a-zA-Z]+", "");
+    return name.replaceAll("[^a-zA-Z0-9_]", "_");
+  }
+
+  private Map<String,Object> replaceInvalidKeys(Map<String, Object> map) {
+
+    return map.entrySet().stream().collect(Collectors.toMap(
+            (entry) -> {
+              return sanitizeName((String) (entry.getKey()));
+            },
+            (entry) -> {
+              if (entry.getValue() instanceof Map) {
+                return replaceInvalidKeys((Map) entry.getValue());
+              }
+              return entry.getValue();
+
+            }
+    ));
+  }
+
   private PartitionedTableId getRecordTable(SinkRecord record) {
     TableId baseTableId = topicsToBaseTableIds.get(record.topic());
 
@@ -159,7 +181,12 @@ public class BigQuerySinkTask extends SinkTask {
   }
 
   private RowToInsert getRecordRow(SinkRecord record) {
-    return RowToInsert.of(getRowId(record), recordConverter.convertRecord(record));
+    Map convertedRecord = recordConverter.convertRecord(record);
+    if (config.getBoolean(config.SANITIZE_FIELD_NAME_CONFIG)) {
+      convertedRecord = replaceInvalidKeys(convertedRecord);
+    }
+    logger.info("hahaha I'm printing converted record with sanitize on:{}", convertedRecord);
+    return RowToInsert.of(getRowId(record), convertedRecord);
   }
 
   private String getRowId(SinkRecord record) {
@@ -184,6 +211,7 @@ public class BigQuerySinkTask extends SinkTask {
       }
       if (record.value() != null) {
         PartitionedTableId table = getRecordTable(record);
+        logger.info("hahaha I'm printing table name: {}", table.getFullTableName());
         if (schemaRetriever != null) {
           schemaRetriever.setLastSeenSchema(table.getBaseTableId(),
                                             record.topic(),
@@ -204,8 +232,9 @@ public class BigQuerySinkTask extends SinkTask {
             tableWriterBuilder =
                 new TableWriter.Builder(bigQueryWriter, table, record.topic(), recordConverter);
           }
-          tableWriterBuilders.put(table, tableWriterBuilder);
+          tableWriterBuilders.put(table, tableWriterBuilders.get(table));
         }
+        logger.info("hahaha I'm printing table: {}", tableWriterBuilders.get(table));
         tableWriterBuilders.get(table).addRow(getRecordRow(record));
       }
     }

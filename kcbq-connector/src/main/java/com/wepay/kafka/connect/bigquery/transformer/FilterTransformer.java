@@ -37,7 +37,7 @@ public class FilterTransformer{
         this.bigQueryConfig = bigQueryConfig;
         this.recordConverter = bigQueryConfig.getRecordConverter();
 
-        if (this.bigQueryConfig.getString(this.bigQueryConfig.INCLUDE_KAFKA_DATA_CONFIG) != null) {
+        if (this.bigQueryConfig.getString(this.bigQueryConfig.INCLUDE_CONDITION_CONFIG) != null) {
             this.filterType = bigQueryConfig.INCLUDE_KAFKA_DATA_CONFIG;
             this.transformConfigFile = this.bigQueryConfig.getString(bigQueryConfig.INCLUDE_KAFKA_DATA_CONFIG);
         } else if (this.bigQueryConfig.getString(bigQueryConfig.EXCLUDE_CONDITION_CONFIG) != null) {
