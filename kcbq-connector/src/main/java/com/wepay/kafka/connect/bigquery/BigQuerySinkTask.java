@@ -183,7 +183,7 @@ public class BigQuerySinkTask extends SinkTask {
     Map<PartitionedTableId, TableWriterBuilder> tableWriterBuilders = new HashMap<>();
 
     for (SinkRecord record : records) {
-      if (sinkRecordFilter.getFilterType() != null) {
+      if (sinkRecordFilter.getConfigType() != null) {
         if (sinkRecordFilter.shouldSkip(record)) {
           continue;
         }
