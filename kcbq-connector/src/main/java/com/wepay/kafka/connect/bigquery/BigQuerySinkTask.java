@@ -32,10 +32,11 @@ import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.convert.RecordConverter;
 import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
 import com.wepay.kafka.connect.bigquery.exception.SinkConfigConnectException;
+import com.wepay.kafka.connect.bigquery.preprocess.FieldNameSanitizer;
+import com.wepay.kafka.connect.bigquery.preprocess.SinkRecordFilter;
 import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
 import com.wepay.kafka.connect.bigquery.utils.TopicToTableResolver;
 import com.wepay.kafka.connect.bigquery.utils.Version;
-import com.wepay.kafka.connect.bigquery.transformer.FilterTransformer;
 
 import com.wepay.kafka.connect.bigquery.write.batch.GCSBatchTableWriter;
 import com.wepay.kafka.connect.bigquery.write.batch.KCBQThreadPoolExecutor;
@@ -67,7 +68,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * A {@link SinkTask} used to translate Kafka Connect {@link SinkRecord SinkRecords} into BigQuery
@@ -85,7 +85,7 @@ public class BigQuerySinkTask extends SinkTask {
   private boolean useMessageTimeDatePartitioning;
 
   private TopicPartitionManager topicPartitionManager;
-  private FilterTransformer filterTransformer;
+  private SinkRecordFilter sinkRecordFilter;
 
   private KCBQThreadPoolExecutor executor;
   private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SEC = 30;
@@ -141,27 +141,6 @@ public class BigQuerySinkTask extends SinkTask {
     }
   }
 
-  private static String sanitizeName(String name) {
-    name = name.replaceAll("^[^a-zA-Z]+", "");
-    return name.replaceAll("[^a-zA-Z0-9_]", "_");
-  }
-
-  private Map<String,Object> replaceInvalidKeys(Map<String, Object> map) {
-
-    return map.entrySet().stream().collect(Collectors.toMap(
-            (entry) -> {
-              return sanitizeName((String) (entry.getKey()));
-            },
-            (entry) -> {
-              if (entry.getValue() instanceof Map) {
-                return replaceInvalidKeys((Map) entry.getValue());
-              }
-              return entry.getValue();
-
-            }
-    ));
-  }
-
   private PartitionedTableId getRecordTable(SinkRecord record) {
     TableId baseTableId = topicsToBaseTableIds.get(record.topic());
 
@@ -183,9 +162,9 @@ public class BigQuerySinkTask extends SinkTask {
   private RowToInsert getRecordRow(SinkRecord record) {
     Map convertedRecord = recordConverter.convertRecord(record);
     if (config.getBoolean(config.SANITIZE_FIELD_NAME_CONFIG)) {
-      convertedRecord = replaceInvalidKeys(convertedRecord);
+      convertedRecord = FieldNameSanitizer.replaceInvalidKeys(convertedRecord);
     }
-    logger.info("hahaha I'm printing converted record with sanitize on:{}", convertedRecord);
+
     return RowToInsert.of(getRowId(record), convertedRecord);
   }
 
@@ -204,14 +183,13 @@ public class BigQuerySinkTask extends SinkTask {
     Map<PartitionedTableId, TableWriterBuilder> tableWriterBuilders = new HashMap<>();
 
     for (SinkRecord record : records) {
-      if (filterTransformer.getFilterType() != null) {
-        if (filterTransformer.shouldSkip(record)) {
+      if (sinkRecordFilter.getFilterType() != null) {
+        if (sinkRecordFilter.shouldSkip(record)) {
           continue;
         }
       }
       if (record.value() != null) {
         PartitionedTableId table = getRecordTable(record);
-        logger.info("hahaha I'm printing table name: {}", table.getFullTableName());
         if (schemaRetriever != null) {
           schemaRetriever.setLastSeenSchema(table.getBaseTableId(),
                                             record.topic(),
@@ -232,9 +210,8 @@ public class BigQuerySinkTask extends SinkTask {
             tableWriterBuilder =
                 new TableWriter.Builder(bigQueryWriter, table, record.topic(), recordConverter);
           }
-          tableWriterBuilders.put(table, tableWriterBuilders.get(table));
+          tableWriterBuilders.put(table, tableWriterBuilder);
         }
-        logger.info("hahaha I'm printing table: {}", tableWriterBuilders.get(table));
         tableWriterBuilders.get(table).addRow(getRecordRow(record));
       }
     }
@@ -325,7 +302,7 @@ public class BigQuerySinkTask extends SinkTask {
       );
     }
 
-    filterTransformer = new FilterTransformer(config);
+    sinkRecordFilter = new SinkRecordFilter(config);
     bigQueryWriter = getBigQueryWriter();
     gcsToBQWriter = getGcsWriter();
     topicsToBaseTableIds = TopicToTableResolver.getTopicsToTables(config);

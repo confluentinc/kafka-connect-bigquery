@@ -78,7 +78,6 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
    */
   public Map<String, Object> convertRecord(SinkRecord kafkaConnectRecord) {
     if (kafkaConnectRecord.value() instanceof Map) {
-      logger.info("hahaha I'm printing json map: {}", kafkaConnectRecord.value());
       return (Map)kafkaConnectRecord.value();
     }
     Schema kafkaConnectSchema = kafkaConnectRecord.valueSchema();
@@ -86,7 +85,6 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
       throw new
               ConversionConnectException("Top-level Kafka Connect schema must be of type 'struct'");
     }
-    logger.info("hahaha I'm printing avro converted record: {}", convertStruct(kafkaConnectRecord.value(), kafkaConnectSchema));
     return convertStruct(kafkaConnectRecord.value(), kafkaConnectSchema);
   }
 

@@ -1,30 +1,20 @@
-package com.wepay.kafka.connect.bigquery.transformer;
+package com.wepay.kafka.connect.bigquery.preprocess;
 
-import org.apache.kafka.common.config.Config;
-import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.protocol.types.Field;
-import org.apache.kafka.connect.connector.ConnectRecord;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.kafka.connect.transforms.*;
 
-import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
-import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.convert.RecordConverter;
-import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
-import com.wepay.kafka.connect.bigquery.exception.SinkConfigConnectException;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
-public class FilterTransformer{
+public class SinkRecordFilter {
     private BigQuerySinkConfig bigQueryConfig;
     private RecordConverter recordConverter;
 
@@ -33,12 +23,12 @@ public class FilterTransformer{
     private ArrayList<String[]> filterConditions;
 
 
-    public FilterTransformer(BigQuerySinkConfig bigQueryConfig) {
+    public SinkRecordFilter(BigQuerySinkConfig bigQueryConfig) {
         this.bigQueryConfig = bigQueryConfig;
         this.recordConverter = bigQueryConfig.getRecordConverter();
 
         if (this.bigQueryConfig.getString(this.bigQueryConfig.INCLUDE_CONDITION_CONFIG) != null) {
-            this.filterType = bigQueryConfig.INCLUDE_KAFKA_DATA_CONFIG;
+            this.filterType = this.bigQueryConfig.INCLUDE_KAFKA_DATA_CONFIG;
             this.transformConfigFile = this.bigQueryConfig.getString(bigQueryConfig.INCLUDE_KAFKA_DATA_CONFIG);
         } else if (this.bigQueryConfig.getString(bigQueryConfig.EXCLUDE_CONDITION_CONFIG) != null) {
             this.filterType = this.bigQueryConfig.EXCLUDE_CONDITION_CONFIG;
@@ -78,7 +68,7 @@ public class FilterTransformer{
         return or_conditions;
     }
 
-    private boolean satisfyRecordCondition(Map<String, Object> convertedRecord) throws ConfigException {
+    private boolean satisfyCondition(Map<String, Object> convertedRecord) throws ConfigException {
         // filter messages
         for (String[] and_conditions: this.filterConditions) {
             boolean satisfy = true;
@@ -136,9 +126,9 @@ public class FilterTransformer{
         Map<String, Object> convertRecord = (Map<String, Object>)(this.recordConverter.convertRecord(record));
         switch (this.filterType) {
             case "includeCondition":
-                return satisfyRecordCondition(convertRecord) ? false: true;
+                return satisfyCondition(convertRecord) ? false: true;
             case "excludeCondition":
-                return satisfyRecordCondition(convertRecord) ? true: false;
+                return satisfyCondition(convertRecord) ? true: false;
             default:
                 return false;
         }
