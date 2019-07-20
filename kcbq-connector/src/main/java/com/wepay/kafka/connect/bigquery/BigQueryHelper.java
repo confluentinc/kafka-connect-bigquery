@@ -26,6 +26,7 @@ import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -66,6 +67,44 @@ public class BigQueryHelper {
       throw new BigQueryConnectException("Failed to access json key file", err);
     }
   }
+
+  /**
+   * Returns a default {@link BigQuery} instance for the specified project with credentials provided
+   * in the specified file, which can then be used for creating, updating, and inserting into tables
+   * from specific datasets.
+   *
+   * @param projectName The name of the BigQuery project to work with
+   * @param keyFile The name of a file containing a JSON key that can be used to provide
+   *                    credentials to BigQuery, or null if no authentication should be performed.
+   * @param isJsonString If isJsonString is set to true, the method will interpret the keyFile as
+   *                     JsonString instead of file path
+   * @return The resulting BigQuery object.
+   */
+  public BigQuery connect(String projectName, String keyFile, boolean isJsonString) {
+    if (keyFile == null) {
+      return connect(projectName);
+    }
+
+    if (!isJsonString) {
+      return connect(projectName, keyFile);
+    }
+
+    logger.debug("Attempting to convert the provided json key to input stream");
+    try (InputStream credentialsStream = new ByteArrayInputStream(keyFile.getBytes())) {
+      logger.debug("Attempting to authenticate with BigQuery using provided json key");
+      return new
+              BigQueryOptions.DefaultBigQueryFactory().create(
+              BigQueryOptions.newBuilder()
+                      .setProjectId(projectName)
+                      .setCredentials(GoogleCredentials.fromStream(credentialsStream))
+                      .build()
+      );
+    } catch (IOException err) {
+      throw new BigQueryConnectException("Failed to convert the json key to input stream. " +
+              "Please make sure you have valid credential key.", err);
+    }
+  }
+
 
   /**
    * Returns a default {@link BigQuery} instance for the specified project with no authentication
