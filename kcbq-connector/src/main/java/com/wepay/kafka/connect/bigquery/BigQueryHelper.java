@@ -80,7 +80,7 @@ public class BigQueryHelper {
    *                     JsonString instead of file path
    * @return The resulting BigQuery object.
    */
-  public BigQuery connect(String projectName, String keyFile, boolean isJsonString) {
+  public BigQuery connect(String projectName, String keyFile, Boolean isJsonString) {
     if (keyFile == null) {
       return connect(projectName);
     }

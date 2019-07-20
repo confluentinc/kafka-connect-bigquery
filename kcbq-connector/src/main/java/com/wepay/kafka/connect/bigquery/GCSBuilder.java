@@ -20,11 +20,11 @@ package com.wepay.kafka.connect.bigquery;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
-
 import com.wepay.kafka.connect.bigquery.exception.GCSConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,19 +37,21 @@ public class GCSBuilder {
 
   private final String projectName;
   private String keyFileName;
+  private Boolean isJsonString;
 
   public GCSBuilder(String projectName) {
     this.projectName = projectName;
     this.keyFileName = null;
   }
 
-  public GCSBuilder setKeyFileName(String keyFileName) {
+  public GCSBuilder setKeyFileName(String keyFileName, Boolean isJsonString) {
     this.keyFileName = keyFileName;
+    this.isJsonString = isJsonString;
     return this;
   }
 
   public Storage build() {
-    return connect(projectName, keyFileName);
+    return connect(projectName, keyFileName, isJsonString);
   }
 
   /**
@@ -76,6 +78,36 @@ public class GCSBuilder {
           .getService();
     } catch (IOException err) {
       throw new GCSConnectException("Failed to access json key file", err);
+    }
+  }
+
+  /**
+   * Returns a default {@link Storage} instance for the specified project with credentials provided
+   * in the specified file, which can then be used for creating, updating, and inserting into tables
+   * from specific datasets.
+   *
+   * @param projectName The name of the BigQuery project to work with
+   * @param keyFile The name of a file containing a JSON key that can be used to provide
+   *                    credentials to BigQuery, or null if no authentication should be performed.
+   * @param isJsonString If isJsonString is set to true, the method will interpret the keyFile as
+   *                     JsonString instead of file path
+   * @return The resulting BigQuery object.
+   */
+  private Storage connect(String projectName, String keyFile, Boolean isJsonString) {
+    if (keyFile == null) {
+      return connect(projectName);
+    }
+
+    logger.debug("Attempting to convert json key string to input stream");
+    try (InputStream credentialsStream = new ByteArrayInputStream(keyFile.getBytes())) {
+      logger.debug("Attempting to authenticate with GCS using provided json key");
+      return StorageOptions.newBuilder()
+              .setProjectId(projectName)
+              .setCredentials(GoogleCredentials.fromStream(credentialsStream))
+              .build()
+              .getService();
+    } catch (IOException err) {
+      throw new GCSConnectException("Failed to read json key string", err);
     }
   }
 

@@ -25,7 +25,6 @@ import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.common.annotations.VisibleForTesting;
-
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
@@ -37,7 +36,6 @@ import com.wepay.kafka.connect.bigquery.preprocess.SinkRecordFilter;
 import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
 import com.wepay.kafka.connect.bigquery.utils.TopicToTableResolver;
 import com.wepay.kafka.connect.bigquery.utils.Version;
-
 import com.wepay.kafka.connect.bigquery.write.batch.GCSBatchTableWriter;
 import com.wepay.kafka.connect.bigquery.write.batch.KCBQThreadPoolExecutor;
 import com.wepay.kafka.connect.bigquery.write.batch.TableWriter;
@@ -46,7 +44,6 @@ import com.wepay.kafka.connect.bigquery.write.row.AdaptiveBigQueryWriter;
 import com.wepay.kafka.connect.bigquery.write.row.BigQueryWriter;
 import com.wepay.kafka.connect.bigquery.write.row.GCSToBQWriter;
 import com.wepay.kafka.connect.bigquery.write.row.SimpleBigQueryWriter;
-
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigException;
@@ -54,16 +51,11 @@ import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -244,7 +236,9 @@ public class BigQuerySinkTask extends SinkTask {
     }
     String projectName = config.getString(config.PROJECT_CONFIG);
     String keyFilename = config.getString(config.KEYFILE_CONFIG);
-    return new BigQueryHelper().connect(projectName, keyFilename);
+    Boolean isJsonString = config.getBoolean(config.KEYFILE_IS_JSON_STRING_CONFIG);
+
+    return new BigQueryHelper().connect(projectName, keyFilename, isJsonString);
   }
 
   private SchemaManager getSchemaManager(BigQuery bigQuery) {
@@ -275,7 +269,8 @@ public class BigQuerySinkTask extends SinkTask {
     }
     String projectName = config.getString(config.PROJECT_CONFIG);
     String keyFilename = config.getString(config.KEYFILE_CONFIG);
-    return new GCSBuilder(projectName).setKeyFileName(keyFilename).build();
+    Boolean isJsonString = config.getBoolean(config.KEYFILE_IS_JSON_STRING_CONFIG);
+    return new GCSBuilder(projectName).setKeyFileName(keyFilename, isJsonString).build();
   }
 
   private GCSToBQWriter getGcsWriter() {
