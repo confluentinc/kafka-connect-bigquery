@@ -134,6 +134,9 @@ project(':kcbq-connector') {
     repositories {
         mavenLocal()
         mavenCentral()
+        maven {
+            url 'http://packages.confluent.io/maven'
+        }
     }
 
     sourceSets {
@@ -326,9 +329,9 @@ project('kcbq-confluent') {
     repositories {
         mavenLocal()
         mavenCentral()
-//        maven {
-//            url 'http://packages.confluent.io/maven'
-//        }
+        maven {
+            url 'http://packages.confluent.io/maven'
+        }
 //        maven {
 //            url 'http://github.com/FasterXML/jackson'
 //        }
