@@ -25,4 +25,4 @@ test.conf
 kcbq-connector/src/integration-test/resources/test.properties
 kcbq-connector/test/docker/connect/properties/
 kcbq-connector/out/
-kafka_bigquery_plugins/*
+kafka_bigquery_plugins/
