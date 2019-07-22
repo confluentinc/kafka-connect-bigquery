@@ -18,6 +18,8 @@ project.ext {
     jsonPathVersion = '2.4.0'
     junitVersion = '4.12'
     junitjupiterVersion = '5.5.0'
+    junitPlatformVersion = '1.0.0'
+    junitVintageVersion = '4.12.0'
     kafkaVersion = '1.1.1'
     mockitoVersion = '1.10.19'
     slf4jVersion = '1.6.1'
@@ -200,8 +202,8 @@ project(':kcbq-connector') {
         compile (
                 project(':kcbq-api'),
 
-                "com.google.cloud:google-cloud-bigquery:1.51.0",
-                "com.google.cloud:google-cloud-storage:1.51.0",
+                "com.google.cloud:google-cloud-bigquery:$googleCloudVersion",
+                "com.google.cloud:google-cloud-storage:$googleCloudVersion",
                 "com.google.auth:google-auth-library-oauth2-http:$googleAuthVersion",
                 "com.google.code.gson:gson:$googleCloudGsonVersion",
                 "io.debezium:debezium-core:$debeziumVersion",
@@ -222,13 +224,13 @@ project(':kcbq-connector') {
                 "kafka-connect-bigquery:kcbq-connector:main",
 
                 "ch.qos.logback:logback-classic:$logbackVersion",
-                "org.junit.jupiter:junit-jupiter-api:5.0.0-M2",
-                "org.junit.platform:junit-platform-runner:1.0.0-M4",
+                "org.junit.jupiter:junit-jupiter-api:$junitjupiterVersion-M2",
+                "org.junit.platform:junit-platform-runner:$junitPlatformVersion-M4",
                 "org.mockito:mockito-core:$mockitoVersion"
         )
 
         testRuntime (
-                "org.junit.vintage:junit-vintage-engine:4.12.0-M4",
+                "org.junit.vintage:junit-vintage-engine:$junitVintageVersion-M4",
                 "org.junit.jupiter:junit-jupiter-engine:$junitjupiterVersion-M4",
         )
     }
@@ -270,8 +272,8 @@ project('kcbq-api') {
 
     dependencies {
         compile (
-                "com.google.cloud:google-cloud-bigquery:1.51.0",
-                "com.google.cloud:google-cloud-storage:1.51.0",
+                "com.google.cloud:google-cloud-bigquery:$googleCloudVersion",
+                "com.google.cloud:google-cloud-storage:$googleCloudVersion",
                 "org.apache.kafka:connect-api:$kafkaVersion"
         )
     }
@@ -345,8 +347,8 @@ project('kcbq-confluent') {
         compile (
                 project(':kcbq-api'),
 
-                "com.google.cloud:google-cloud-bigquery:1.51.0",
-                "com.google.cloud:google-cloud-storage:1.51.0",
+                "com.google.cloud:google-cloud-bigquery:$googleCloudVersion",
+                "com.google.cloud:google-cloud-storage:$googleCloudVersion",
                 "io.confluent:kafka-connect-avro-converter:$ioConfluentVersion",
                 "io.confluent:kafka-schema-registry-client:$ioConfluentVersion",
                 "org.apache.avro:avro:$avroVersion",
