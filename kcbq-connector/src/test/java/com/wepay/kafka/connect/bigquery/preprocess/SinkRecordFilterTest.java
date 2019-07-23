@@ -3,7 +3,6 @@ package com.wepay.kafka.connect.bigquery.preprocess;
 import com.jayway.jsonpath.InvalidPathException;
 import com.wepay.kafka.connect.bigquery.SinkConnectorPropertiesFactory;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
-import com.wepay.kafka.
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Logger;
 import org.apache.log4j.spi.LoggingEvent;
