@@ -62,13 +62,8 @@ public class SimpleBigQueryWriter extends BigQueryWriter {
                                                             List<InsertAllRequest.RowToInsert> rows,
                                                             String topic) {
     InsertAllRequest request = createInsertAllRequest(tableId, rows);
-    logger.info("rows to insert: {}", rows);
     InsertAllResponse writeResponse = bigQuery.insertAll(request);
     if (writeResponse.hasErrors()) {
-      for (Map.Entry<Long, List<BigQueryError>> entry : writeResponse.getInsertErrors().entrySet()) {
-        logger.info("{}", entry.getValue());
-      // inspect row error
-      }
       logger.warn(
           "You may want to enable auto schema updates by specifying "
           + "{}=true in the properties file",
