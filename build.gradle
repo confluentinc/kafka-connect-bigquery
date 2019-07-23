@@ -19,7 +19,6 @@ project.ext {
     junitVersion = '4.12'
     junitjupiterVersion = '5.5.0'
     junitPlatformVersion = '1.0.0'
-    junitVintageVersion = '4.12.0'
     kafkaVersion = '1.1.1'
     mockitoVersion = '1.10.19'
     slf4jVersion = '1.6.1'
@@ -135,6 +134,9 @@ project(':kcbq-connector') {
     repositories {
         mavenLocal()
         mavenCentral()
+        maven {
+            url 'http://packages.confluent.io/maven'
+        }
     }
 
     sourceSets {
@@ -202,8 +204,6 @@ project(':kcbq-connector') {
         compile (
                 project(':kcbq-api'),
 
-                "com.google.cloud:google-cloud-bigquery:$googleCloudVersion",
-                "com.google.cloud:google-cloud-storage:$googleCloudVersion",
                 "com.google.auth:google-auth-library-oauth2-http:$googleAuthVersion",
                 "com.google.code.gson:gson:$googleCloudGsonVersion",
                 "io.debezium:debezium-core:$debeziumVersion",
@@ -211,7 +211,6 @@ project(':kcbq-connector') {
                 "io.confluent:kafka-connect-avro-converter:$ioConfluentVersion",
                 "io.confluent:kafka-schema-registry-client:$ioConfluentVersion",
                 "org.apache.avro:avro:$avroVersion",
-                "org.apache.kafka:connect-api:$kafkaVersion",
                 "org.apache.kafka:kafka-clients:$kafkaVersion",
                 "org.slf4j:slf4j-api:$slf4jVersion",
                 "org.slf4j:slf4j-simple:$slf4jVersion",
@@ -221,17 +220,19 @@ project(':kcbq-connector') {
         )
 
         testCompile (
+                project(':kcbq-connector'),
+
+                "junit:junit:$junitVersion",
                 "kafka-connect-bigquery:kcbq-connector:main",
 
                 "ch.qos.logback:logback-classic:$logbackVersion",
-                "org.junit.jupiter:junit-jupiter-api:$junitjupiterVersion-M2",
-                "org.junit.platform:junit-platform-runner:$junitPlatformVersion-M4",
+                "org.junit.jupiter:junit-jupiter-api:$junitjupiterVersion",
+                "org.junit.platform:junit-platform-runner:$junitPlatformVersion",
                 "org.mockito:mockito-core:$mockitoVersion"
         )
 
         testRuntime (
-                "org.junit.vintage:junit-vintage-engine:$junitVintageVersion-M4",
-                "org.junit.jupiter:junit-jupiter-engine:$junitjupiterVersion-M4",
+                "org.junit.jupiter:junit-jupiter-engine:$junitjupiterVersion"
         )
     }
 
@@ -328,12 +329,6 @@ project('kcbq-confluent') {
         maven {
             url 'http://packages.confluent.io/maven'
         }
-        maven {
-            url 'http://github.com/FasterXML/jackson'
-        }
-        maven { url 'http://kafka.apache.org' }
-        maven { url "http://repo.typesafe.com/typesafe/releases/" }
-        jcenter()
     }
 
     javadoc {
