@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 public class FieldNameSanitizer {
 
     private static String sanitizeName(String name) {
-        name = name.replaceAll("^[^a-zA-Z]+", "");
+        name = name.replaceAll("^[^a-zA-Z_]+", "");
         return name.replaceAll("[^a-zA-Z0-9_]", "_");
     }
 
