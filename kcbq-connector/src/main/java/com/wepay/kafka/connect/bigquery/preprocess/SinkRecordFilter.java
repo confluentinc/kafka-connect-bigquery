@@ -5,7 +5,8 @@ import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.convert.RecordConverter;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.apache.log4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +19,7 @@ public class SinkRecordFilter {
     private String configType = null;
     private String configString = null;
     private JsonPath jsonPathCondition = null;
-    private static final Logger logger = Logger.getLogger(SinkRecordFilter.class);
+    private static final Logger logger = LoggerFactory.getLogger(SinkRecordFilter.class);
 
     public SinkRecordFilter(BigQuerySinkConfig bigQueryConfig) {
         this.bigQueryConfig = bigQueryConfig;

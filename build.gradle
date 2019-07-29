@@ -12,7 +12,6 @@ project.ext {
     googleCloudVersion = '1.79.0'
     googleAuthVersion = '0.9.0'
     googleCloudGsonVersion = '2.8.5'
-    logbackVersion = '1.2.3'
     ioConfluentVersion = '5.1.1'
     jacksonVersion = '2.9.9.1'
     jsonPathVersion = '2.4.0'
@@ -208,15 +207,11 @@ project(':kcbq-connector') {
                 "com.google.code.gson:gson:$googleCloudGsonVersion",
                 "io.debezium:debezium-core:$debeziumVersion",
 
-                "io.confluent:kafka-connect-avro-converter:$ioConfluentVersion",
-                "io.confluent:kafka-schema-registry-client:$ioConfluentVersion",
                 "org.apache.avro:avro:$avroVersion",
                 "org.apache.kafka:kafka-clients:$kafkaVersion",
                 "org.slf4j:slf4j-api:$slf4jVersion",
                 "org.slf4j:slf4j-simple:$slf4jVersion",
                 "com.jayway.jsonpath:json-path:$jsonPathVersion",
-                "ch.qos.logback:logback-core:$logbackVersion",
-                "log4j:log4j:$log4jVersion"
         )
 
         testCompile (
@@ -224,8 +219,7 @@ project(':kcbq-connector') {
 
                 "junit:junit:$junitVersion",
                 "kafka-connect-bigquery:kcbq-connector:main",
-
-                "ch.qos.logback:logback-classic:$logbackVersion",
+                "log4j:log4j:$log4jVersion",
                 "org.junit.jupiter:junit-jupiter-api:$junitjupiterVersion",
                 "org.junit.platform:junit-platform-runner:$junitPlatformVersion",
                 "org.mockito:mockito-core:$mockitoVersion"
