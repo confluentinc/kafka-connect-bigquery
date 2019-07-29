@@ -131,11 +131,7 @@ project(':kcbq-connector') {
     }
 
     repositories {
-        mavenLocal()
         mavenCentral()
-        maven {
-            url 'http://packages.confluent.io/maven'
-        }
     }
 
     sourceSets {
@@ -206,8 +202,6 @@ project(':kcbq-connector') {
                 "com.google.auth:google-auth-library-oauth2-http:$googleAuthVersion",
                 "com.google.code.gson:gson:$googleCloudGsonVersion",
                 "io.debezium:debezium-core:$debeziumVersion",
-
-                "org.apache.avro:avro:$avroVersion",
                 "org.apache.kafka:kafka-clients:$kafkaVersion",
                 "org.slf4j:slf4j-api:$slf4jVersion",
                 "com.jayway.jsonpath:json-path:$jsonPathVersion",
