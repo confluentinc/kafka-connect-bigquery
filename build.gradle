@@ -313,12 +313,11 @@ project('kcbq-confluent') {
     jar {
         manifest {
             attributes  'Implementation-Title': 'Kafka Connect BigQuery Schema Registry Schema Retriever',
-                    'Implementation-Version': version
+                'Implementation-Version': version
         }
     }
 
     repositories {
-        mavenLocal()
         mavenCentral()
         maven {
             url 'http://packages.confluent.io/maven'
