@@ -5,6 +5,7 @@ build/
 *.tar
 
 .gradle
+gradlew.bat
 
 # Intellij
 .idea

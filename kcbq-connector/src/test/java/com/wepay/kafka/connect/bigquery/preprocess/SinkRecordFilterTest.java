@@ -3,13 +3,14 @@ package com.wepay.kafka.connect.bigquery.preprocess;
 import com.jayway.jsonpath.InvalidPathException;
 import com.wepay.kafka.connect.bigquery.SinkConnectorPropertiesFactory;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
-import org.apache.log4j.AppenderSkeleton;
-import org.apache.log4j.Logger;
-import org.apache.log4j.spi.LoggingEvent;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
+import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import uk.org.lidalia.slf4jtest.LoggingEvent;
+import uk.org.lidalia.slf4jtest.TestLogger;
+import uk.org.lidalia.slf4jtest.TestLoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +26,7 @@ public class SinkRecordFilterTest {
     private static final String EXCLUDE_CONDITION_CONFIG = "excludeCondition";
     private static Map testMap;
     private SinkRecordFilter sinkRecordFilter;
+    private static final TestLogger testLogger = TestLoggerFactory.getTestLogger(SinkRecordFilter.class);
 
 
     public static SinkRecordFilter initializeSinkRecordFilter(String prop, String condition) {
@@ -140,22 +142,16 @@ public class SinkRecordFilterTest {
 
     @Test
     public void testNotExistJsonPath(){
-        sinkRecordFilter = initializeSinkRecordFilter(INCLUDE_CONDITION_CONFIG,
+        SinkRecordFilter sinkRecordFilter = initializeSinkRecordFilter(INCLUDE_CONDITION_CONFIG,
                 "$.Inventories[0].nonexitentField");
 
-        final TestAppender appender = new TestAppender();
-        final Logger rootLogger = Logger.getRootLogger();
-
-        rootLogger.addAppender(appender);
 
         List filtered = sinkRecordFilter.getFilterFields(testMap);
-
         assertEquals(filtered.size(), 0);
 
-        assertTrue(assertLogged(CoreMatchers.containsString(
-                "config can not be found in json object"), appender));
-
-        rootLogger.removeAppender(appender);
+        // test log
+        assertTrue(assertLogged(testLogger, CoreMatchers.containsString(
+                "config can not be found in json object")));
     }
 
     @Test
@@ -165,34 +161,17 @@ public class SinkRecordFilterTest {
         assertEquals(sinkRecordFilter.getFilterFields(null).size(), 0);
     }
 
-    private boolean assertLogged(Matcher<String> matcher, TestAppender appender) {
-        for(LoggingEvent event : appender.events) {
+    @After
+    public void clearLoggers() {
+        TestLoggerFactory.clear();
+    }
+
+    private boolean assertLogged(TestLogger testLogger, Matcher matcher) {
+        for(LoggingEvent event : testLogger.getAllLoggingEvents()) {
             if(matcher.matches(event.getMessage())) {
                 return true;
             }
         }
         return false;
     }
-
-    private class TestAppender extends AppenderSkeleton {
-
-        List<LoggingEvent> events = new ArrayList<>();
-
-        @Override
-        protected void append(LoggingEvent event) {
-            events.add(event);
-        }
-
-        @Override
-        public void close() {
-
-        }
-
-        @Override
-        public boolean requiresLayout() {
-            return false;
-        }
-    }
-
-
 }

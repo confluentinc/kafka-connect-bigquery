@@ -21,7 +21,7 @@ project.ext {
     kafkaVersion = '1.1.1'
     mockitoVersion = '1.10.19'
     slf4jVersion = '1.6.1'
-    log4jVersion = '1.2.17'
+    slf4jTestVersion = '1.0.0'
 }
 
 // BEGIN SUBPROJECTS //
@@ -210,7 +210,6 @@ project(':kcbq-connector') {
                 "org.apache.avro:avro:$avroVersion",
                 "org.apache.kafka:kafka-clients:$kafkaVersion",
                 "org.slf4j:slf4j-api:$slf4jVersion",
-                "org.slf4j:slf4j-simple:$slf4jVersion",
                 "com.jayway.jsonpath:json-path:$jsonPathVersion",
         )
 
@@ -218,11 +217,10 @@ project(':kcbq-connector') {
                 project(':kcbq-connector'),
 
                 "junit:junit:$junitVersion",
-                "kafka-connect-bigquery:kcbq-connector:main",
-                "log4j:log4j:$log4jVersion",
                 "org.junit.jupiter:junit-jupiter-api:$junitjupiterVersion",
                 "org.junit.platform:junit-platform-runner:$junitPlatformVersion",
-                "org.mockito:mockito-core:$mockitoVersion"
+                "org.mockito:mockito-core:$mockitoVersion",
+                "uk.org.lidalia:slf4j-test:$slf4jTestVersion"
         )
 
         testRuntime (

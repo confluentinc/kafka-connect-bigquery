@@ -61,7 +61,7 @@ public class SinkRecordFilter {
                         )
                 );
             } catch (PathNotFoundException e) {
-                logger.info("Json Path " + this.configString + " specified in " + this.configType +
+                logger.debug("Json Path `" + this.configString + "` specified in " + this.configType +
                         " config can not be found in json object. " +
                         "The condition will be marked as NOT SATISFIED by default.");
             }
