@@ -81,10 +81,6 @@ public class BigQueryHelper {
    * @return The resulting BigQuery object.
    */
   public BigQuery connect(String projectName, String keyFile, Boolean isJsonString) {
-    if (keyFile == null) {
-      return connect(projectName);
-    }
-
     if (!isJsonString) {
       return connect(projectName, keyFile);
     }

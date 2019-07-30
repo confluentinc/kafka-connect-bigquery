@@ -94,8 +94,8 @@ public class GCSBuilder {
    * @return The resulting BigQuery object.
    */
   private Storage connect(String projectName, String keyFile, Boolean isJsonString) {
-    if (keyFile == null) {
-      return connect(projectName);
+    if (!isJsonString) {
+      return connect(projectName, keyFile);
     }
 
     logger.debug("Attempting to convert json key string to input stream");
