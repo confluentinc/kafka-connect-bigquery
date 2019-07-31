@@ -4,7 +4,6 @@ import com.google.cloud.bigquery.TableId;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import org.apache.kafka.common.config.ConfigException;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -13,41 +12,39 @@ import java.util.regex.Pattern;
 import static com.wepay.kafka.connect.bigquery.utils.TopicToTableResolver.getTopicToTableSingleMatch;
 
 public class TopicTableUpdater {
-    public static Map<String, String> updateTopicToDateset (
-            Map<String, String> topicToDataset,
+    public static String getTopicToDateset (
             List<Map.Entry<Pattern, String>> patterns,
-            List<String> values,
+            String topicName,
             String valueProperty,
             String patternProperty) {
-        for (String value : values) {
-            String match = null;
-            for (Map.Entry<Pattern, String> pattern : patterns) {
-                Matcher patternMatcher = pattern.getKey().matcher(value);
-                if (patternMatcher.matches()) {
-                    if (match != null) {
-                        String secondMatch = pattern.getValue();
-                        throw new ConfigException(
-                                "Value '" + value
-                                        + "' for property '" + valueProperty
-                                        + "' matches " + patternProperty
-                                        + " regexes for both '" + match
-                                        + "' and '" + secondMatch + "'"
-                        );
-                    }
-                    match = pattern.getValue();
+        
+        String match = null;
+        for (Map.Entry<Pattern, String> pattern : patterns) {
+            Matcher patternMatcher = pattern.getKey().matcher(topicName);
+            if (patternMatcher.matches()) {
+                if (match != null) {
+                    String secondMatch = pattern.getValue();
+                    throw new ConfigException(
+                            "Value '" + topicName
+                                    + "' for property '" + valueProperty
+                                    + "' matches " + patternProperty
+                                    + " regexes for both '" + match
+                                    + "' and '" + secondMatch + "'"
+                    );
                 }
+                match = pattern.getValue();
             }
-            if (match == null) {
-                throw new ConfigException(
-                        "Value '" + value
-                                + "' for property '" + valueProperty
-                                + "' failed to match any of the provided " + patternProperty
-                                + " regexes"
-                );
-            }
-            topicToDataset.put(value, match);
         }
-        return topicToDataset;
+        if (match == null) {
+            throw new ConfigException(
+                    "Value '" + topicName
+                            + "' for property '" + valueProperty
+                            + "' failed to match any of the provided " + patternProperty
+                            + " regexes"
+            );
+        }
+        
+        return match;
     }
 
     /**
@@ -59,7 +56,6 @@ public class TopicTableUpdater {
     public static Map<String, TableId> updateTopicToTable(
             BigQuerySinkConfig config,
             String topicName,
-            Map<String, String> topicToDataset,
             Map<String, TableId> topicToTable) {
         Boolean sanitize = config.getBoolean(BigQuerySinkConfig.SANITIZE_TOPICS_CONFIG);
         String match = getTopicToTableSingleMatch(config, topicName);
@@ -70,15 +66,14 @@ public class TopicTableUpdater {
         if (sanitize) {
             match = sanitizeTableName(match);
         }
-        Map<String, String> updatedTopicToDateset =
-            updateTopicToDateset(
-                    topicToDataset,
+        String dataset =
+            getTopicToDateset(
                     config.getSinglePatterns(config.DATASETS_CONFIG),
-                    Arrays.asList(topicName),
+                    topicName,
                     config.TOPICS_CONFIG,
                     config.DATASETS_CONFIG
             );
-        topicToTable.put(topicName, TableId.of(updatedTopicToDateset.get(topicName), match));
+        topicToTable.put(topicName, TableId.of(dataset, match));
         return topicToTable;
     }
 
