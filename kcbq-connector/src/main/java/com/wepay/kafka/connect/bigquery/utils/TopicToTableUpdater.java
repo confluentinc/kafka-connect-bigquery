@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 
 import static com.wepay.kafka.connect.bigquery.utils.TopicToTableResolver.getTopicToTableSingleMatch;
 
-public class TopicTableUpdater {
+public class TopicToTableUpdater {
     public static String getTopicToDateset (
             List<Map.Entry<Pattern, String>> patterns,
             String topicName,

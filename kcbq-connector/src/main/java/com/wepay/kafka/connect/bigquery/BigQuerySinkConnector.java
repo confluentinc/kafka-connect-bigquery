@@ -128,7 +128,7 @@ public class BigQuerySinkConnector extends SinkConnector {
         logger.warn(
             "You may want to enable auto table creation by setting {}=true in the properties file",
             config.TABLE_CREATE_CONFIG);
-        throw new BigQueryConnectException("Table '" + tableId + "' does not exist");
+        //throw new BigQueryConnectException("Table '" + tableId + "' does not exist");
       }
     }
   }
