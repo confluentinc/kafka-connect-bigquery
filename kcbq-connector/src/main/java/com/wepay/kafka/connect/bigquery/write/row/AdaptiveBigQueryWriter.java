@@ -28,6 +28,7 @@ import com.google.cloud.bigquery.InsertAllResponse;
 import com.wepay.kafka.connect.bigquery.SchemaManager;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 
+import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
 import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
 
 import org.slf4j.Logger;
@@ -147,7 +148,7 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
       try {
         Thread.sleep(RETRY_WAIT_TIME);
       } catch (InterruptedException e) {
-        // no-op, we want to keep retrying the insert
+        throw new ExpectedInterruptException("Interrupted while waiting to retry write");
       }
     }
     logger.debug("table insertion completed successfully");

@@ -102,6 +102,9 @@ public abstract class BaseConnectorIT {
     connect.start();
 
     kafkaAdminClient = connect.kafka().createAdminClient();
+
+    // the exception handler installed by the embedded zookeeper instance is noisy and unnecessary
+    Thread.setDefaultUncaughtExceptionHandler((t, e) -> { });
   }
 
   protected void stopConnect() {

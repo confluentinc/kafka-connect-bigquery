@@ -26,6 +26,7 @@ import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.TableId;
 import com.google.common.annotations.VisibleForTesting;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
+import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
 import com.wepay.kafka.connect.bigquery.write.batch.KCBQThreadPoolExecutor;
 import com.wepay.kafka.connect.bigquery.write.batch.MergeBatches;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -36,6 +37,9 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.destTable;
+import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.intTable;
 
 public class MergeQueries {
   public static final String INTERMEDIATE_TABLE_KEY_FIELD_NAME = "key";
@@ -106,16 +110,16 @@ public class MergeQueries {
   public void mergeFlush(TableId intermediateTable) {
     final TableId destinationTable = mergeBatches.destinationTableFor(intermediateTable);
     final int batchNumber = mergeBatches.incrementBatch(intermediateTable);
-    logger.trace("Triggering merge flush from intermediate table {} to destination table {} for batch {}",
-        intermediateTable, destinationTable, batchNumber);
+    logger.trace("Triggering merge flush from {} to {} for batch {}",
+        intTable(intermediateTable), destTable(destinationTable), batchNumber);
 
     executor.execute(() -> {
       try {
         mergeFlush(intermediateTable, destinationTable, batchNumber);
       } catch (InterruptedException e) {
-        throw new ConnectException(String.format(
+        throw new ExpectedInterruptException(String.format(
             "Interrupted while performing merge flush of batch %d from %s to %s",
-            batchNumber, intermediateTable, destinationTable));
+            batchNumber, intTable(intermediateTable), destTable(destinationTable)));
       }
     });
   }
@@ -125,29 +129,29 @@ public class MergeQueries {
   ) throws InterruptedException{
     // If there are rows to flush in this batch, flush them
     if (mergeBatches.prepareToFlush(intermediateTable, batchNumber)) {
-      logger.debug("Running merge query on batch {} from intermediate table {}",
-          batchNumber, intermediateTable);
+      logger.debug("Running merge query on batch {} from {}",
+          batchNumber, intTable(intermediateTable));
       String mergeFlushQuery = mergeFlushQuery(intermediateTable, destinationTable, batchNumber);
       logger.trace(mergeFlushQuery);
       bigQuery.query(QueryJobConfiguration.of(mergeFlushQuery));
-      logger.trace("Merge from intermediate table {} to destination table {} completed",
-          intermediateTable, destinationTable);
+      logger.trace("Merge from {} to {} completed",
+          intTable(intermediateTable), destTable(destinationTable));
 
       logger.debug("Recording flush success for batch {} from {}",
-          batchNumber, intermediateTable);
+          batchNumber, intTable(intermediateTable));
       mergeBatches.recordSuccessfulFlush(intermediateTable, batchNumber);
 
       // Commit those offsets ASAP
       context.requestCommit();
 
       logger.info("Completed merge flush of batch {} from {} to {}",
-          batchNumber, intermediateTable, destinationTable);
+          batchNumber, intTable(intermediateTable), destTable(destinationTable));
     }
 
     // After, regardless of whether we flushed or not, clean up old batches from the intermediate
     // table. Some rows may be several batches old but still in the table if they were in the
     // streaming buffer during the last purge.
-    logger.trace("Clearing batches from {} on back from intermediate table {}", batchNumber, intermediateTable);
+    logger.trace("Clearing batches from {} on back from {}", batchNumber, intTable(intermediateTable));
     String batchClearQuery = batchClearQuery(intermediateTable, batchNumber);
     logger.trace(batchClearQuery);
     bigQuery.query(QueryJobConfiguration.of(batchClearQuery));
