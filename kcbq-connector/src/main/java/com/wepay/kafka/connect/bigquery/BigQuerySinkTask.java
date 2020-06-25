@@ -552,8 +552,13 @@ public class BigQuerySinkTask extends SinkTask {
     }
 
     try {
-      logger.trace("Shutting down {}", executorName);
-      executor.shutdownNow();
+      if (upsertDelete) {
+        logger.trace("Forcibly shutting down {}", executorName);
+        executor.shutdownNow();
+      } else {
+        logger.trace("Requesting shutdown for {}", executorName);
+        executor.shutdown();
+      }
       logger.trace("Awaiting termination of {}", executorName);
       executor.awaitTermination(EXECUTOR_SHUTDOWN_TIMEOUT_SEC, TimeUnit.SECONDS);
       logger.trace("Shut down {} successfully", executorName);
