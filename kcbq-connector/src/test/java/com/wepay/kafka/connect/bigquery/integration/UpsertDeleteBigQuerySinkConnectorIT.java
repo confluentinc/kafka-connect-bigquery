@@ -149,7 +149,7 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     }
 
     // wait for tasks to write to BigQuery and commit offsets for their records
-    waitForCommittedRecords(CONNECTOR_NAME, topic, NUM_RECORDS_PRODUCED, TASKS_MAX);
+    waitForCommittedRecords(CONNECTOR_NAME, NUM_RECORDS_PRODUCED, TASKS_MAX, topic);
 
     List<List<Object>> allRows = readAllRows(bigQuery, table, KAFKA_FIELD_NAME + ".k1");
     List<List<Object>> expectedRows = LongStream.range(0, NUM_RECORDS_PRODUCED / 2)
@@ -205,7 +205,7 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     }
 
     // wait for tasks to write to BigQuery and commit offsets for their records
-    waitForCommittedRecords(CONNECTOR_NAME, topic, NUM_RECORDS_PRODUCED, TASKS_MAX);
+    waitForCommittedRecords(CONNECTOR_NAME, NUM_RECORDS_PRODUCED, TASKS_MAX, topic);
 
     // Since we have multiple rows per key, order by key and the f3 field (which should be
     // monotonically increasing in insertion order)
@@ -264,7 +264,7 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     }
 
     // wait for tasks to write to BigQuery and commit offsets for their records
-    waitForCommittedRecords(CONNECTOR_NAME, topic, NUM_RECORDS_PRODUCED, TASKS_MAX);
+    waitForCommittedRecords(CONNECTOR_NAME, NUM_RECORDS_PRODUCED, TASKS_MAX, topic);
 
     // Since we have multiple rows per key, order by key and the f3 field (which should be
     // monotonically increasing in insertion order)
@@ -348,7 +348,8 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     waitForConnectorToStart(CONNECTOR_NAME, tasksMax);
 
     // wait for tasks to write to BigQuery and commit offsets for their records
-    waitForCommittedRecords(CONNECTOR_NAME, topic, numRecords, tasksMax, TimeUnit.MINUTES.toMillis(10));
+    waitForCommittedRecords(
+        CONNECTOR_NAME, numRecords, tasksMax, TimeUnit.MINUTES.toMillis(10), Collections.singleton(topic));
     long time = System.currentTimeMillis() - start;
     logger.info("All records have been read and committed by the connector; "
         + "total time from start to finish: {} seconds", time / 1000.0);
