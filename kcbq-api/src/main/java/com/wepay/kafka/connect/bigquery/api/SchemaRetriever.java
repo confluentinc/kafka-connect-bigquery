@@ -48,7 +48,7 @@ public interface SchemaRetriever {
    */
   default void setLastSeenSchema(TableId table, String topic, Schema schema, KafkaSchemaRecordType schemaType) {
     if (KafkaSchemaRecordType.VALUE.equals(schemaType)) {
-      setLastSeenSchema(table, topic, schema, KafkaSchemaRecordType.VALUE);
+      setLastSeenSchema(table, topic, schema);
     }
   }
 }
