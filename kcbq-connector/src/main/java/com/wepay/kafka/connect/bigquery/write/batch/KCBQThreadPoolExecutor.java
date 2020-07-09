@@ -117,19 +117,4 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
                  .map(Objects::toString)
                  .collect(Collectors.joining(", "));
   }
-
-  private static String createDetailedErrorString(Collection<Throwable> errors) {
-    List<String> exceptionTypeStrings = new ArrayList<>(errors.size());
-    exceptionTypeStrings.addAll(errors.stream()
-        .map(throwable -> {
-          String errorMessage =
-              throwable.getClass().getName() + "\nMessage: " + throwable.getLocalizedMessage();
-          if (throwable.getCause() != null) {
-            errorMessage += "\nCaused by: " + throwable.getCause().getLocalizedMessage();
-          }
-          return errorMessage;
-        })
-        .collect(Collectors.toList()));
-    return String.join(", ", exceptionTypeStrings);
-  }
 }
