@@ -22,6 +22,7 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.InsertAllRequest.RowToInsert;
 
 import com.wepay.kafka.connect.bigquery.convert.RecordConverter;
+import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
 import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
 import com.wepay.kafka.connect.bigquery.write.row.BigQueryWriter;
@@ -95,7 +96,9 @@ public class TableWriter implements Runnable {
           logger.warn("Could not write batch of size {} to BigQuery.", currentBatch.size(), err);
           if (isBatchSizeError(err)) {
             failureCount++;
-            currentBatchSize = getNewBatchSize(currentBatchSize);
+            currentBatchSize = getNewBatchSize(currentBatchSize, err);
+          } else {
+            throw new BigQueryConnectException("Failed to write to table", err);
           }
         }
       }
@@ -116,10 +119,10 @@ public class TableWriter implements Runnable {
     onFinish.accept(rows);
   }
 
-  private static int getNewBatchSize(int currentBatchSize) {
+  private static int getNewBatchSize(int currentBatchSize, BigQueryException err) {
     if (currentBatchSize == 1) {
       // todo correct exception type?
-      throw new ConnectException("Attempted to reduce batch size below 1.");
+      throw new ConnectException("Attempted to reduce batch size below 1.", err);
     }
     // round batch size up so we don't end up with a dangling 1 row at the end.
     return (int) Math.ceil(currentBatchSize / 2.0);
