@@ -21,6 +21,8 @@ package com.wepay.kafka.connect.bigquery.write.batch;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +31,6 @@ import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -115,5 +116,20 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
     return errors.stream()
                  .map(Objects::toString)
                  .collect(Collectors.joining(", "));
+  }
+
+  private static String createDetailedErrorString(Collection<Throwable> errors) {
+    List<String> exceptionTypeStrings = new ArrayList<>(errors.size());
+    exceptionTypeStrings.addAll(errors.stream()
+        .map(throwable -> {
+          String errorMessage =
+              throwable.getClass().getName() + "\nMessage: " + throwable.getLocalizedMessage();
+          if (throwable.getCause() != null) {
+            errorMessage += "\nCaused by: " + throwable.getCause().getLocalizedMessage();
+          }
+          return errorMessage;
+        })
+        .collect(Collectors.toList()));
+    return String.join(", ", exceptionTypeStrings);
   }
 }
