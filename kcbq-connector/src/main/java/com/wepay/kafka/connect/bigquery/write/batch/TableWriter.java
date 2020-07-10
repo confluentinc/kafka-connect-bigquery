@@ -119,7 +119,7 @@ public class TableWriter implements Runnable {
     onFinish.accept(rows);
   }
 
-  private static int getNewBatchSize(int currentBatchSize, BigQueryException err) {
+  private static int getNewBatchSize(int currentBatchSize, Throwable err) {
     if (currentBatchSize == 1) {
       // todo correct exception type?
       throw new ConnectException("Attempted to reduce batch size below 1.", err);
