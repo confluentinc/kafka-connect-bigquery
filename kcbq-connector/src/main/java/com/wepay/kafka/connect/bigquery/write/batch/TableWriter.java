@@ -97,8 +97,6 @@ public class TableWriter implements Runnable {
           if (isBatchSizeError(err)) {
             failureCount++;
             currentBatchSize = getNewBatchSize(currentBatchSize, err);
-          } else {
-            throw new BigQueryConnectException("Failed to write to table", err);
           }
         }
       }

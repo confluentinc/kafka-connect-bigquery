@@ -428,6 +428,38 @@ public class BigQuerySinkTaskTest {
     }
   }
 
+  // Throw an exception on the first put, and assert the Exception will be exposed in subsequent
+  // put call.
+  @Test(expected = BigQueryConnectException.class, timeout = 30000L)
+  public void testSimplePutException() throws InterruptedException {
+    final String topic = "test-topic";
+    Map<String, String> properties = propertiesFactory.getProperties();
+    properties.put(BigQuerySinkConfig.TOPICS_CONFIG, topic);
+    properties.put(BigQuerySinkConfig.DATASETS_CONFIG, ".*=scratch");
+
+    BigQuery bigQuery = mock(BigQuery.class);
+    Storage storage = mock(Storage.class);
+    String error = "Cannot add required fields to an existing schema.";
+    SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
+    when(bigQuery.insertAll(any()))
+        .thenThrow(
+            new BigQueryException(400, error, new BigQueryError("invalid", "global", error)));
+
+    SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
+    SchemaManager schemaManager = mock(SchemaManager.class);
+
+    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage,
+        schemaManager);
+    testTask.initialize(sinkTaskContext);
+    testTask.start(properties);
+
+    testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
+    while (true) {
+      Thread.sleep(100);
+      testTask.put(Collections.emptyList());
+    }
+  }
+
   @Test
   public void testEmptyFlush() {
     Map<String, String> properties = propertiesFactory.getProperties();
