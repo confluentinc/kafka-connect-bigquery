@@ -104,7 +104,6 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
   public void maybeThrowEncounteredErrors() {
     if (encounteredErrors.size() > 0) {
       String errorString = createErrorString(encounteredErrors);
-      encounteredErrors.clear();
       throw new BigQueryConnectException("Some write threads encountered unrecoverable errors: "
           + errorString + "; See logs for more detail");
     }
