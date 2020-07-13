@@ -454,9 +454,14 @@ public class BigQuerySinkTaskTest {
     testTask.start(properties);
 
     testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
-    while (true) {
-      Thread.sleep(100);
-      testTask.put(Collections.emptyList());
+    try {
+      while (true) {
+        Thread.sleep(100);
+        testTask.put(Collections.emptyList());
+      }
+    } catch (Exception e) {
+      assertTrue(e.getMessage().contains(error));
+      throw e;
     }
   }
 
