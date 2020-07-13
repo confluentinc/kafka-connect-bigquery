@@ -20,7 +20,7 @@ package com.wepay.kafka.connect.bigquery;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.mock;
@@ -297,70 +297,40 @@ public class BigQuerySinkTaskTest {
         TimestampType.NO_TIMESTAMP_TYPE, null)));
   }
 
-  @Test(expected = BigQueryConnectException.class, timeout = 60000L)
+  // Throw an exception on the first put, and assert the Exception will be exposed in subsequent
+  // put call.
+  @Test(expected = BigQueryConnectException.class, timeout = 30000L)
   public void testSimplePutException() throws InterruptedException {
     final String topic = "test-topic";
-
     Map<String, String> properties = propertiesFactory.getProperties();
     properties.put(BigQuerySinkConfig.TOPICS_CONFIG, topic);
     properties.put(BigQuerySinkConfig.DATASETS_CONFIG, ".*=scratch");
 
     BigQuery bigQuery = mock(BigQuery.class);
     Storage storage = mock(Storage.class);
-
+    String error = "Cannot add required fields to an existing schema.";
     SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
-    InsertAllResponse insertAllResponse = mock(InsertAllResponse.class);
-    when(bigQuery.insertAll(any())).thenReturn(insertAllResponse);
-    when(insertAllResponse.hasErrors()).thenReturn(true);
-    when(insertAllResponse.getInsertErrors()).thenReturn(Collections.singletonMap(
-       0L, Collections.singletonList(new BigQueryError("no such field", "us-central1", ""))));
+    when(bigQuery.insertAll(any()))
+        .thenThrow(
+            new BigQueryException(400, error, new BigQueryError("invalid", "global", error)));
 
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
 
-    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager);
+    BigQuerySinkTask testTask =
+        new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager);
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
 
     testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
-    while (true) {
-      Thread.sleep(100);
-      testTask.put(Collections.emptyList());
-    }
-  }
-
-  // Since any exception thrown during flush causes Kafka Connect to not commit the offsets for any
-  // records sent to the task since the last flush. The task should fail, and next flush should
-  // also throw an error.
-  @Test(expected = BigQueryConnectException.class)
-  public void testFlushException() {
-    final String dataset = "scratch";
-    final String topic = "test_topic";
-
-    Map<String, String> properties = propertiesFactory.getProperties();
-    properties.put(BigQuerySinkConfig.TOPICS_CONFIG, topic);
-    properties.put(BigQuerySinkConfig.DATASETS_CONFIG, String.format(".*=%s", dataset));
-
-    BigQuery bigQuery = mock(BigQuery.class);
-    Storage storage = mock(Storage.class);
-    when(bigQuery.insertAll(any(InsertAllRequest.class)))
-        .thenThrow(new RuntimeException("This is a test"));
-
-    SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
-    SchemaManager schemaManager = mock(SchemaManager.class);
-
-    SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
-    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager);
-    testTask.initialize(sinkTaskContext);
-    testTask.start(properties);
-
     try {
-      testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
-      testTask.flush(Collections.emptyMap());
-      fail("An exception should have been thrown by now");
-    } catch (BigQueryConnectException err) {
-      testTask.flush(Collections.emptyMap());
-      verify(bigQuery, times(1)).insertAll(any(InsertAllRequest.class));
+      while (true) {
+        Thread.sleep(100);
+        testTask.put(Collections.emptyList());
+      }
+    } catch (Exception e) {
+      assertTrue(e.getMessage().contains(error));
+      throw e;
     }
   }
 
