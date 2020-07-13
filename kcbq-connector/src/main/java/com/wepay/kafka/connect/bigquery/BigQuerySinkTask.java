@@ -184,6 +184,7 @@ public class BigQuerySinkTask extends SinkTask {
 
   @Override
   public void put(Collection<SinkRecord> records) {
+    // Periodically poll for errors here instead of doing a stop-the-world check in flush()
     executor.maybeThrowEncounteredErrors();
 
     logger.info("Putting {} records in the sink.", records.size());
