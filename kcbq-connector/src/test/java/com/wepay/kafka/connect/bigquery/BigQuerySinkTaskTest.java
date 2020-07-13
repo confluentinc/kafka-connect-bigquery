@@ -393,41 +393,6 @@ public class BigQuerySinkTaskTest {
     assertTrue("Batch clears should be executed", executedBatchClears.await(1, TimeUnit.SECONDS));
   }
 
-  // It's important that the buffer be completely wiped after a call to flush, since any exception
-  // thrown during flush causes Kafka Connect to not commit the offsets for any records sent to the
-  // task since the last flush
-  @Test
-  public void testBufferClearOnFlushError() {
-    final String dataset = "scratch";
-    final String topic = "test_topic";
-
-    Map<String, String> properties = propertiesFactory.getProperties();
-    properties.put(BigQuerySinkConfig.TOPICS_CONFIG, topic);
-    properties.put(BigQuerySinkConfig.DATASETS_CONFIG, String.format(".*=%s", dataset));
-
-    BigQuery bigQuery = mock(BigQuery.class);
-    Storage storage = mock(Storage.class);
-    when(bigQuery.insertAll(any(InsertAllRequest.class)))
-        .thenThrow(new RuntimeException("This is a test"));
-
-    SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
-    SchemaManager schemaManager = mock(SchemaManager.class);
-
-    SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
-    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager);
-    testTask.initialize(sinkTaskContext);
-    testTask.start(properties);
-
-    try {
-      testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
-      testTask.flush(Collections.emptyMap());
-      fail("An exception should have been thrown by now");
-    } catch (BigQueryConnectException err) {
-      testTask.flush(Collections.emptyMap());
-      verify(bigQuery, times(1)).insertAll(any(InsertAllRequest.class));
-    }
-  }
-
   // Throw an exception on the first put, and assert the Exception will be exposed in subsequent
   // put call.
   @Test(expected = BigQueryConnectException.class, timeout = 30000L)
