@@ -187,7 +187,7 @@ public class BigQuerySinkTask extends SinkTask {
     // Periodically poll for errors here instead of doing a stop-the-world check in flush()
     executor.maybeThrowEncounteredErrors();
 
-    logger.info("Putting {} records in the sink.", records.size());
+    logger.debug("Putting {} records in the sink.", records.size());
     // create tableWriters
     Map<PartitionedTableId, TableWriterBuilder> tableWriterBuilders = new HashMap<>();
 
