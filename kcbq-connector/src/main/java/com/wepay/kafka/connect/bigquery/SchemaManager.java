@@ -29,9 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -47,6 +44,7 @@ public class SchemaManager {
   private final BigQuery bigQuery;
   private final boolean allowNewBQFields;
   private final boolean allowBQRequiredFieldRelaxation;
+  private final boolean allowSchemaUnionization;
   private final Optional<String> kafkaKeyFieldName;
   private final Optional<String> kafkaDataFieldName;
   private final Optional<String> timestampPartitionFieldName;
@@ -63,6 +61,7 @@ public class SchemaManager {
    * @param bigQuery Used to communicate create/update requests to BigQuery.
    * @param allowNewBQFields If set to true, allows new fields to be added to BigQuery Schema.
    * @param allowBQRequiredFieldRelaxation If set to true, allows changing field mode from REQUIRED to NULLABLE
+   * @param allowSchemaUnionization If set to true, allows existing and new schemas to be unionized
    * @param kafkaKeyFieldName The name of kafka key field to be used in BigQuery.
    *                          If set to null, Kafka Key Field will not be included in BigQuery.
    * @param kafkaDataFieldName The name of kafka data field to be used in BigQuery.
@@ -79,6 +78,7 @@ public class SchemaManager {
       BigQuery bigQuery,
       boolean allowNewBQFields,
       boolean allowBQRequiredFieldRelaxation,
+      boolean allowSchemaUnionization,
       Optional<String> kafkaKeyFieldName,
       Optional<String> kafkaDataFieldName,
       Optional<String> timestampPartitionFieldName,
@@ -89,6 +89,7 @@ public class SchemaManager {
         bigQuery,
         allowNewBQFields,
         allowBQRequiredFieldRelaxation,
+        allowSchemaUnionization,
         kafkaKeyFieldName,
         kafkaDataFieldName,
         timestampPartitionFieldName,
@@ -105,6 +106,7 @@ public class SchemaManager {
       BigQuery bigQuery,
       boolean allowNewBQFields,
       boolean allowBQRequiredFieldRelaxation,
+      boolean allowSchemaUnionization,
       Optional<String> kafkaKeyFieldName,
       Optional<String> kafkaDataFieldName,
       Optional<String> timestampPartitionFieldName,
@@ -118,6 +120,7 @@ public class SchemaManager {
     this.bigQuery = bigQuery;
     this.allowNewBQFields = allowNewBQFields;
     this.allowBQRequiredFieldRelaxation = allowBQRequiredFieldRelaxation;
+    this.allowSchemaUnionization = allowSchemaUnionization;
     this.kafkaKeyFieldName = kafkaKeyFieldName;
     this.kafkaDataFieldName = kafkaDataFieldName;
     this.timestampPartitionFieldName = timestampPartitionFieldName;
@@ -135,6 +138,7 @@ public class SchemaManager {
         bigQuery,
         allowNewBQFields,
         allowBQRequiredFieldRelaxation,
+        allowSchemaUnionization,
         kafkaKeyFieldName,
         kafkaDataFieldName,
         timestampPartitionFieldName,
@@ -232,7 +236,6 @@ public class SchemaManager {
         logger.debug("Skipping update of {} since current schema should be compatible", table(table));
       }
     }
-
   }
 
   /**
@@ -243,15 +246,22 @@ public class SchemaManager {
    */
   private TableInfo getTableInfo(TableId table, Set<SinkRecord> records) {
     List<com.google.cloud.bigquery.Schema> bigQuerySchemas = getSchemasList(table, records);
-    com.google.cloud.bigquery.Schema schema;
+    com.google.cloud.bigquery.Schema proposedSchema;
     String tableDescription;
     try {
-      schema = getUnionizedSchema(bigQuerySchemas);
+      if (allowSchemaUnionization) {
+        proposedSchema = getUnionizedSchema(bigQuerySchemas);
+      } else {
+        proposedSchema = bigQuerySchemas.get(bigQuerySchemas.size() - 1);
+      }
+      if (bigQuerySchemas.size() > 1) {
+        validateSchemaChange(bigQuerySchemas.get(0), proposedSchema);
+      }
       tableDescription = getUnionizedTableDescription(records);
     } catch (BigQueryConnectException exception) {
       throw new BigQueryConnectException("Failed to unionize schemas of records for the table " + table, exception);
     }
-    return constructTableInfo(table, schema, tableDescription);
+    return constructTableInfo(table, proposedSchema, tableDescription);
   }
 
   /**
@@ -294,31 +304,51 @@ public class SchemaManager {
    * @param secondSchema The second BigQuery schema to unionize
    * @return The resulting unionized BigQuery schema
    */
-  private com.google.cloud.bigquery.Schema unionizeSchemas(com.google.cloud.bigquery.Schema firstSchema, com.google.cloud.bigquery.Schema secondSchema) {
+  private com.google.cloud.bigquery.Schema unionizeSchemas(
+      com.google.cloud.bigquery.Schema firstSchema, com.google.cloud.bigquery.Schema secondSchema) {
     Map<String, Field> firstSchemaFields = schemaFields(firstSchema);
     Map<String, Field> secondSchemaFields = schemaFields(secondSchema);
     for (Map.Entry<String, Field> entry : secondSchemaFields.entrySet()) {
       if (!firstSchemaFields.containsKey(entry.getKey())) {
-        if (allowNewBQFields && (entry.getValue().getMode().equals(Field.Mode.NULLABLE)
-                || (entry.getValue().getMode().equals(Field.Mode.REQUIRED) && allowBQRequiredFieldRelaxation))) {
           firstSchemaFields.put(entry.getKey(), entry.getValue().toBuilder().setMode(Field.Mode.NULLABLE).build());
-        } else {
-          throw new BigQueryConnectException("New Field found with the name " + entry.getKey()
-                  + " Ensure that " + BigQuerySinkConfig.ALLOW_NEW_BIGQUERY_FIELDS_CONFIG + " is true and " + BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG +
-                  " is true if " + entry.getKey() + " has mode REQUIRED in order to update the Schema");
-        }
-      } else {
-        if (firstSchemaFields.get(entry.getKey()).getMode().equals(Field.Mode.REQUIRED) && secondSchemaFields.get(entry.getKey()).getMode().equals(Field.Mode.NULLABLE)) {
-          if (allowBQRequiredFieldRelaxation) {
-            firstSchemaFields.put(entry.getKey(), entry.getValue().toBuilder().setMode(Field.Mode.NULLABLE).build());
-          } else {
-            throw new BigQueryConnectException( entry.getKey() + " has mode REQUIRED. Set " + BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG
-                    + " to true, to change the mode to NULLABLE");
-          }
-        }
+      } else if (isFieldRelaxation(firstSchemaFields.get(entry.getKey()), entry.getValue())) {
+          firstSchemaFields.put(entry.getKey(), entry.getValue());
       }
     }
     return com.google.cloud.bigquery.Schema.of(firstSchemaFields.values());
+  }
+
+  private void validateSchemaChange(
+      com.google.cloud.bigquery.Schema earliestSchema, com.google.cloud.bigquery.Schema proposedSchema) {
+    Map<String, Field> earliestSchemaFields = schemaFields(earliestSchema);
+    Map<String, Field> proposedSchemaFields = schemaFields(proposedSchema);
+    for (Map.Entry<String, Field> entry : proposedSchemaFields.entrySet()) {
+      if (!earliestSchemaFields.containsKey(entry.getKey())) {
+        if (!isValidFieldAddition(entry.getValue())) {
+          throw new BigQueryConnectException("New Field found with the name " + entry.getKey()
+              + " Ensure that " + BigQuerySinkConfig.ALLOW_NEW_BIGQUERY_FIELDS_CONFIG + " is true and "
+              + BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG +
+              " is true if " + entry.getKey() + " has mode REQUIRED in order to update the Schema");
+        }
+      } else if (isFieldRelaxation(earliestSchemaFields.get(entry.getKey()), entry.getValue())) {
+        if (!allowBQRequiredFieldRelaxation) {
+          throw new BigQueryConnectException( entry.getKey() + " has mode REQUIRED. Set "
+              + BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG
+              + " to true, to change the mode to NULLABLE");
+        }
+      }
+    }
+  }
+
+  private boolean isFieldRelaxation(Field currentField, Field proposedField) {
+    return currentField.getMode().equals(Field.Mode.REQUIRED)
+        && proposedField.getMode().equals(Field.Mode.NULLABLE);
+  }
+
+  private boolean isValidFieldAddition(Field newField) {
+    return allowNewBQFields && (
+        newField.getMode().equals(Field.Mode.NULLABLE) ||
+        (newField.getMode().equals(Field.Mode.REQUIRED) && allowBQRequiredFieldRelaxation));
   }
 
   /**

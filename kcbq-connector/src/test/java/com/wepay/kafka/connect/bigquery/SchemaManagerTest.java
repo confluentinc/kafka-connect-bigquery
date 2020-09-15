@@ -70,7 +70,7 @@ public class SchemaManagerTest {
     Optional<String> kafkaKeyFieldName = Optional.of("kafkaKey");
     Optional<String> kafkaDataFieldName = Optional.of("kafkaData");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, kafkaKeyFieldName, kafkaDataFieldName, Optional.empty(), Optional.empty());
+        mockBigQuery, false, false, false, kafkaKeyFieldName, kafkaDataFieldName, Optional.empty(), Optional.empty());
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
@@ -88,7 +88,7 @@ public class SchemaManagerTest {
   public void testTimestampPartitionSet() {
     Optional<String> testField = Optional.of("testField");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, Optional.empty(), Optional.empty(), testField, Optional.empty());
+        mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), testField, Optional.empty());
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
@@ -108,7 +108,7 @@ public class SchemaManagerTest {
     Optional<String> timestampPartitionFieldName = Optional.of("testField");
     Optional<List<String>> testField = Optional.of(Arrays.asList("column1", "column2"));
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName, testField);
+        mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName, testField);
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
