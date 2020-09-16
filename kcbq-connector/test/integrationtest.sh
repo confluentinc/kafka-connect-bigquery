@@ -30,8 +30,9 @@ else
 fi
 
 usage() {
+	test "${1-0}" != 0 && exec >&2
 	cat <<- EOF
-	usage: $0
+	usage: $(basename $0)
 
 	[-k|--key-file <JSON key file or JSON key string>]
 	[-k|--key-source <JSON or FILE>] (path must be absolute; relative paths will not work)
@@ -50,8 +51,8 @@ usage() {
 
 	The descending order of priority for each of these forms of specification is:
 	command line option, environment variable, configuration file.
-EOF
-	exit 0
+	EOF
+	exit "${1-0}"
 }
 
 msg() { printf "$1%s: $2$NORMAL\n" "$(basename $0)"; }
