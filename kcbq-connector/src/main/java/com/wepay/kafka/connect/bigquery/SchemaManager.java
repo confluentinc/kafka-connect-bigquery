@@ -167,7 +167,7 @@ public class SchemaManager {
    * @param table The BigQuery table to create,
    * @param records The sink records used to determine the schema.
    */
-  public void createOrUpdateTable(TableId table, Set<SinkRecord> records) {
+  public void createOrUpdateTable(TableId table, List<SinkRecord> records) {
     synchronized (lock(tableCreateLocks, table)) {
       if (bigQuery.getTable(table) == null) {
         logger.debug("{} doesn't exist; creating instead of updating", table(table));
@@ -188,7 +188,7 @@ public class SchemaManager {
    * @param records The sink records used to determine the schema.
    * @return whether the table had to be created; if the table already existed, will return false
    */
-  public boolean createTable(TableId table, Set<SinkRecord> records) {
+  public boolean createTable(TableId table, List<SinkRecord> records) {
     synchronized (lock(tableCreateLocks, table)) {
       if (schemaCache.containsKey(table)) {
         // Table already exists; noop
@@ -219,7 +219,7 @@ public class SchemaManager {
    * @param table The BigQuery table to update.
    * @param records The sink records used to update the schema.
    */
-  public void updateSchema(TableId table, Set<SinkRecord> records) {
+  public void updateSchema(TableId table, List<SinkRecord> records) {
     synchronized (lock(tableUpdateLocks, table)) {
       TableInfo tableInfo = getTableInfo(table, records);
       if (!schemaCache.containsKey(table)) {
@@ -244,18 +244,22 @@ public class SchemaManager {
    * @param records The sink records used to determine the schema for constructing the table info
    * @return The resulting BigQuery table information
    */
-  private TableInfo getTableInfo(TableId table, Set<SinkRecord> records) {
-    List<com.google.cloud.bigquery.Schema> bigQuerySchemas = getSchemasList(table, records);
+  private TableInfo getTableInfo(TableId table, List<SinkRecord> records) {
     com.google.cloud.bigquery.Schema proposedSchema;
     String tableDescription;
     try {
       if (allowSchemaUnionization) {
+        List<com.google.cloud.bigquery.Schema> bigQuerySchemas = getSchemasList(table, records);
         proposedSchema = getUnionizedSchema(bigQuerySchemas);
+        if (bigQuerySchemas.size() > 1) {
+          validateSchemaChange(bigQuerySchemas.get(0), proposedSchema);
+        }
       } else {
-        proposedSchema = bigQuerySchemas.get(bigQuerySchemas.size() - 1);
-      }
-      if (bigQuerySchemas.size() > 1) {
-        validateSchemaChange(bigQuerySchemas.get(0), proposedSchema);
+        com.google.cloud.bigquery.Schema existingSchema = readTableSchema(table);
+        proposedSchema = convertRecordSchema(records.get(records.size() - 1));
+        if (existingSchema != null) {
+          validateSchemaChange(existingSchema, proposedSchema);
+        }
       }
       tableDescription = getUnionizedTableDescription(records);
     } catch (BigQueryConnectException exception) {
@@ -270,19 +274,20 @@ public class SchemaManager {
    * @param records The sink records' schemas to add to the list of schemas
    * @return List of BigQuery schemas
    */
-  private List<com.google.cloud.bigquery.Schema> getSchemasList(TableId table, Set<SinkRecord> records) {
+  private List<com.google.cloud.bigquery.Schema> getSchemasList(TableId table, List<SinkRecord> records) {
     List<com.google.cloud.bigquery.Schema> bigQuerySchemas = new ArrayList<>();
-    if (bigQuery.getTable(table) != null) {
-      Table bigQueryTable = bigQuery.getTable(table.getDataset(), table.getTable());
-      bigQuerySchemas.add(bigQueryTable.getDefinition().getSchema());
-    }
+    Optional.ofNullable(readTableSchema(table)).ifPresent(bigQuerySchemas::add);
     for (SinkRecord record : records) {
-      Schema kafkaValueSchema = schemaRetriever.retrieveValueSchema(record);
-      Schema kafkaKeySchema = kafkaKeyFieldName.isPresent() ? schemaRetriever.retrieveKeySchema(record) : null;
-      com.google.cloud.bigquery.Schema schema = getBigQuerySchema(kafkaKeySchema, kafkaValueSchema);
-      bigQuerySchemas.add(schema);
+      bigQuerySchemas.add(convertRecordSchema(record));
     }
     return bigQuerySchemas;
+  }
+
+  private com.google.cloud.bigquery.Schema convertRecordSchema(SinkRecord record) {
+    Schema kafkaValueSchema = schemaRetriever.retrieveValueSchema(record);
+    Schema kafkaKeySchema = kafkaKeyFieldName.isPresent() ? schemaRetriever.retrieveKeySchema(record) : null;
+    com.google.cloud.bigquery.Schema result = getBigQuerySchema(kafkaKeySchema, kafkaValueSchema);
+    return result;
   }
 
   /**
@@ -356,7 +361,7 @@ public class SchemaManager {
    * @param records The records used to get the unionized table description
    * @return The resulting table description
    */
-  private String getUnionizedTableDescription(Set<SinkRecord> records) {
+  private String getUnionizedTableDescription(List<SinkRecord> records) {
     String tableDescription = null;
     for (SinkRecord record : records) {
       Schema kafkaValueSchema = schemaRetriever.retrieveValueSchema(record);
@@ -500,7 +505,9 @@ public class SchemaManager {
 
   private com.google.cloud.bigquery.Schema readTableSchema(TableId table) {
     logger.trace("Reading schema for {}", table(table));
-    return bigQuery.getTable(table).getDefinition().getSchema();
+    return Optional.ofNullable(bigQuery.getTable(table))
+        .map(t -> t.getDefinition().getSchema())
+        .orElse(null);
   }
 
   private Object lock(ConcurrentMap<TableId, Object> locks, TableId table) {
