@@ -53,7 +53,10 @@
         <jacoco.plugin.version>0.8.5</jacoco.plugin.version>
         <kafka.connect.plugin.version>0.11.1</kafka.connect.plugin.version>
         <release.plugin.version>2.5.3</release.plugin.version>
+<<<<<<< HEAD
         <site.plugin.version>3.7.1</site.plugin.version>
+=======
+>>>>>>> 54cf88b... GH-32: Switch from Gradle to Maven for build tool
         <surefire.plugin.version>3.0.0-M4</surefire.plugin.version>
 
         <skip.unit.tests>${maven.test.skip}</skip.unit.tests>
@@ -278,6 +281,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${surefire.plugin.version}</version>
+<<<<<<< HEAD
                     <executions>
                         <execution>
                             <id>verify-docker-test</id>
@@ -289,6 +293,19 @@
                                     <include>**/*IntegrationTest.java</include>
                                 </includes>
                             </configuration>
+=======
+                    <configuration>
+                        <includes>
+                            <include>**/*IntegrationTest.java</include>
+                        </includes>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>integration-test</id>
+                            <goals>
+                                <goal>integration-test</goal>
+                            </goals>
+>>>>>>> 54cf88b... GH-32: Switch from Gradle to Maven for build tool
                         </execution>
                     </executions>
                 </plugin>
@@ -372,4 +389,6 @@
             </build>
         </profile>
     </profiles>
+=======
+>>>>>>> 54cf88b... GH-32: Switch from Gradle to Maven for build tool
 </project>
