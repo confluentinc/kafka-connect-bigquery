@@ -7,11 +7,11 @@ import com.google.cloud.bigquery.Clustering;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.StandardTableDefinition;
-import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.bigquery.TimePartitioning.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.convert.KafkaDataBuilder;
@@ -28,7 +28,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -248,24 +247,32 @@ public class SchemaManager {
     com.google.cloud.bigquery.Schema proposedSchema;
     String tableDescription;
     try {
-      if (allowSchemaUnionization) {
-        List<com.google.cloud.bigquery.Schema> bigQuerySchemas = getSchemasList(table, records);
-        proposedSchema = getUnionizedSchema(bigQuerySchemas);
-        if (bigQuerySchemas.size() > 1) {
-          validateSchemaChange(bigQuerySchemas.get(0), proposedSchema);
-        }
-      } else {
-        com.google.cloud.bigquery.Schema existingSchema = readTableSchema(table);
-        proposedSchema = convertRecordSchema(records.get(records.size() - 1));
-        if (existingSchema != null) {
-          validateSchemaChange(existingSchema, proposedSchema);
-        }
-      }
+      proposedSchema = getAndValidateProposedSchema(table, records);
       tableDescription = getUnionizedTableDescription(records);
     } catch (BigQueryConnectException exception) {
       throw new BigQueryConnectException("Failed to unionize schemas of records for the table " + table, exception);
     }
     return constructTableInfo(table, proposedSchema, tableDescription);
+  }
+
+  @VisibleForTesting
+  com.google.cloud.bigquery.Schema getAndValidateProposedSchema(
+      TableId table, List<SinkRecord> records) {
+    com.google.cloud.bigquery.Schema result;
+    if (allowSchemaUnionization) {
+      List<com.google.cloud.bigquery.Schema> bigQuerySchemas = getSchemasList(table, records);
+      result = getUnionizedSchema(bigQuerySchemas);
+    } else {
+      com.google.cloud.bigquery.Schema existingSchema = readTableSchema(table);
+      result = convertRecordSchema(records.get(records.size() - 1));
+      if (existingSchema != null) {
+        validateSchemaChange(existingSchema, result);
+        if (allowBQRequiredFieldRelaxation) {
+          result = relaxFieldsWhereNecessary(existingSchema, result);
+        }
+      }
+    }
+    return result;
   }
 
   /**
@@ -297,8 +304,11 @@ public class SchemaManager {
    */
   private com.google.cloud.bigquery.Schema getUnionizedSchema(List<com.google.cloud.bigquery.Schema> schemas) {
     com.google.cloud.bigquery.Schema currentSchema = schemas.get(0);
+    com.google.cloud.bigquery.Schema proposedSchema;
     for (int i = 1; i < schemas.size(); i++) {
-      currentSchema = unionizeSchemas(currentSchema, schemas.get(i));
+      proposedSchema = unionizeSchemas(currentSchema, schemas.get(i));
+      validateSchemaChange(currentSchema, proposedSchema);
+      currentSchema = proposedSchema;
     }
     return currentSchema;
   }
@@ -313,19 +323,30 @@ public class SchemaManager {
       com.google.cloud.bigquery.Schema firstSchema, com.google.cloud.bigquery.Schema secondSchema) {
     Map<String, Field> firstSchemaFields = schemaFields(firstSchema);
     Map<String, Field> secondSchemaFields = schemaFields(secondSchema);
-    for (Map.Entry<String, Field> entry : secondSchemaFields.entrySet()) {
-      if (!firstSchemaFields.containsKey(entry.getKey())) {
-          firstSchemaFields.put(entry.getKey(), entry.getValue().toBuilder().setMode(Field.Mode.NULLABLE).build());
-      } else if (isFieldRelaxation(firstSchemaFields.get(entry.getKey()), entry.getValue())) {
-          firstSchemaFields.put(entry.getKey(), entry.getValue());
+    Map<String, Field> unionizedSchemaFields = new LinkedHashMap<>();
+
+    firstSchemaFields.forEach((name, firstField) -> {
+      Field secondField = secondSchemaFields.get(name);
+      if (secondField == null) {
+        unionizedSchemaFields.put(name, firstField.toBuilder().setMode(Field.Mode.NULLABLE).build());
+      } else if (isFieldRelaxation(firstField, secondField)) {
+        unionizedSchemaFields.put(name, secondField);
+      } else {
+        unionizedSchemaFields.put(name, firstField);
       }
-    }
-    return com.google.cloud.bigquery.Schema.of(firstSchemaFields.values());
+    });
+
+    secondSchemaFields.forEach((name, secondField) -> {
+      if (!unionizedSchemaFields.containsKey(name)) {
+        unionizedSchemaFields.put(name, secondField.toBuilder().setMode(Field.Mode.NULLABLE).build());
+      }
+    });
+    return com.google.cloud.bigquery.Schema.of(unionizedSchemaFields.values());
   }
 
   private void validateSchemaChange(
-      com.google.cloud.bigquery.Schema earliestSchema, com.google.cloud.bigquery.Schema proposedSchema) {
-    Map<String, Field> earliestSchemaFields = schemaFields(earliestSchema);
+      com.google.cloud.bigquery.Schema existingSchema, com.google.cloud.bigquery.Schema proposedSchema) {
+    Map<String, Field> earliestSchemaFields = schemaFields(existingSchema);
     Map<String, Field> proposedSchemaFields = schemaFields(proposedSchema);
     for (Map.Entry<String, Field> entry : proposedSchemaFields.entrySet()) {
       if (!earliestSchemaFields.containsKey(entry.getKey())) {
@@ -354,6 +375,22 @@ public class SchemaManager {
     return allowNewBQFields && (
         newField.getMode().equals(Field.Mode.NULLABLE) ||
         (newField.getMode().equals(Field.Mode.REQUIRED) && allowBQRequiredFieldRelaxation));
+  }
+
+  private com.google.cloud.bigquery.Schema relaxFieldsWhereNecessary(
+      com.google.cloud.bigquery.Schema existingSchema,
+      com.google.cloud.bigquery.Schema proposedSchema) {
+    Map<String, Field> existingSchemaFields = schemaFields(existingSchema);
+    Map<String, Field> proposedSchemaFields = schemaFields(proposedSchema);
+    List<Field> newSchemaFields = new ArrayList<>();
+    for (Map.Entry<String, Field> entry : proposedSchemaFields.entrySet()) {
+      if (!existingSchemaFields.containsKey(entry.getKey())) {
+        newSchemaFields.add(entry.getValue().toBuilder().setMode(Field.Mode.NULLABLE).build());
+      } else {
+        newSchemaFields.add(entry.getValue());
+      }
+    }
+    return com.google.cloud.bigquery.Schema.of(newSchemaFields);
   }
 
   /**
