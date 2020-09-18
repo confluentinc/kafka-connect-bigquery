@@ -25,13 +25,13 @@ public class FieldNameSanitizer {
   // Exception.
   public static Map<String, Object> replaceInvalidKeys(Map<String, Object> map) {
     Map<String, Object> sanitizedMap = new HashMap<>();
-    for (Map.Entry<String, Object> keyValue : map.entrySet()) {
-      String key = sanitizeName(keyValue.getKey());
+    for (Map.Entry<String, Object> entry : map.entrySet()) {
+      String key = sanitizeName(entry.getKey());
       Object value;
-      if (keyValue.getValue() instanceof Map) {
-        value = replaceInvalidKeys((Map<String, Object>) keyValue.getValue());
+      if (entry.getValue() instanceof Map) {
+        value = replaceInvalidKeys((Map<String, Object>) entry.getValue());
       } else {
-        value = keyValue.getValue();
+        value = entry.getValue();
       }
       sanitizedMap.put(key, value);
     }
