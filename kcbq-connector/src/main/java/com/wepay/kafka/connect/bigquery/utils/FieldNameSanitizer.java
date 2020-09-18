@@ -11,9 +11,6 @@ public class FieldNameSanitizer {
   // Replace all non-letter, non-digit characters with underscore. Append underscore in front of
   // name if it does not begin with alphabet or underscore.
   public static String sanitizeName(String name) {
-    if (name == null) {
-      throw new ConnectException("Record keys cannot be null");
-    }
     String sanitizedName = name.replaceAll("[^a-zA-Z0-9_]", "_");
     if (sanitizedName.matches("^[^a-zA-Z_].*")) {
       sanitizedName = "_" + sanitizedName;
