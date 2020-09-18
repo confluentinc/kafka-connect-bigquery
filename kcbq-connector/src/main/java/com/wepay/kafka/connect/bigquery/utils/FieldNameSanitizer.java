@@ -10,6 +10,9 @@ public class FieldNameSanitizer {
   // Replace all non-letter, non-digit characters with underscore. Append underscore in front of
   // name if it does not begin with alphabet or underscore.
   public static String sanitizeName(String name) {
+    if (name == null) {
+      throw new ConnectException("Record keys cannot be null");
+    }
     String sanitizedName = name.replaceAll("[^a-zA-Z0-9_]", "_");
     if (sanitizedName.matches("^[^a-zA-Z_].*")) {
       sanitizedName = "_" + sanitizedName;
@@ -23,19 +26,14 @@ public class FieldNameSanitizer {
   // Note: a.b and a/b will have the same value after sanitization which will cause Duplicate key
   // Exception.
   public static Map<String, Object> replaceInvalidKeys(Map<String, Object> map) {
-    try {
-
-      return map.entrySet().stream().collect(Collectors.toMap(
-          (entry) -> sanitizeName(entry.getKey()),
-          (entry) -> {
-            if (entry.getValue() instanceof Map) {
-              return replaceInvalidKeys((Map<String, Object>) entry.getValue());
-            }
-            return entry.getValue();
+    return map.entrySet().stream().collect(Collectors.toMap(
+        (entry) -> sanitizeName(entry.getKey()),
+        (entry) -> {
+          if (entry.getValue() instanceof Map) {
+            return replaceInvalidKeys((Map<String, Object>) entry.getValue());
           }
-      ));
-    } catch (NullPointerException npe) {
-      throw new ConnectException("Records cannot have null keys");
-    }
+          return entry.getValue();
+        }
+    ));
   }
 }
