@@ -35,7 +35,7 @@ public class FieldNameSanitizer {
           }
       ));
     } catch (NullPointerException npe) {
-      throw new ConnectException("Records cannot have null values");
+      throw new ConnectException("Records cannot have null keys");
     }
   }
 }
