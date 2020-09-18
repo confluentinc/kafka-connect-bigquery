@@ -29,6 +29,9 @@ public class FieldNameSanitizer {
     return map.entrySet().stream().collect(Collectors.toMap(
         (entry) -> sanitizeName(entry.getKey()),
         (entry) -> {
+          if (entry.getValue() == null) {
+            throw new ConnectException("Record values cannot be null");
+          }
           if (entry.getValue() instanceof Map) {
             return replaceInvalidKeys((Map<String, Object>) entry.getValue());
           }

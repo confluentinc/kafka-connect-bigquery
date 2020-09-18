@@ -80,7 +80,13 @@ public class FieldNameSanitizerTest {
 
   @Test (expected = ConnectException.class)
   public void testNullKey() {
-    testMap.put(null, "val");
+    testMap.put(null, "abc");
+    Map<String, Object> sanitizedMap = FieldNameSanitizer.replaceInvalidKeys(testMap);
+  }
+
+  @Test (expected = ConnectException.class)
+  public void testNullValue() {
+    testMap.put("abc", null);
     Map<String, Object> sanitizedMap = FieldNameSanitizer.replaceInvalidKeys(testMap);
   }
 }
