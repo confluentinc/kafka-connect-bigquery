@@ -322,6 +322,7 @@
                             <phase>validate</phase>
                             <configuration>
                                 <configLocation>${project.parent.basedir}/config/checkstyle/google_checks.xml</configLocation>
+                                <suppressionsLocation>${project.parent.basedir}/config/checkstyle/suppressions.xml</suppressionsLocation>
                             </configuration>
                             <goals>
                                 <goal>check</goal>
@@ -353,4 +354,22 @@
             </plugins>
         </pluginManagement>
     </build>
+    <profiles>
+        <profile>
+            <id>jenkins</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-checkstyle-plugin</artifactId>
+                            <configuration>
+                                <skip>true</skip>
+                            </configuration>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+    </profiles>
 </project>
