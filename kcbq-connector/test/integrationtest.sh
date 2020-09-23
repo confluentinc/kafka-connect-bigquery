@@ -255,4 +255,4 @@ echo "keyfile=$KCBQ_TEST_KEYFILE" > "$INTEGRATION_TEST_PROPERTIES_FILE"
 echo "project=$KCBQ_TEST_PROJECT" >> "$INTEGRATION_TEST_PROPERTIES_FILE"
 echo "dataset=$KCBQ_TEST_DATASET" >> "$INTEGRATION_TEST_PROPERTIES_FILE"
 
-mvn -f "$BASE_DIR/.." -Dskip.unit.tests=true integration-test
+mvn -f "$BASE_DIR/.." -Dskip.unit.tests=true failsafe:integration-test@verify-docker-test
