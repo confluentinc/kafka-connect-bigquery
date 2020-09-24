@@ -378,6 +378,17 @@
                                 <skip>true</skip>
                             </configuration>
                         </plugin>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-failsafe-plugin</artifactId>
+                            <configuration>
+                                <environmentVariables>
+                                    <KCBQ_TEST_PROJECT>connect-205118</KCBQ_TEST_PROJECT>
+                                    <KCBQ_TEST_DATASET>jenkinsKcbqIntegrationTesting</KCBQ_TEST_DATASET>
+                                    <KCBQ_TEST_BUCKET>jenkins-kcbq-integration-testing</KCBQ_TEST_BUCKET>
+                                </environmentVariables>
+                            </configuration>
+                        </plugin>
                     </plugins>
                 </pluginManagement>
             </build>
