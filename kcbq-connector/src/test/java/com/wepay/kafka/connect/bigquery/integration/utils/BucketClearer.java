@@ -27,6 +27,15 @@ public class BucketClearer {
 
   private static final Logger logger = LoggerFactory.getLogger(BucketClearer.class);
 
+  /**
+   * Clear out a GCS bucket. Useful in integration testing to provide a clean slate before creating
+   * a connector and writing to that bucket.
+   * @param key The GCP credentials to use (can be a filename or a raw JSON string).
+   * @param project The GCP project the bucket belongs to.
+   * @param bucket The bucket to clear.
+   * @param keySource The key source. If "FILE", then the {@code key} parameter will be treated as a
+   *                  filename; if "JSON", then {@code key} will be treated as a raw JSON string.
+   */
   public static void clearBucket(String key, String project, String bucket, String keySource) {
     Storage gcs = new GCSBuilder(project).setKey(key).setKeySource(keySource).build();
     if (gcs.delete(bucket)) {

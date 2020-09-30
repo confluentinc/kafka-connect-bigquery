@@ -25,11 +25,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -155,13 +153,13 @@ public abstract class BaseConnectorIT {
   }
 
   protected void waitForCommittedRecords(
-      String connector, long numRecords, int numTasks, String topics
+      String connector, String topic, long numRecords, int numTasks
   ) throws InterruptedException {
-    waitForCommittedRecords(connector, numRecords, numTasks, COMMIT_MAX_DURATION_MS, Collections.singleton(topics));
+    waitForCommittedRecords(connector, Collections.singleton(topic), numRecords, numTasks, COMMIT_MAX_DURATION_MS);
   }
 
   protected void waitForCommittedRecords(
-      String connector, long numRecords, int numTasks, long timeoutMs, Collection<String> topics
+      String connector, Collection<String> topics, long numRecords, int numTasks, long timeoutMs
   ) throws InterruptedException {
     waitForCondition(
         () -> {
@@ -177,7 +175,7 @@ public abstract class BaseConnectorIT {
             } catch (AssertionError e) {
               throw new NoRetryException(e);
             }
-            logger.debug("Connector has only committed {} records for topic {} so far; {} expected",
+            logger.debug("Connector has only committed {} records for topics {} so far; {} expected",
                 totalCommittedRecords, topics, numRecords);
             // Sleep here so as not to spam Kafka with list-offsets requests
             Thread.sleep(OFFSET_COMMIT_INTERVAL_MS / 2);

@@ -212,7 +212,7 @@ public class BigQuerySinkConnectorIT extends BaseConnectorIT {
     waitForConnectorToStart(connectorName, tasksMax);
 
     waitForCommittedRecords(
-        "bigquery-connector", numRecordsProduced, tasksMax, TimeUnit.MINUTES.toMillis(3), TEST_TOPICS);
+        "bigquery-connector", TEST_TOPICS, numRecordsProduced, tasksMax, TimeUnit.MINUTES.toMillis(3));
 
     TEST_CASES.forEach(this::verify);
   }

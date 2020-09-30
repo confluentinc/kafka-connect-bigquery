@@ -31,7 +31,14 @@ import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.table;
 public class TableClearer {
   private static final Logger logger = LoggerFactory.getLogger(TableClearer.class);
 
-  // TODO: Might want to add support for table sanitization here if we end up integration testing it
+  // TODO: Might want to add support for table sanitization here
+  /**
+   * Clear out one or more BigQuery tables. Useful in integration testing to provide a clean slate
+   * before creating a connector and writing to those tables.
+   * @param bigQuery The BigQuery client to use when sending table deletion requests.
+   * @param dataset The dataset that the to-be-cleared tables belong to.
+   * @param tables The tables to clear.
+   */
   public static void clearTables(BigQuery bigQuery, String dataset, Collection<String> tables) {
     for (String tableName : tables) {
       TableId table = TableId.of(dataset, FieldNameSanitizer.sanitizeName(tableName));
