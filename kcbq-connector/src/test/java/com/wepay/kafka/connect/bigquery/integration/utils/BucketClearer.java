@@ -18,6 +18,8 @@ package com.wepay.kafka.connect.bigquery.integration.utils;
  */
 
 
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.Storage;
 import com.wepay.kafka.connect.bigquery.GCSBuilder;
 import org.slf4j.Logger;
@@ -32,16 +34,22 @@ public class BucketClearer {
    * a connector and writing to that bucket.
    * @param key The GCP credentials to use (can be a filename or a raw JSON string).
    * @param project The GCP project the bucket belongs to.
-   * @param bucket The bucket to clear.
+   * @param bucketName The bucket to clear.
    * @param keySource The key source. If "FILE", then the {@code key} parameter will be treated as a
    *                  filename; if "JSON", then {@code key} will be treated as a raw JSON string.
    */
-  public static void clearBucket(String key, String project, String bucket, String keySource) {
+  public static void clearBucket(String key, String project, String bucketName, String keySource) {
     Storage gcs = new GCSBuilder(project).setKey(key).setKeySource(keySource).build();
-    if (gcs.delete(bucket)) {
-      logger.info("Bucket {} deleted successfully", bucket);
+    Bucket bucket = gcs.get(bucketName);
+    if (bucket != null) {
+      logger.info("Deleting objects in the Bucket {}", bucketName);
+      for (Blob blob : bucket.list().iterateAll()) {
+        gcs.delete(blob.getBlobId());
+      }
+      bucket.delete();
+      logger.info("Bucket {} deleted successfully", bucketName);
     } else {
-      logger.info("Bucket {} does not exist", bucket);
+      logger.info("Bucket {} does not exist", bucketName);
     }
   }
 }
