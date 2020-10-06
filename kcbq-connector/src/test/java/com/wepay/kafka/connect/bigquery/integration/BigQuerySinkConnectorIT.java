@@ -169,8 +169,11 @@ public class BigQuerySinkConnectorIT extends BaseConnectorIT {
 
   @Before
   public void setup() throws Exception {
-    BucketClearer.clearBucket(keyFile(), project(), gcsBucket(), keySource());
-    TableClearer.clearTables(newBigQuery(), dataset(), TEST_TABLES);
+    Collection<String> suffixedTables = TEST_TABLES.stream()
+        .map(this::suffixedTableName)
+        .collect(Collectors.toSet());
+    BucketClearer.clearBucket(keyFile(), project(), gcsBucket(), gcsFolder(), keySource());
+    TableClearer.clearTables(newBigQuery(), dataset(), suffixedTables);
 
     startConnect();
     restApp = new RestApp(
@@ -272,7 +275,7 @@ public class BigQuerySinkConnectorIT extends BaseConnectorIT {
     result.put(BigQuerySinkConfig.ALLOW_NEW_BIGQUERY_FIELDS_CONFIG, "true");
     result.put(BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG, "true");
     result.put(BigQuerySinkConfig.SANITIZE_TOPICS_CONFIG, "true");
-    result.put(BigQuerySinkConfig.ENABLE_BATCH_CONFIG, "kcbq_test_gcs-load");
+    result.put(BigQuerySinkConfig.ENABLE_BATCH_CONFIG, suffixedTableName("kcbq_test_gcs-load"));
     result.put(BigQuerySinkConfig.BATCH_LOAD_INTERVAL_SEC_CONFIG, "10");
     result.put(BigQuerySinkConfig.GCS_BUCKET_NAME_CONFIG, gcsBucket());
     result.put(BigQuerySinkConfig.GCS_FOLDER_NAME_CONFIG, gcsFolder());

@@ -21,6 +21,7 @@ package com.wepay.kafka.connect.bigquery.integration;
 
 import com.google.cloud.bigquery.BigQuery;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
+import com.wepay.kafka.connect.bigquery.integration.utils.TableClearer;
 import com.wepay.kafka.connect.bigquery.retrieve.IdentitySchemaRetriever;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.connect.data.Schema;
@@ -116,7 +117,7 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     connect.kafka().createTopic(topic, TASKS_MAX);
 
     final String table = "test_upsert";
-    clearPriorTable(bigQuery, table);
+    TableClearer.clearTables(bigQuery, dataset(), suffixedTableName(table));
 
     // setup props for the sink connector
     Map<String, String> props = baseConnectorProps(TASKS_MAX);
@@ -171,7 +172,7 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     connect.kafka().createTopic(topic, TASKS_MAX);
 
     final String table = "test_delete";
-    clearPriorTable(bigQuery, table);
+    TableClearer.clearTables(bigQuery, dataset(), suffixedTableName(table));
 
     // setup props for the sink connector
     Map<String, String> props = baseConnectorProps(TASKS_MAX);
@@ -230,7 +231,7 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     connect.kafka().createTopic(topic, TASKS_MAX);
 
     final String table = "test_upsert_delete";
-    clearPriorTable(bigQuery, table);
+    TableClearer.clearTables(bigQuery, dataset(), suffixedTableName(table));
 
     // setup props for the sink connector
     Map<String, String> props = baseConnectorProps(TASKS_MAX);
@@ -293,7 +294,7 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     connect.kafka().createTopic(topic, numPartitions);
 
     final String table = "test_upsert_delete_throughput";
-    clearPriorTable(bigQuery, table);
+    TableClearer.clearTables(bigQuery, dataset(), suffixedTableName(table));
 
     // Instantiate the converters we'll use to send records to the connector
     Converter keyConverter = converter(true);
