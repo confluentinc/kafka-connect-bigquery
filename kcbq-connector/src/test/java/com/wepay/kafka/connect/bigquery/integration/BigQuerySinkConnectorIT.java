@@ -287,7 +287,8 @@ public class BigQuerySinkConnectorIT extends BaseConnectorIT {
   private void verify(String testCase, List<List<Object>> expectedRows) {
     List<List<Object>> testRows;
     try {
-      testRows = readAllRows(newBigQuery(), TEST_CASE_PREFIX + FieldNameSanitizer.sanitizeName(testCase), "row");
+      String table = suffixedTableName(TEST_CASE_PREFIX + FieldNameSanitizer.sanitizeName(testCase));
+      testRows = readAllRows(newBigQuery(), table, "row");
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }

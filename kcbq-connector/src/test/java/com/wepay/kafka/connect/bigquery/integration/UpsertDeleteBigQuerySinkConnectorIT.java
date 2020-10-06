@@ -116,8 +116,8 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     // Make sure each task gets to read from at least one partition
     connect.kafka().createTopic(topic, TASKS_MAX);
 
-    final String table = "test_upsert";
-    TableClearer.clearTables(bigQuery, dataset(), suffixedTableName(table));
+    final String table = suffixedTableName("test_upsert");
+    TableClearer.clearTables(bigQuery, dataset(), table);
 
     // setup props for the sink connector
     Map<String, String> props = baseConnectorProps(TASKS_MAX);
@@ -171,8 +171,8 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     // Make sure each task gets to read from at least one partition
     connect.kafka().createTopic(topic, TASKS_MAX);
 
-    final String table = "test_delete";
-    TableClearer.clearTables(bigQuery, dataset(), suffixedTableName(table));
+    final String table = suffixedTableName("test_delete");
+    TableClearer.clearTables(bigQuery, dataset(), table);
 
     // setup props for the sink connector
     Map<String, String> props = baseConnectorProps(TASKS_MAX);
@@ -230,8 +230,8 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     // Make sure each task gets to read from at least one partition
     connect.kafka().createTopic(topic, TASKS_MAX);
 
-    final String table = "test_upsert_delete";
-    TableClearer.clearTables(bigQuery, dataset(), suffixedTableName(table));
+    final String table = suffixedTableName("test_upsert_delete");
+    TableClearer.clearTables(bigQuery, dataset(), table);
 
     // setup props for the sink connector
     Map<String, String> props = baseConnectorProps(TASKS_MAX);
@@ -293,8 +293,8 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     final String topic = "test-upsert-delete-throughput";
     connect.kafka().createTopic(topic, numPartitions);
 
-    final String table = "test_upsert_delete_throughput";
-    TableClearer.clearTables(bigQuery, dataset(), suffixedTableName(table));
+    final String table = suffixedTableName("test_upsert_delete_throughput");
+    TableClearer.clearTables(bigQuery, dataset(), table);
 
     // Instantiate the converters we'll use to send records to the connector
     Converter keyConverter = converter(true);
