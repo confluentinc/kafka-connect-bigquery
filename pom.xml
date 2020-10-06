@@ -449,8 +449,8 @@ under the License.
                                     <KCBQ_TEST_PROJECT>connect-205118</KCBQ_TEST_PROJECT>
                                     <KCBQ_TEST_DATASET>jenkinsKcbqIntegrationTesting</KCBQ_TEST_DATASET>
                                     <KCBQ_TEST_BUCKET>jenkins-kcbq-integration-testing</KCBQ_TEST_BUCKET>
-                                    <KCBQ_TEST_TABLE_SUFFIX>_${scmBranch}_${buildNumber}_${timestamp}</KCBQ_TEST_TABLE_SUFFIX>
-                                    <KCBQ_TEST_FOLDER>${scmBranch}_${buildNumber}_${timestamp}</KCBQ_TEST_FOLDER>
+                                    <KCBQ_TEST_TABLE_SUFFIX>-${scmBranch}-${buildNumber}-${timestamp}</KCBQ_TEST_TABLE_SUFFIX>
+                                    <KCBQ_TEST_FOLDER>${scmBranch}-${buildNumber}-${timestamp}</KCBQ_TEST_FOLDER>
                                 </environmentVariables>
                             </configuration>
                         </plugin>

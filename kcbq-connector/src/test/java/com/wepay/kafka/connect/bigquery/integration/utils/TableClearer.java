@@ -33,7 +33,6 @@ import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.table;
 public class TableClearer {
   private static final Logger logger = LoggerFactory.getLogger(TableClearer.class);
 
-  // TODO: Might want to add support for table sanitization here
   /**
    * Clear out one or more BigQuery tables. Useful in integration testing to provide a clean slate
    * before creating a connector and writing to those tables.

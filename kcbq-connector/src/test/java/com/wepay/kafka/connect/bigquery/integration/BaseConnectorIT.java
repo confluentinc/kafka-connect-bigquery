@@ -46,6 +46,7 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
 import com.wepay.kafka.connect.bigquery.BigQueryHelper;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
+import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -137,6 +138,8 @@ public abstract class BaseConnectorIT {
     result.put(BigQuerySinkConfig.DEFAULT_DATASET_CONFIG, dataset());
     result.put(BigQuerySinkConfig.KEYFILE_CONFIG, keyFile());
     result.put(BigQuerySinkConfig.KEY_SOURCE_CONFIG, keySource());
+
+    result.put(BigQuerySinkConfig.SANITIZE_TOPICS_CONFIG, "true");
 
     String suffix = tableSuffix();
     if (!suffix.isEmpty()) {
@@ -334,8 +337,16 @@ public abstract class BaseConnectorIT {
     }
   }
 
-  protected String suffixedTableName(String table) {
+  protected String suffixedTable(String table) {
     return table + tableSuffix();
+  }
+
+  protected String sanitizedTable(String table) {
+    return FieldNameSanitizer.sanitizeName(table);
+  }
+
+  protected String suffixedAndSanitizedTable(String table) {
+    return sanitizedTable(suffixedTable(table));
   }
 
   private String readEnvVar(String var) {
