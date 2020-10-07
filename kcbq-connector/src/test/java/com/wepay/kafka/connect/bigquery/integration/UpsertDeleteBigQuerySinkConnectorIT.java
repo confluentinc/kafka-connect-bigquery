@@ -112,11 +112,11 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
   @Test
   public void testUpsert() throws Throwable {
     // create topic in Kafka
-    final String topic = "test-upsert";
+    final String topic = suffixedTableOrTopic("test-upsert");
     // Make sure each task gets to read from at least one partition
     connect.kafka().createTopic(topic, TASKS_MAX);
 
-    final String table = suffixedAndSanitizedTable("test_upsert");
+    final String table = sanitizedTable(topic);
     TableClearer.clearTables(bigQuery, dataset(), table);
 
     // setup props for the sink connector
@@ -167,11 +167,11 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
   @Test
   public void testDelete() throws Throwable {
     // create topic in Kafka
-    final String topic = "test-delete";
+    final String topic = suffixedTableOrTopic("test-delete");
     // Make sure each task gets to read from at least one partition
     connect.kafka().createTopic(topic, TASKS_MAX);
 
-    final String table = suffixedAndSanitizedTable("test_delete");
+    final String table = sanitizedTable(topic);
     TableClearer.clearTables(bigQuery, dataset(), table);
 
     // setup props for the sink connector
@@ -226,11 +226,11 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
   @Test
   public void testUpsertDelete() throws Throwable {
     // create topic in Kafka
-    final String topic = "test-upsert-delete";
+    final String topic = suffixedTableOrTopic("test-upsert-delete");
     // Make sure each task gets to read from at least one partition
     connect.kafka().createTopic(topic, TASKS_MAX);
 
-    final String table = suffixedAndSanitizedTable("test_upsert_delete");
+    final String table = sanitizedTable(topic);
     TableClearer.clearTables(bigQuery, dataset(), table);
 
     // setup props for the sink connector
@@ -290,10 +290,10 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
     final int tasksMax = 1;
 
     // create topic in Kafka
-    final String topic = "test-upsert-delete-throughput";
+    final String topic = suffixedTableOrTopic("test-upsert-delete-throughput");
     connect.kafka().createTopic(topic, numPartitions);
 
-    final String table = suffixedAndSanitizedTable("test_upsert_delete_throughput");
+    final String table = sanitizedTable(topic);
     TableClearer.clearTables(bigQuery, dataset(), table);
 
     // Instantiate the converters we'll use to send records to the connector

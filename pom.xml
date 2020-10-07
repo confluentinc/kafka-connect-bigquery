@@ -326,9 +326,7 @@ under the License.
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${surefire.plugin.version}</version>
                     <configuration>
-                        <excludes>
-                            <exclude>**/*IT.java</exclude>
-                        </excludes>
+                        <excludedGroups>org.apache.kafka.test.IntegrationTest</excludedGroups>
                         <skip>${skip.unit.tests}</skip>
                     </configuration>
                 </plugin>
@@ -343,9 +341,7 @@ under the License.
                                 <goal>integration-test</goal>
                             </goals>
                             <configuration>
-                                <includes>
-                                    <include>**/*IT.java</include>
-                                </includes>
+                                <groups>org.apache.kafka.test.IntegrationTest</groups>
                             </configuration>
                         </execution>
                     </executions>

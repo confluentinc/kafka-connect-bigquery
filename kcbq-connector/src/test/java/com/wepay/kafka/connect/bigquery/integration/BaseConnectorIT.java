@@ -42,7 +42,6 @@ import com.google.cloud.bigquery.FieldValue;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.Table;
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
 import com.wepay.kafka.connect.bigquery.BigQueryHelper;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
@@ -140,15 +139,6 @@ public abstract class BaseConnectorIT {
     result.put(BigQuerySinkConfig.KEY_SOURCE_CONFIG, keySource());
 
     result.put(BigQuerySinkConfig.SANITIZE_TOPICS_CONFIG, "true");
-
-    String suffix = tableSuffix();
-    if (!suffix.isEmpty()) {
-      String escapedSuffix = suffix.replaceAll("\\\\", "\\\\\\\\").replaceAll("\\$", "\\\\\\$");
-      result.put("transforms", "addSuffix");
-      result.put("transforms.addSuffix.type", "org.apache.kafka.connect.transforms.RegexRouter");
-      result.put("transforms.addSuffix.regex", "(.*)");
-      result.put("transforms.addSuffix.replacement", "$1" + escapedSuffix);
-    }
 
     return result;
   }
@@ -337,8 +327,8 @@ public abstract class BaseConnectorIT {
     }
   }
 
-  protected String suffixedTable(String table) {
-    return table + tableSuffix();
+  protected String suffixedTableOrTopic(String tableOrTopic) {
+    return tableOrTopic + tableSuffix();
   }
 
   protected String sanitizedTable(String table) {
@@ -346,7 +336,7 @@ public abstract class BaseConnectorIT {
   }
 
   protected String suffixedAndSanitizedTable(String table) {
-    return sanitizedTable(suffixedTable(table));
+    return sanitizedTable(suffixedTableOrTopic(table));
   }
 
   private String readEnvVar(String var) {
