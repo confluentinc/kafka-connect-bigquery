@@ -638,6 +638,7 @@ public class BigQuerySchemaConverterTest {
   public void testSimpleRecursiveSchemaThrows() {
     final String fieldName = "RecursiveField";
 
+    // Construct Avro schema with recursion since we cannot directly construct Connect schema with cycle
     org.apache.avro.Schema recursiveAvroSchema = org.apache.avro.SchemaBuilder
         .record("RecursiveItem")
         .namespace("com.example")
@@ -646,6 +647,7 @@ public class BigQuerySchemaConverterTest {
         .type().unionOf().nullType().and().type("RecursiveItem").endUnion()
         .nullDefault()
         .endRecord();
+
     Schema connectSchema = new AvroData(100).toConnectSchema(recursiveAvroSchema);
     ConversionConnectException e = assertThrows(ConversionConnectException.class, () ->
         new BigQuerySchemaConverter(true).convertSchema(connectSchema));
@@ -656,6 +658,7 @@ public class BigQuerySchemaConverterTest {
   public void testComplexRecursiveSchemaThrows() {
     final String fieldName = "RecursiveField";
 
+    // Construct Avro schema with recursion since we cannot directly construct Connect schema with cycle
     org.apache.avro.Schema recursiveAvroSchema = org.apache.avro.SchemaBuilder
         .record("RecursiveItem")
         .namespace("com.example")
