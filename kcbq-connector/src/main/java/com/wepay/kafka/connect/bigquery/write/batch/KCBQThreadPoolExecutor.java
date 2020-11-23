@@ -92,10 +92,25 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
       execute(new CountDownRunnable(countDownLatch));
     }
     countDownLatch.await();
+    maybeThrowEncounteredErrors();
     if (encounteredErrors.size() > 0) {
       String errorString = createErrorString(encounteredErrors);
       throw new BigQueryConnectException("Some write threads encountered unrecoverable errors: "
                                          + errorString + "; See logs for more detail");
+    }
+  }
+
+  /**
+   * Immediately throw an exception if any unrecoverable errors were encountered by any of the write
+   * tasks.
+   *
+   * @throws BigQueryConnectException if any of the tasks failed.
+   */
+  public void maybeThrowEncounteredErrors() {
+    if (encounteredErrors.size() > 0) {
+      String errorString = createErrorString(encounteredErrors);
+      throw new BigQueryConnectException("Some write threads encountered unrecoverable errors: "
+          + errorString + "; See logs for more detail");
     }
   }
 

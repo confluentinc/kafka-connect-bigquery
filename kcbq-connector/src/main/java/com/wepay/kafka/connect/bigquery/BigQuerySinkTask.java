@@ -186,12 +186,10 @@ public class BigQuerySinkTask extends SinkTask {
 
   @Override
   public void put(Collection<SinkRecord> records) {
-    // check for non-retriable errors and fail the task if any.
-    // adding this because any Exception thrown in flush will be ignored by the framework, which
-    // causes the connector to retry inserting the same batch of records.
-    executor.maybeFail();
+    // Periodically poll for errors here instead of doing a stop-the-world check in flush()
+    executor.maybeThrowEncounteredErrors();
 
-    logger.info("Putting {} records in the sink.", records.size());
+    logger.debug("Putting {} records in the sink.", records.size());
 
     // create tableWriters
     Map<PartitionedTableId, TableWriterBuilder> tableWriterBuilders = new HashMap<>();
