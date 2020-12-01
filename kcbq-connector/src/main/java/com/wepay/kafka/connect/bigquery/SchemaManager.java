@@ -20,14 +20,7 @@
 package com.wepay.kafka.connect.bigquery;
 
 
-import com.google.cloud.bigquery.BigQuery;
-import com.google.cloud.bigquery.Field;
-import com.google.cloud.bigquery.LegacySQLTypeName;
-import com.google.cloud.bigquery.StandardTableDefinition;
-import com.google.cloud.bigquery.TableId;
-import com.google.cloud.bigquery.TableInfo;
-import com.google.cloud.bigquery.Clustering;
-import com.google.cloud.bigquery.TimePartitioning;
+import com.google.cloud.bigquery.*;
 import com.google.cloud.bigquery.TimePartitioning.Type;
 import com.wepay.kafka.connect.bigquery.api.KafkaSchemaRecordType;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
@@ -112,7 +105,7 @@ public class SchemaManager {
   TableInfo constructTableInfo(TableId table, Schema kafkaKeySchema, Schema kafkaValueSchema) {
     com.google.cloud.bigquery.Schema bigQuerySchema = getBigQuerySchema(kafkaKeySchema, kafkaValueSchema);
 
-    TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY);
+    TimePartitioning timePartitioning = getTimePartitioning(table);
     if (timestampPartitionFieldName.isPresent()) {
       timePartitioning = timePartitioning.toBuilder().setField(timestampPartitionFieldName.get()).build();
     }
@@ -152,6 +145,22 @@ public class SchemaManager {
           allFields.add(kafkaDataField);
       }
       return com.google.cloud.bigquery.Schema.of(allFields);
+  }
+
+  private TimePartitioning getTimePartitioning(TableId table) {
+    TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY); // DEFAULT is DAY
+    Table bigQueryTable = bigQuery.getTable(table);
+
+    if (bigQueryTable != null) {
+      StandardTableDefinition standardTableDefinition = ((StandardTableDefinition) bigQueryTable.getDefinition());
+      if (standardTableDefinition != null && standardTableDefinition.getTimePartitioning() != null) {
+        timePartitioning = standardTableDefinition.getTimePartitioning();
+      }
+    }
+
+    logger.debug("TimePartitioning for getTimePartitioning(TableId) is {}.", timePartitioning.getType().name());
+
+    return timePartitioning;
   }
 
 }
