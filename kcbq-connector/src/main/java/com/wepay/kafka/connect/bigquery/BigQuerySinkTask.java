@@ -19,9 +19,8 @@
 
 package com.wepay.kafka.connect.bigquery;
 
-import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.*;
 import com.google.cloud.bigquery.InsertAllRequest.RowToInsert;
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
@@ -146,15 +145,24 @@ public class BigQuerySinkTask extends SinkTask {
 
     PartitionedTableId.Builder builder = new PartitionedTableId.Builder(baseTableId);
     if (usePartitionDecorator) {
+      Table bigQueryTable = getBigQuery().getTable(baseTableId);
+      TimePartitioning timePartitioning = TimePartitioning.of(TimePartitioning.Type.DAY);
+      if (bigQueryTable != null) {
+        StandardTableDefinition standardTableDefinition = bigQueryTable.getDefinition();
+        if (standardTableDefinition != null && standardTableDefinition.getTimePartitioning() != null) {
+          timePartitioning = standardTableDefinition.getTimePartitioning();
+          logger.debug("TimePartitioning for getRecordTable(SinkRecord) is {}.", timePartitioning.getType().name());
+        }
+      }
 
       if (useMessageTimeDatePartitioning) {
         if (record.timestampType() == TimestampType.NO_TIMESTAMP_TYPE) {
           throw new ConnectException(
               "Message has no timestamp type, cannot use message timestamp to partition.");
         }
-        builder.setDayPartition(record.timestamp());
+        setTimePartitioningForTimestamp(builder, timePartitioning, record.timestamp());
       } else {
-        builder.setDayPartitionForNow();
+        setTimePartitioning(builder, timePartitioning);
       }
     }
 
@@ -182,6 +190,41 @@ public class BigQuerySinkTask extends SinkTask {
         record.topic(),
         record.kafkaPartition(),
         record.kafkaOffset());
+  }
+
+  private void setTimePartitioningForTimestamp(PartitionedTableId.Builder builder, TimePartitioning timePartitioning,
+                                               Long timestamp) {
+    if (timePartitioning != null) {
+      switch (timePartitioning.getType()) {
+        case MONTH:
+          builder.setMonthPartition(timestamp);
+          break;
+        case YEAR:
+          builder.setYearPartition(timestamp);
+          break;
+        default:
+          builder.setDayPartition(timestamp);
+      }
+    } else {
+      builder.setDayPartition(timestamp);
+    }
+  }
+
+  private void setTimePartitioning(PartitionedTableId.Builder builder, TimePartitioning timePartitioning) {
+    if (timePartitioning != null) {
+      switch (timePartitioning.getType()) {
+        case MONTH:
+          builder.setMonthPartitionForNow();
+          break;
+        case YEAR:
+          builder.setYearPartitionForNow();
+          break;
+        default:
+          builder.setDayPartitionForNow();
+      }
+    } else {
+      builder.setDayPartitionForNow();
+    }
   }
 
   @Override
