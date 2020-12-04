@@ -20,15 +20,7 @@
 package com.wepay.kafka.connect.bigquery;
 
 
-import com.google.cloud.bigquery.BigQuery;
-import com.google.cloud.bigquery.BigQueryException;
-import com.google.cloud.bigquery.Clustering;
-import com.google.cloud.bigquery.Field;
-import com.google.cloud.bigquery.LegacySQLTypeName;
-import com.google.cloud.bigquery.StandardTableDefinition;
-import com.google.cloud.bigquery.TableId;
-import com.google.cloud.bigquery.TableInfo;
-import com.google.cloud.bigquery.TimePartitioning;
+import com.google.cloud.bigquery.*;
 import com.google.cloud.bigquery.TimePartitioning.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
@@ -446,19 +438,19 @@ public class SchemaManager {
     if (intermediateTables) {
       // Shameful hack: make the table ingestion time-partitioned here so that the _PARTITIONTIME
       // pseudocolumn can be queried to filter out rows that are still in the streaming buffer
-      builder.setTimePartitioning(TimePartitioning.of(Type.DAY));
+      setTimePartitioningForDefinition(table, builder);
     } else {
-      TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY);
+      TimePartitioning timePartitioning = setTimePartitioningForDefinition(table, builder);
       if (timestampPartitionFieldName.isPresent()) {
         timePartitioning = timePartitioning.toBuilder().setField(timestampPartitionFieldName.get()).build();
       }
-  
+
       builder.setTimePartitioning(timePartitioning);
 
       if (timestampPartitionFieldName.isPresent() && clusteringFieldName.isPresent()) {
         Clustering clustering = Clustering.newBuilder()
-            .setFields(clusteringFieldName.get())
-            .build();
+                .setFields(clusteringFieldName.get())
+                .build();
         builder.setClustering(clustering);
       }
     }
@@ -473,6 +465,21 @@ public class SchemaManager {
     }
     
     return tableInfoBuilder.build();
+  }
+
+  private TimePartitioning setTimePartitioningForDefinition(TableId table, StandardTableDefinition.Builder builder) {
+    TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY); // DEFAULT is DAY
+    Table bigQueryTable = bigQuery.getTable(table);
+
+    if (bigQueryTable != null) {
+      StandardTableDefinition standardTableDefinition = ((StandardTableDefinition) bigQueryTable.getDefinition());
+      if (standardTableDefinition != null && standardTableDefinition.getTimePartitioning() != null) {
+        timePartitioning = standardTableDefinition.getTimePartitioning();
+      }
+    }
+    builder.setTimePartitioning(TimePartitioning.of(timePartitioning.getType()));
+
+    return timePartitioning;
   }
 
   private com.google.cloud.bigquery.Schema getBigQuerySchema(Schema kafkaKeySchema, Schema kafkaValueSchema) {
