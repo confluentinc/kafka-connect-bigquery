@@ -20,6 +20,7 @@
 package com.wepay.kafka.connect.bigquery;
 
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.google.cloud.bigquery.*;
 import com.google.cloud.bigquery.TimePartitioning.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -64,6 +65,8 @@ public class SchemaManager {
   private final ConcurrentMap<TableId, Object> tableUpdateLocks;
   private final ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache;
 
+  private Cache<String, Table> cache;
+
   /**
    * @param schemaRetriever Used to determine the Kafka Connect Schema that should be used for a
    *                        given table.
@@ -81,6 +84,7 @@ public class SchemaManager {
    *                                    If set to null, ingestion time-based partitioning will be
    *                                    used instead.
    * @param clusteringFieldName
+   * @Param cache The cache containing BigQuery tables that have been queried and retrieved successfully.
    */
   public SchemaManager(
       SchemaRetriever schemaRetriever,
@@ -92,7 +96,8 @@ public class SchemaManager {
       Optional<String> kafkaKeyFieldName,
       Optional<String> kafkaDataFieldName,
       Optional<String> timestampPartitionFieldName,
-      Optional<List<String>> clusteringFieldName) {
+      Optional<List<String>> clusteringFieldName,
+      Cache<String, Table> cache) {
     this(
         schemaRetriever,
         schemaConverter,
@@ -107,7 +112,8 @@ public class SchemaManager {
         false,
         new ConcurrentHashMap<>(),
         new ConcurrentHashMap<>(),
-        new ConcurrentHashMap<>());
+        new ConcurrentHashMap<>(),
+        cache);
   }
 
   private SchemaManager(
@@ -124,7 +130,8 @@ public class SchemaManager {
       boolean intermediateTables,
       ConcurrentMap<TableId, Object> tableCreateLocks,
       ConcurrentMap<TableId, Object> tableUpdateLocks,
-      ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache) {
+      ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache,
+      Cache<String, Table> cache) {
     this.schemaRetriever = schemaRetriever;
     this.schemaConverter = schemaConverter;
     this.bigQuery = bigQuery;
@@ -139,6 +146,7 @@ public class SchemaManager {
     this.tableCreateLocks = tableCreateLocks;
     this.tableUpdateLocks = tableUpdateLocks;
     this.schemaCache = schemaCache;
+    this.cache = cache;
   }
 
   public SchemaManager forIntermediateTables() {
@@ -156,7 +164,8 @@ public class SchemaManager {
         true,
         tableCreateLocks,
         tableUpdateLocks,
-        schemaCache
+        schemaCache,
+        cache
     );
   }
 
@@ -446,11 +455,10 @@ public class SchemaManager {
       }
 
       builder.setTimePartitioning(timePartitioning);
-
       if (timestampPartitionFieldName.isPresent() && clusteringFieldName.isPresent()) {
         Clustering clustering = Clustering.newBuilder()
-                .setFields(clusteringFieldName.get())
-                .build();
+              .setFields(clusteringFieldName.get())
+              .build();
         builder.setClustering(clustering);
       }
     }
@@ -467,9 +475,9 @@ public class SchemaManager {
     return tableInfoBuilder.build();
   }
 
-  private TimePartitioning setTimePartitioningForDefinition(TableId table, StandardTableDefinition.Builder builder) {
+  private TimePartitioning setTimePartitioningForDefinition(TableId tableId, StandardTableDefinition.Builder builder) {
     TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY); // DEFAULT is DAY
-    Table bigQueryTable = bigQuery.getTable(table);
+    Table bigQueryTable = retrieveCachedTable(tableId);
 
     if (bigQueryTable != null) {
       StandardTableDefinition standardTableDefinition = ((StandardTableDefinition) bigQueryTable.getDefinition());
@@ -576,4 +584,17 @@ public class SchemaManager {
   private Object lock(ConcurrentMap<TableId, Object> locks, TableId table) {
     return locks.computeIfAbsent(table, t -> new Object());
   }
+
+  private Table retrieveCachedTable(TableId tableId) {
+    String key = tableId.getProject() + "." + tableId.getDataset() + "." + tableId.getTable();
+    Table table = cache.getIfPresent(key);
+
+    if (table == null){
+      table = bigQuery.getTable(tableId);
+      cache.put(key, table);
+    }
+
+    return table;
+  }
+
 }

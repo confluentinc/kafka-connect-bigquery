@@ -19,8 +19,14 @@
 
 package com.wepay.kafka.connect.bigquery;
 
-import com.google.cloud.bigquery.*;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.InsertAllRequest.RowToInsert;
+import com.google.cloud.bigquery.StandardTableDefinition;
+import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.Table;
+import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
@@ -106,6 +112,8 @@ public class BigQuerySinkTask extends SinkTask {
 
   private final UUID uuid = UUID.randomUUID();
   private ScheduledExecutorService loadExecutor;
+
+  private Cache<String, Table> cache;
 
   /**
    * Create a new BigquerySinkTask.
@@ -197,7 +205,7 @@ public class BigQuerySinkTask extends SinkTask {
     PartitionedTableId.Builder builder = new PartitionedTableId.Builder(baseTableId);
     if (usePartitionDecorator) {
 
-      Table bigQueryTable = getBigQuery().getTable(baseTableId);
+      Table bigQueryTable = retrieveCachedTable(baseTableId);
       TimePartitioning timePartitioning = null;
       if (bigQueryTable != null) {
         StandardTableDefinition standardTableDefinition = bigQueryTable.getDefinition();
@@ -335,6 +343,18 @@ public class BigQuerySinkTask extends SinkTask {
     }
   }
 
+  private Table retrieveCachedTable(TableId tableId) {
+    String key = tableId.getProject() + "." + tableId.getDataset() + "." + tableId.getTable();
+    Table table = cache.getIfPresent(key);
+
+    if (table == null){
+      table = getBigQuery().getTable(tableId);
+      cache.put(key, table);
+    }
+
+    return table;
+  }
+
   private BigQuery newBigQuery() {
     String projectName = config.getString(config.PROJECT_CONFIG);
     String keyFile = config.getKeyFile();
@@ -363,7 +383,7 @@ public class BigQuerySinkTask extends SinkTask {
     return new SchemaManager(schemaRetriever, schemaConverter, getBigQuery(),
                              allowNewBQFields, allowReqFieldRelaxation, allowSchemaUnionization,
                              kafkaKeyFieldName, kafkaDataFieldName,
-                             timestampPartitionFieldName, clusteringFieldName);
+                             timestampPartitionFieldName, clusteringFieldName, cache);
   }
 
   private BigQueryWriter getBigQueryWriter() {
@@ -422,6 +442,19 @@ public class BigQuerySinkTask extends SinkTask {
     return new SinkRecordConverter(config, mergeBatches, mergeQueries);
   }
 
+  private Cache getCache(BigQuerySinkTaskConfig config) {
+    if (cache != null) {
+      return cache;
+    }
+
+    cache = Caffeine.newBuilder()
+            .expireAfterWrite(config.getCacheExpiry().get(), TimeUnit.HOURS)
+            .maximumSize(config.getCacheSize().get())
+            .build();
+
+    return cache;
+  }
+
   @Override
   public void start(Map<String, String> properties) {
     logger.trace("task.start()");
@@ -453,6 +486,7 @@ public class BigQuerySinkTask extends SinkTask {
       mergeBatches = new MergeBatches(intermediateTableSuffix);
     }
 
+    cache = getCache(config);
     bigQueryWriter = getBigQueryWriter();
     gcsToBQWriter = getGcsWriter();
     executor = new KCBQThreadPoolExecutor(config, new LinkedBlockingQueue<>());
