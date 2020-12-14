@@ -21,6 +21,7 @@ package com.wepay.kafka.connect.bigquery.config;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.wepay.kafka.connect.bigquery.SinkTaskPropertiesFactory;
@@ -173,4 +174,45 @@ public class BigQuerySinkTaskConfigTest {
 
     new BigQuerySinkTaskConfig(badConfigProperties);
   }
+
+  @Test
+  public void testEmptyCacheSize() {
+    Map<String, String> configProperties = propertiesFactory.getProperties();
+    BigQuerySinkTaskConfig testConfig = new BigQuerySinkTaskConfig(configProperties);
+    Optional<Long> testCacheSize = testConfig.getCacheSize();
+    assertTrue(testCacheSize.isPresent());
+    assertEquals(100L, testCacheSize.get().longValue());
+  }
+
+  @Test
+  public void testSetCacheSize() {
+    Map<String, String> configProperties = propertiesFactory.getProperties();
+    configProperties.put(BigQuerySinkTaskConfig.TASK_CACHE_SIZE_CONFIG, "2500");
+    BigQuerySinkTaskConfig testConfig = new BigQuerySinkTaskConfig(configProperties);
+    Optional<Long> testCacheSize = testConfig.getCacheSize();
+    assertTrue(testCacheSize.isPresent());
+    assertNotEquals(100L, testCacheSize.get().longValue());
+    assertEquals(2500L, testCacheSize.get().longValue());
+  }
+
+  @Test
+  public void testEmptyCacheExpiry() {
+    Map<String, String> configProperties = propertiesFactory.getProperties();
+    BigQuerySinkTaskConfig testConfig = new BigQuerySinkTaskConfig(configProperties);
+    Optional<Long> testCacheExpiry = testConfig.getCacheExpiry();
+    assertTrue(testCacheExpiry.isPresent());
+    assertEquals(8L, testCacheExpiry.get().longValue());
+  }
+
+  @Test
+  public void testSetCacheExpiry() {
+    Map<String, String> configProperties = propertiesFactory.getProperties();
+    configProperties.put(BigQuerySinkTaskConfig.TASK_CACHE_EXPIRE_CONFIG, "24");
+    BigQuerySinkTaskConfig testConfig = new BigQuerySinkTaskConfig(configProperties);
+    Optional<Long> testCacheExpiry = testConfig.getCacheExpiry();
+    assertTrue(testCacheExpiry.isPresent());
+    assertNotEquals(8L, testCacheExpiry.get().longValue());
+    assertEquals(24L, testCacheExpiry.get().longValue());
+  }
+
 }
