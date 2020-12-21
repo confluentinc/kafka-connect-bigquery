@@ -60,6 +60,7 @@
         <surefire.plugin.version>3.0.0-M4</surefire.plugin.version>
 
         <main.dir>${project.basedir}</main.dir>
+        <!--suppress UnresolvedMavenProperty -->
         <skip.unit.tests>${maven.test.skip}</skip.unit.tests>
     </properties>
 
