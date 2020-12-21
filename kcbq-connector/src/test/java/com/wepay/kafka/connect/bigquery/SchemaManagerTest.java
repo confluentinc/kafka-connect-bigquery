@@ -63,7 +63,7 @@ public class SchemaManagerTest {
   private BigQuery mockBigQuery;
   private Schema mockKafkaSchema;
   private com.google.cloud.bigquery.Schema fakeBigQuerySchema;
-  private Cache<String, Table> cache;
+  private Cache<String, Table> mockCache;
 
   @Before
   public void before() {
@@ -74,6 +74,7 @@ public class SchemaManagerTest {
     mockKafkaSchema = mock(Schema.class);
     fakeBigQuerySchema = com.google.cloud.bigquery.Schema.of(
         Field.of("mock field", LegacySQLTypeName.STRING));
+    mockCache = mock(Cache.class);
   }
 
   @Test
@@ -82,7 +83,7 @@ public class SchemaManagerTest {
     Optional<String> kafkaDataFieldName = Optional.of("kafkaData");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
         mockBigQuery, false, false, false, kafkaKeyFieldName,
-        kafkaDataFieldName, Optional.empty(), Optional.empty(), cache);
+        kafkaDataFieldName, Optional.empty(), Optional.empty(), mockCache);
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
@@ -101,7 +102,7 @@ public class SchemaManagerTest {
     Optional<String> testField = Optional.of("testField");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
         mockBigQuery, false, false, false, Optional.empty(),
-        Optional.empty(), testField, Optional.empty(), cache);
+        Optional.empty(), testField, Optional.empty(), mockCache);
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
@@ -122,7 +123,7 @@ public class SchemaManagerTest {
     Optional<List<String>> testField = Optional.of(Arrays.asList("column1", "column2"));
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
         mockBigQuery, false, false, false, Optional.empty(),
-        Optional.empty(), timestampPartitionFieldName, testField, cache);
+        Optional.empty(), timestampPartitionFieldName, testField, mockCache);
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
@@ -328,7 +329,7 @@ public class SchemaManagerTest {
       boolean allowNewFields, boolean allowFieldRelaxation, boolean allowUnionization) {
     return new SchemaManager(new IdentitySchemaRetriever(), mockSchemaConverter, mockBigQuery,
         allowNewFields, allowFieldRelaxation, allowUnionization,
-        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), cache);
+        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), mockCache);
   }
 
   private void testGetAndValidateProposedSchema(
