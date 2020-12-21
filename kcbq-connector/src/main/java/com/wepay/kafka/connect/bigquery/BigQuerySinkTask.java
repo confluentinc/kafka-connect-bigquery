@@ -353,11 +353,12 @@ public class BigQuerySinkTask extends SinkTask {
 
   private Table retrieveCachedTable(TableId tableId) {
     String key = tableId.getProject() + "." + tableId.getDataset() + "." + tableId.getTable();
+    Cache<String, Table> cache = getCache(config);
     Table table = cache.getIfPresent(key);
 
     if (table == null){
       table = getBigQuery().getTable(tableId);
-      cache.put(key, table);
+      if (table != null) cache.put(key, table);
     }
 
     return table;
@@ -451,14 +452,12 @@ public class BigQuerySinkTask extends SinkTask {
   }
 
   private Cache getCache(BigQuerySinkTaskConfig config) {
-    if (cache != null) {
-      return cache;
+    if (cache == null) {
+      cache = Caffeine.newBuilder()
+              .expireAfterWrite(config.getCacheExpiry().get(), TimeUnit.HOURS)
+              .maximumSize(config.getCacheSize().get())
+              .build();
     }
-
-    cache = Caffeine.newBuilder()
-            .expireAfterWrite(config.getCacheExpiry().get(), TimeUnit.HOURS)
-            .maximumSize(config.getCacheSize().get())
-            .build();
 
     return cache;
   }
