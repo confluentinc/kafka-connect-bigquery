@@ -312,6 +312,9 @@ public class BigQuerySinkTask extends SinkTask {
                                                Long timestamp) {
     if (timePartitioning != null) {
       switch (timePartitioning.getType()) {
+        case HOUR:
+          builder.setHourPartition(timestamp);
+          break;
         case MONTH:
           builder.setMonthPartition(timestamp);
           break;
@@ -329,6 +332,9 @@ public class BigQuerySinkTask extends SinkTask {
   private void setTimePartitioning(PartitionedTableId.Builder builder, TimePartitioning timePartitioning) {
     if (timePartitioning != null) {
       switch (timePartitioning.getType()) {
+        case HOUR:
+          builder.setHourPartitionNow();
+          break;
         case MONTH:
           builder.setMonthPartitionForNow();
           break;

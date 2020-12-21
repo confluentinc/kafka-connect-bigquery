@@ -19,9 +19,17 @@
 
 package com.wepay.kafka.connect.bigquery;
 
-
 import com.github.benmanes.caffeine.cache.Cache;
-import com.google.cloud.bigquery.*;
+import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.Clustering;
+import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.LegacySQLTypeName;
+import com.google.cloud.bigquery.StandardTableDefinition;
+import com.google.cloud.bigquery.Table;
+import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.TableInfo;
+import com.google.cloud.bigquery.TimePartitioning;
 import com.google.cloud.bigquery.TimePartitioning.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
@@ -447,9 +455,9 @@ public class SchemaManager {
     if (intermediateTables) {
       // Shameful hack: make the table ingestion time-partitioned here so that the _PARTITIONTIME
       // pseudocolumn can be queried to filter out rows that are still in the streaming buffer
-      setTimePartitioningForDefinition(table, builder);
+      builder.setTimePartitioning(TimePartitioning.of(Type.DAY));
     } else {
-      TimePartitioning timePartitioning = setTimePartitioningForDefinition(table, builder);
+      TimePartitioning timePartitioning = getTimePartitioningForDefinition(table);
       if (timestampPartitionFieldName.isPresent()) {
         timePartitioning = timePartitioning.toBuilder().setField(timestampPartitionFieldName.get()).build();
       }
@@ -475,7 +483,7 @@ public class SchemaManager {
     return tableInfoBuilder.build();
   }
 
-  private TimePartitioning setTimePartitioningForDefinition(TableId tableId, StandardTableDefinition.Builder builder) {
+  private TimePartitioning getTimePartitioningForDefinition(TableId tableId) {
     TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY); // DEFAULT is DAY
     Table bigQueryTable = retrieveCachedTable(tableId);
 
@@ -485,7 +493,6 @@ public class SchemaManager {
         timePartitioning = standardTableDefinition.getTimePartitioning();
       }
     }
-    builder.setTimePartitioning(TimePartitioning.of(timePartitioning.getType()));
 
     return timePartitioning;
   }
