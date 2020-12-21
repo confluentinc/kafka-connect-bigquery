@@ -598,7 +598,7 @@ public class SchemaManager {
 
     if (table == null){
       table = bigQuery.getTable(tableId);
-      cache.put(key, table);
+      if (table != null) cache.put(key, table);
     }
 
     return table;
