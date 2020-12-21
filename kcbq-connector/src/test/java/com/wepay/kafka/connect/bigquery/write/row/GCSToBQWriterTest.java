@@ -19,6 +19,7 @@
 
 package com.wepay.kafka.connect.bigquery.write.row;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.storage.Blob;
@@ -73,8 +74,9 @@ public class GCSToBQWriterTest {
 
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
+    Cache cache = mock(Cache.class);
 
-    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager);
+    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager, cache);
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
     testTask.put(
@@ -98,12 +100,13 @@ public class GCSToBQWriterTest {
 
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
+    Cache cache = mock(Cache.class);
 
     when(storage.create((BlobInfo)anyObject(), (byte[])anyObject()))
         .thenThrow(new StorageException(500, "internal server error")) // throw first time
         .thenReturn(null); // return second time. (we don't care about the result.)
 
-    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager);
+    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager, cache);
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
     testTask.put(
@@ -127,11 +130,12 @@ public class GCSToBQWriterTest {
 
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
+    Cache cache = mock(Cache.class);
 
     when(storage.create((BlobInfo)anyObject(), (byte[])anyObject()))
         .thenThrow(new StorageException(500, "internal server error"));
 
-    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager);
+    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager, cache);
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
     testTask.put(
