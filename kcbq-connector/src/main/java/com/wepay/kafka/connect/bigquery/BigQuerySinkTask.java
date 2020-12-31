@@ -19,8 +19,6 @@
 
 package com.wepay.kafka.connect.bigquery;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.InsertAllRequest.RowToInsert;
 import com.google.cloud.bigquery.StandardTableDefinition;
@@ -36,7 +34,6 @@ import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
 import com.wepay.kafka.connect.bigquery.utils.SinkRecordConverter;
-import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.exception.SinkConfigConnectException;
 import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
@@ -113,7 +110,7 @@ public class BigQuerySinkTask extends SinkTask {
   private final UUID uuid = UUID.randomUUID();
   private ScheduledExecutorService loadExecutor;
 
-  private Cache<String, Table> cache;
+  private Map<String, Table> cache;
 
   /**
    * Create a new BigquerySinkTask.
@@ -135,7 +132,7 @@ public class BigQuerySinkTask extends SinkTask {
    * @see BigQuerySinkTask#BigQuerySinkTask()
    */
   public BigQuerySinkTask(BigQuery testBigQuery, SchemaRetriever schemaRetriever, Storage testGcs,
-                          SchemaManager testSchemaManager, Cache testCache) {
+                          SchemaManager testSchemaManager, Map testCache) {
     this.testBigQuery = testBigQuery;
     this.schemaRetriever = schemaRetriever;
     this.testGcs = testGcs;
@@ -353,8 +350,8 @@ public class BigQuerySinkTask extends SinkTask {
 
   private Table retrieveCachedTable(TableId tableId) {
     String key = tableId.getProject() + "." + tableId.getDataset() + "." + tableId.getTable();
-    Cache<String, Table> cache = getCache(config);
-    Table table = cache.getIfPresent(key);
+    Map<String, Table> cache = getCache();
+    Table table = cache.get(key);
 
     if (table == null){
       table = getBigQuery().getTable(tableId);
@@ -392,7 +389,7 @@ public class BigQuerySinkTask extends SinkTask {
     return new SchemaManager(schemaRetriever, schemaConverter, getBigQuery(),
                              allowNewBQFields, allowReqFieldRelaxation, allowSchemaUnionization,
                              kafkaKeyFieldName, kafkaDataFieldName,
-                             timestampPartitionFieldName, clusteringFieldName, cache);
+                             timestampPartitionFieldName, clusteringFieldName, getCache());
   }
 
   private BigQueryWriter getBigQueryWriter() {
@@ -451,12 +448,9 @@ public class BigQuerySinkTask extends SinkTask {
     return new SinkRecordConverter(config, mergeBatches, mergeQueries);
   }
 
-  private Cache getCache(BigQuerySinkTaskConfig config) {
+  private synchronized Map getCache() {
     if (cache == null) {
-      cache = Caffeine.newBuilder()
-              .expireAfterWrite(config.getCacheExpiry().get(), TimeUnit.HOURS)
-              .maximumSize(config.getCacheSize().get())
-              .build();
+      cache = new HashMap<>();
     }
 
     return cache;
@@ -493,7 +487,7 @@ public class BigQuerySinkTask extends SinkTask {
       mergeBatches = new MergeBatches(intermediateTableSuffix);
     }
 
-    cache = getCache(config);
+    cache = getCache();
     bigQueryWriter = getBigQueryWriter();
     gcsToBQWriter = getGcsWriter();
     executor = new KCBQThreadPoolExecutor(config, new LinkedBlockingQueue<>());

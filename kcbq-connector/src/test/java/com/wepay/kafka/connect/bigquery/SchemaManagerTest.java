@@ -22,7 +22,6 @@ package com.wepay.kafka.connect.bigquery;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.LegacySQLTypeName;
@@ -48,6 +47,7 @@ import org.mockito.stubbing.OngoingStubbing;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -63,7 +63,7 @@ public class SchemaManagerTest {
   private BigQuery mockBigQuery;
   private Schema mockKafkaSchema;
   private com.google.cloud.bigquery.Schema fakeBigQuerySchema;
-  private Cache<String, Table> mockCache;
+  private Map<String, Table> mockCache;
 
   @Before
   public void before() {
@@ -74,7 +74,7 @@ public class SchemaManagerTest {
     mockKafkaSchema = mock(Schema.class);
     fakeBigQuerySchema = com.google.cloud.bigquery.Schema.of(
         Field.of("mock field", LegacySQLTypeName.STRING));
-    mockCache = mock(Cache.class);
+    mockCache = mock(Map.class);
   }
 
   @Test

@@ -19,7 +19,6 @@
 
 package com.wepay.kafka.connect.bigquery;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Clustering;
@@ -43,11 +42,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -73,7 +68,7 @@ public class SchemaManager {
   private final ConcurrentMap<TableId, Object> tableUpdateLocks;
   private final ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache;
 
-  private Cache<String, Table> cache;
+  private Map<String, Table> cache;
 
   /**
    * @param schemaRetriever Used to determine the Kafka Connect Schema that should be used for a
@@ -105,7 +100,7 @@ public class SchemaManager {
       Optional<String> kafkaDataFieldName,
       Optional<String> timestampPartitionFieldName,
       Optional<List<String>> clusteringFieldName,
-      Cache<String, Table> cache) {
+      Map<String, Table> cache) {
     this(
         schemaRetriever,
         schemaConverter,
@@ -139,7 +134,7 @@ public class SchemaManager {
       ConcurrentMap<TableId, Object> tableCreateLocks,
       ConcurrentMap<TableId, Object> tableUpdateLocks,
       ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache,
-      Cache<String, Table> cache) {
+      Map<String, Table> cache) {
     this.schemaRetriever = schemaRetriever;
     this.schemaConverter = schemaConverter;
     this.bigQuery = bigQuery;
@@ -592,9 +587,18 @@ public class SchemaManager {
     return locks.computeIfAbsent(table, t -> new Object());
   }
 
+  private synchronized Map getCache() {
+    if (cache == null) {
+      cache = new HashMap<>();
+    }
+
+    return cache;
+  }
+
   private Table retrieveCachedTable(TableId tableId) {
     String key = tableId.getProject() + "." + tableId.getDataset() + "." + tableId.getTable();
-    Table table = cache.getIfPresent(key);
+    Map<String, Table> cache = getCache();
+    Table table = cache.get(key);
 
     if (table == null){
       table = bigQuery.getTable(tableId);

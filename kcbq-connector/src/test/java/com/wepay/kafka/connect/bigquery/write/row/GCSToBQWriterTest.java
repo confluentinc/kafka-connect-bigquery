@@ -19,10 +19,8 @@
 
 package com.wepay.kafka.connect.bigquery.write.row;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.Table;
-import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageException;
@@ -74,7 +72,7 @@ public class GCSToBQWriterTest {
 
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
-    Cache cache = mock(Cache.class);
+    Map cache = mock(Map.class);
 
     BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager, cache);
     testTask.initialize(sinkTaskContext);
@@ -100,7 +98,7 @@ public class GCSToBQWriterTest {
 
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
-    Cache cache = mock(Cache.class);
+    Map cache = mock(Map.class);
 
     when(storage.create((BlobInfo)anyObject(), (byte[])anyObject()))
         .thenThrow(new StorageException(500, "internal server error")) // throw first time
@@ -130,7 +128,7 @@ public class GCSToBQWriterTest {
 
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
-    Cache cache = mock(Cache.class);
+    Map cache = mock(Map.class);
 
     when(storage.create((BlobInfo)anyObject(), (byte[])anyObject()))
         .thenThrow(new StorageException(500, "internal server error"));

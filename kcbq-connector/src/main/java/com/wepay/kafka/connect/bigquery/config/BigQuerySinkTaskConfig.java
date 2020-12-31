@@ -125,23 +125,6 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
   public static final ConfigDef.Importance TASK_ID_IMPORTANCE = ConfigDef.Importance.LOW;
   private static final String TASK_ID_DOC =                     "A unique for each task created by the connector";
 
-  public static final String TASK_CACHE_SIZE_CONFIG = "taskCacheSize";
-  public static final ConfigDef.Type TASK_CACHE_SIZE_TYPE = ConfigDef.Type.LONG;
-  public static final Long TASK_CACHE_SIZE_DEFAULT = 100L;
-  public static final ConfigDef.Importance TASK_CACHE_SIZE_IMPORTANCE = ConfigDef.Importance.LOW;
-  public static final String TASK_CACHE_SIZE_DOC =
-          "The BigQuery table cache size to reduce calls to BigQuery when retrieving the"
-              + " time partitioning for each table. The default size is 100 table entries.";
-
-  public static final String TASK_CACHE_EXPIRE_CONFIG = "taskCacheExpire";
-  public static final ConfigDef.Type TASK_CACHE_EXPIRE_TYPE = ConfigDef.Type.LONG;
-  public static final Long TASK_CACHE_EXPIRE_DEFAULT = 8L;
-  public static final ConfigDef.Importance TASK_CACHE_EXPIRE_IMPORTANCE = ConfigDef.Importance.LOW;
-  public static final String TASK_CACHE_EXPIRE_DOC =
-          "The length of time in hours for which per table which is stored in the cache."
-                  + " The default time is 8 hours, each table cache is reset when a"
-                  + " write occurs against it.";
-
   /**
    * Return a ConfigDef object used to define this config's fields.
    *
@@ -206,18 +189,6 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
             TASK_ID_TYPE,
             TASK_ID_IMPORTANCE,
             TASK_ID_DOC
-        ).define(
-            TASK_CACHE_SIZE_CONFIG,
-            TASK_CACHE_SIZE_TYPE,
-            TASK_CACHE_SIZE_DEFAULT,
-            TASK_CACHE_SIZE_IMPORTANCE,
-            TASK_CACHE_SIZE_DOC
-        ).define(
-            TASK_CACHE_EXPIRE_CONFIG,
-            TASK_CACHE_EXPIRE_TYPE,
-            TASK_CACHE_EXPIRE_DEFAULT,
-            TASK_CACHE_EXPIRE_IMPORTANCE,
-            TASK_CACHE_EXPIRE_DOC
         );
   }
 
@@ -253,22 +224,6 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
    */
   public Optional<List<String>> getClusteringPartitionFieldName() {
     return Optional.ofNullable(getList(BIGQUERY_CLUSTERING_FIELD_NAMES_CONFIG));
-  }
-
-  /**
-   * Returns the table cache size.
-   * @return Maximum number of tables that can be stored in the cache.
-   */
-  public Optional<Long> getCacheSize() {
-    return Optional.ofNullable(getLong(TASK_CACHE_SIZE_CONFIG));
-  }
-
-  /**
-   * Returns the table cache expiry length.
-   * @return Length of time in hours for which a table is stored in the cache.
-   */
-  public Optional<Long> getCacheExpiry() {
-    return Optional.ofNullable(getLong(TASK_CACHE_EXPIRE_CONFIG));
   }
 
   /**

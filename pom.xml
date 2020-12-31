@@ -169,11 +169,6 @@
                 <artifactId>debezium-core</artifactId>
                 <version>${debezium.version}</version>
             </dependency>
-            <dependency>
-                <groupId>com.github.ben-manes.caffeine</groupId>
-                <artifactId>caffeine</artifactId>
-                <version>${caffeine.version}</version>
-            </dependency>
 
             <!--
                 Debezium, Google, and Kafka all draw in different versions; pin to a single version

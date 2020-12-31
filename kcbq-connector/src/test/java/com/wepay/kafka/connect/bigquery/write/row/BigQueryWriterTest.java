@@ -27,7 +27,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryError;
 import com.google.cloud.bigquery.BigQueryException;
@@ -98,7 +97,7 @@ public class BigQueryWriterTest {
     SchemaManager schemaManager = mock(SchemaManager.class);
 
     Storage storage = mock(Storage.class);
-    Cache cache = mock(Cache.class);
+    Map cache = mock(Map.class);
 
     BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager, cache);
     testTask.initialize(sinkTaskContext);
@@ -134,7 +133,7 @@ public class BigQueryWriterTest {
     Storage storage = mock(Storage.class);
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
-    Cache<String, Table> cache = mock(Cache.class);
+    Map<String, Table> cache = mock(Map.class);
 
     BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager, cache);
     testTask.initialize(sinkTaskContext);
@@ -172,7 +171,7 @@ public class BigQueryWriterTest {
     Storage storage = mock(Storage.class);
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
-    Cache cache = mock(Cache.class);
+    Map cache = mock(Map.class);
 
     BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager, cache);
     testTask.initialize(sinkTaskContext);
@@ -223,7 +222,7 @@ public class BigQueryWriterTest {
 
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
-    Cache cache = mock(Cache.class);
+    Map cache = mock(Map.class);
     Storage storage = mock(Storage.class);
 
     BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager, cache);
@@ -278,7 +277,7 @@ public class BigQueryWriterTest {
 
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
-    Cache cache = mock(Cache.class);
+    Map cache = mock(Map.class);
     Storage storage = mock(Storage.class);
 
     BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager, cache);

@@ -67,10 +67,6 @@
             <groupId>io.debezium</groupId>
             <artifactId>debezium-core</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.github.ben-manes.caffeine</groupId>
-            <artifactId>caffeine</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>com.wepay.kcbq</groupId>
