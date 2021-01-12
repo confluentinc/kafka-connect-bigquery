@@ -457,7 +457,7 @@ public class SchemaManager {
       // pseudocolumn can be queried to filter out rows that are still in the streaming buffer
       builder.setTimePartitioning(TimePartitioning.of(Type.DAY));
     } else {
-      TimePartitioning timePartitioning = getTimePartitioningForDefinition(table);
+      TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY);
       if (timestampPartitionFieldName.isPresent()) {
         timePartitioning = timePartitioning.toBuilder().setField(timestampPartitionFieldName.get()).build();
       }
@@ -481,20 +481,6 @@ public class SchemaManager {
     }
     
     return tableInfoBuilder.build();
-  }
-
-  private TimePartitioning getTimePartitioningForDefinition(TableId tableId) {
-    TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY); // DEFAULT is DAY
-    Table bigQueryTable = retrieveCachedTable(tableId);
-
-    if (bigQueryTable != null) {
-      StandardTableDefinition standardTableDefinition = ((StandardTableDefinition) bigQueryTable.getDefinition());
-      if (standardTableDefinition != null && standardTableDefinition.getTimePartitioning() != null) {
-        timePartitioning = standardTableDefinition.getTimePartitioning();
-      }
-    }
-
-    return timePartitioning;
   }
 
   private com.google.cloud.bigquery.Schema getBigQuerySchema(Schema kafkaKeySchema, Schema kafkaValueSchema) {
