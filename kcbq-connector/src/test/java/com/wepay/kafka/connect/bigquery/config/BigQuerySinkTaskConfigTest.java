@@ -173,5 +173,4 @@ public class BigQuerySinkTaskConfigTest {
 
     new BigQuerySinkTaskConfig(badConfigProperties);
   }
-
 }

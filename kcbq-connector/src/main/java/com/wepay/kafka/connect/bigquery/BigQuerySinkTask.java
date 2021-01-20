@@ -25,6 +25,7 @@ import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TimePartitioning;
+import com.google.cloud.bigquery.TimePartitioning.Type;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
@@ -110,7 +111,7 @@ public class BigQuerySinkTask extends SinkTask {
   private final UUID uuid = UUID.randomUUID();
   private ScheduledExecutorService loadExecutor;
 
-  private Map<String, Table> cache;
+  private Map<TableId, Table> cache;
 
   /**
    * Create a new BigquerySinkTask.
@@ -203,9 +204,8 @@ public class BigQuerySinkTask extends SinkTask {
 
     PartitionedTableId.Builder builder = new PartitionedTableId.Builder(baseTableId);
     if (usePartitionDecorator) {
-
       Table bigQueryTable = retrieveCachedTable(baseTableId);
-      TimePartitioning timePartitioning = null;
+      TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY);
       if (bigQueryTable != null) {
         StandardTableDefinition standardTableDefinition = bigQueryTable.getDefinition();
         if (standardTableDefinition != null && standardTableDefinition.getTimePartitioning() != null) {
@@ -309,56 +309,39 @@ public class BigQuerySinkTask extends SinkTask {
 
   private void setTimePartitioningForTimestamp(PartitionedTableId.Builder builder, TimePartitioning timePartitioning,
                                                Long timestamp) {
-    if (timePartitioning != null) {
-      switch (timePartitioning.getType()) {
-        case HOUR:
-          builder.setHourPartition(timestamp);
-          break;
-        case MONTH:
-          builder.setMonthPartition(timestamp);
-          break;
-        case YEAR:
-          builder.setYearPartition(timestamp);
-          break;
-        default:
-          builder.setDayPartition(timestamp);
-      }
-    } else {
-      builder.setDayPartition(timestamp);
+    switch (timePartitioning.getType()) {
+      case HOUR:
+        builder.setHourPartition(timestamp);
+        break;
+      case MONTH:
+        builder.setMonthPartition(timestamp);
+        break;
+      case YEAR:
+        builder.setYearPartition(timestamp);
+        break;
+      default:
+        builder.setDayPartition(timestamp);
     }
   }
 
   private void setTimePartitioning(PartitionedTableId.Builder builder, TimePartitioning timePartitioning) {
-    if (timePartitioning != null) {
-      switch (timePartitioning.getType()) {
-        case HOUR:
-          builder.setHourPartitionNow();
-          break;
-        case MONTH:
-          builder.setMonthPartitionForNow();
-          break;
-        case YEAR:
-          builder.setYearPartitionForNow();
-          break;
-        default:
-          builder.setDayPartitionForNow();
-      }
-    } else {
-      builder.setDayPartitionForNow();
+    switch (timePartitioning.getType()) {
+      case HOUR:
+        builder.setHourPartitionNow();
+        break;
+      case MONTH:
+        builder.setMonthPartitionForNow();
+        break;
+      case YEAR:
+        builder.setYearPartitionForNow();
+        break;
+      default:
+        builder.setDayPartitionForNow();
     }
   }
 
   private Table retrieveCachedTable(TableId tableId) {
-    String key = tableId.getProject() + "." + tableId.getDataset() + "." + tableId.getTable();
-    Map<String, Table> cache = getCache();
-    Table table = cache.get(key);
-
-    if (table == null){
-      table = getBigQuery().getTable(tableId);
-      if (table != null) cache.put(key, table);
-    }
-
-    return table;
+    return getCache().computeIfAbsent(tableId, k -> getBigQuery().getTable(tableId));
   }
 
   private BigQuery newBigQuery() {
@@ -389,7 +372,7 @@ public class BigQuerySinkTask extends SinkTask {
     return new SchemaManager(schemaRetriever, schemaConverter, getBigQuery(),
                              allowNewBQFields, allowReqFieldRelaxation, allowSchemaUnionization,
                              kafkaKeyFieldName, kafkaDataFieldName,
-                             timestampPartitionFieldName, clusteringFieldName, getCache());
+                             timestampPartitionFieldName, clusteringFieldName);
   }
 
   private BigQueryWriter getBigQueryWriter() {
@@ -448,7 +431,7 @@ public class BigQuerySinkTask extends SinkTask {
     return new SinkRecordConverter(config, mergeBatches, mergeQueries);
   }
 
-  private synchronized Map getCache() {
+  private synchronized Map<TableId, Table> getCache() {
     if (cache == null) {
       cache = new HashMap<>();
     }

@@ -73,8 +73,6 @@ public class SchemaManager {
   private final ConcurrentMap<TableId, Object> tableUpdateLocks;
   private final ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache;
 
-  private Map<String, Table> cache;
-
   /**
    * @param schemaRetriever Used to determine the Kafka Connect Schema that should be used for a
    *                        given table.
@@ -104,8 +102,7 @@ public class SchemaManager {
       Optional<String> kafkaKeyFieldName,
       Optional<String> kafkaDataFieldName,
       Optional<String> timestampPartitionFieldName,
-      Optional<List<String>> clusteringFieldName,
-      Map<String, Table> cache) {
+      Optional<List<String>> clusteringFieldName) {
     this(
         schemaRetriever,
         schemaConverter,
@@ -120,8 +117,7 @@ public class SchemaManager {
         false,
         new ConcurrentHashMap<>(),
         new ConcurrentHashMap<>(),
-        new ConcurrentHashMap<>(),
-        cache);
+        new ConcurrentHashMap<>());
   }
 
   private SchemaManager(
@@ -138,8 +134,7 @@ public class SchemaManager {
       boolean intermediateTables,
       ConcurrentMap<TableId, Object> tableCreateLocks,
       ConcurrentMap<TableId, Object> tableUpdateLocks,
-      ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache,
-      Map<String, Table> cache) {
+      ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache) {
     this.schemaRetriever = schemaRetriever;
     this.schemaConverter = schemaConverter;
     this.bigQuery = bigQuery;
@@ -154,7 +149,6 @@ public class SchemaManager {
     this.tableCreateLocks = tableCreateLocks;
     this.tableUpdateLocks = tableUpdateLocks;
     this.schemaCache = schemaCache;
-    this.cache = cache;
   }
 
   public SchemaManager forIntermediateTables() {
@@ -172,8 +166,7 @@ public class SchemaManager {
         true,
         tableCreateLocks,
         tableUpdateLocks,
-        schemaCache,
-        cache
+        schemaCache
     );
   }
 
@@ -465,8 +458,8 @@ public class SchemaManager {
       builder.setTimePartitioning(timePartitioning);
       if (timestampPartitionFieldName.isPresent() && clusteringFieldName.isPresent()) {
         Clustering clustering = Clustering.newBuilder()
-              .setFields(clusteringFieldName.get())
-              .build();
+             .setFields(clusteringFieldName.get())
+             .build();
         builder.setClustering(clustering);
       }
     }
@@ -577,26 +570,4 @@ public class SchemaManager {
   private Object lock(ConcurrentMap<TableId, Object> locks, TableId table) {
     return locks.computeIfAbsent(table, t -> new Object());
   }
-
-  private synchronized Map getCache() {
-    if (cache == null) {
-      cache = new HashMap<>();
-    }
-
-    return cache;
-  }
-
-  private Table retrieveCachedTable(TableId tableId) {
-    String key = tableId.getProject() + "." + tableId.getDataset() + "." + tableId.getTable();
-    Map<String, Table> cache = getCache();
-    Table table = cache.get(key);
-
-    if (table == null){
-      table = bigQuery.getTable(tableId);
-      if (table != null) cache.put(key, table);
-    }
-
-    return table;
-  }
-
 }
