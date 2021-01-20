@@ -25,7 +25,6 @@ import com.google.cloud.bigquery.Clustering;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.StandardTableDefinition;
-import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TimePartitioning;
@@ -43,7 +42,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,7 +88,6 @@ public class SchemaManager {
    *                                    If set to null, ingestion time-based partitioning will be
    *                                    used instead.
    * @param clusteringFieldName
-   * @Param cache The cache containing BigQuery tables that have been queried and retrieved successfully.
    */
   public SchemaManager(
       SchemaRetriever schemaRetriever,
