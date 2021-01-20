@@ -458,8 +458,8 @@ public class SchemaManager {
       builder.setTimePartitioning(timePartitioning);
       if (timestampPartitionFieldName.isPresent() && clusteringFieldName.isPresent()) {
         Clustering clustering = Clustering.newBuilder()
-             .setFields(clusteringFieldName.get())
-             .build();
+                .setFields(clusteringFieldName.get())
+                .build();
         builder.setClustering(clustering);
       }
     }
