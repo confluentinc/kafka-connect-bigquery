@@ -70,6 +70,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.intTable;
 
@@ -85,6 +86,7 @@ public class BigQuerySinkTask extends SinkTask {
   private SchemaRetriever schemaRetriever;
   private BigQueryWriter bigQueryWriter;
   private GCSToBQWriter gcsToBQWriter;
+  private Pattern batchLoadPattern;
   private BigQuerySinkTaskConfig config;
   private SinkRecordConverter recordConverter;
 
@@ -220,13 +222,15 @@ public class BigQuerySinkTask extends SinkTask {
 
     // create tableWriters
     Map<PartitionedTableId, TableWriterBuilder> tableWriterBuilders = new HashMap<>();
+    List<String> gcsTopics = config.getList(config.ENABLE_BATCH_CONFIG);
+    Pattern gcsTopicsPattern = Pattern.compile(config.getString(config.ENABLE_BATCH_REGEX_CONFIG));
 
     for (SinkRecord record : records) {
       if (record.value() != null || config.getBoolean(config.DELETE_ENABLED_CONFIG)) {
         PartitionedTableId table = getRecordTable(record);
         if (!tableWriterBuilders.containsKey(table)) {
           TableWriterBuilder tableWriterBuilder;
-          if (config.getList(config.ENABLE_BATCH_CONFIG).contains(record.topic())) {
+          if (gcsTopics.contains(record.topic()) || gcsTopicsPattern.matcher(record.topic()).matches()) {
             String topic = record.topic();
             String gcsBlobName = topic + "_" + uuid + "_" + Instant.now().toEpochMilli();
             String gcsFolderName = config.getString(config.GCS_FOLDER_NAME_CONFIG);
@@ -408,7 +412,7 @@ public class BigQuerySinkTask extends SinkTask {
       );
       mergeBatches = new MergeBatches(intermediateTableSuffix);
     }
-
+    batchLoadPattern = Pattern.compile(config.getString(config.ENABLE_BATCH_REGEX_CONFIG));
     bigQueryWriter = getBigQueryWriter();
     gcsToBQWriter = getGcsWriter();
     executor = new KCBQThreadPoolExecutor(config, new LinkedBlockingQueue<>());

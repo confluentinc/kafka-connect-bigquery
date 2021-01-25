@@ -83,6 +83,7 @@ public abstract class BaseConnectorIT {
   private static final String GCS_BUCKET_ENV_VAR = "KCBQ_TEST_BUCKET";
   private static final String GCS_FOLDER_ENV_VAR = "KCBQ_TEST_FOLDER";
   private static final String TEST_NAMESPACE_ENV_VAR = "KCBQ_TEST_TABLE_SUFFIX";
+  private static final String ALLOW_BUCKET_CREATION_DELETION_ENV_VAR = "KCBQ_TEST_ALLOW_BUCKET_CREATION_DELETION";
 
   protected static final long OFFSET_COMMIT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
   protected static final long COMMIT_MAX_DURATION_MS = TimeUnit.MINUTES.toMillis(5);
@@ -379,5 +380,10 @@ public abstract class BaseConnectorIT {
 
   protected String tableSuffix() {
     return readEnvVar(TEST_NAMESPACE_ENV_VAR, "");
+  }
+
+  protected Boolean bucketCreationDeletionAllowed() {
+    String foo = readEnvVar(ALLOW_BUCKET_CREATION_DELETION_ENV_VAR);
+    return Boolean.parseBoolean(readEnvVar(ALLOW_BUCKET_CREATION_DELETION_ENV_VAR, "true"));
   }
 }

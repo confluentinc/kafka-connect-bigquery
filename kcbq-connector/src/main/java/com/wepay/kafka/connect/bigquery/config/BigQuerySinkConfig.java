@@ -86,6 +86,14 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final String ENABLE_BATCH_DOC =
       "Beta Feature; use with caution: The sublist of topics to be batch loaded through GCS";
 
+  public static final String ENABLE_BATCH_REGEX_CONFIG =                    "enableBatchLoadRegex";
+  private static final ConfigDef.Type ENABLE_BATCH_REGEX_TYPE =             ConfigDef.Type.STRING;
+  private static final String ENABLE_BATCH_REGEX_DEFAULT =                  "";
+  private static final ConfigDef.Importance ENABLE_BATCH_REGEX_IMPORTANCE = ConfigDef.Importance.LOW;
+  private static final String ENABLE_BATCH_REGEX_DOC =
+      "Beta Feature; use with caution: A regular expression matching all topics to be batch loaded through GCS" +
+      "At most one of " + ENABLE_BATCH_CONFIG + " and " + ENABLE_BATCH_REGEX_CONFIG + " should be specified.";
+
   public static final String BATCH_LOAD_INTERVAL_SEC_CONFIG =             "batchLoadIntervalSec";
   private static final ConfigDef.Type BATCH_LOAD_INTERVAL_SEC_TYPE =      ConfigDef.Type.INT;
   private static final Integer BATCH_LOAD_INTERVAL_SEC_DEFAULT =          120;
@@ -330,6 +338,12 @@ public class BigQuerySinkConfig extends AbstractConfig {
             ENABLE_BATCH_IMPORTANCE,
             ENABLE_BATCH_DOC
         ).define(
+            ENABLE_BATCH_REGEX_CONFIG,
+            ENABLE_BATCH_REGEX_TYPE,
+            ENABLE_BATCH_REGEX_DEFAULT,
+            ENABLE_BATCH_REGEX_IMPORTANCE,
+            ENABLE_BATCH_REGEX_DOC
+        ).define(
             BATCH_LOAD_INTERVAL_SEC_CONFIG,
             BATCH_LOAD_INTERVAL_SEC_TYPE,
             BATCH_LOAD_INTERVAL_SEC_DEFAULT,
@@ -493,6 +507,8 @@ public class BigQuerySinkConfig extends AbstractConfig {
   public static void validate(Map<String, String> props) {
     final boolean hasTopicsConfig = hasTopicsConfig(props);
     final boolean hasTopicsRegexConfig = hasTopicsRegexConfig(props);
+    final boolean hasEnableBatch = hasEnableBatchConfig(props);
+    final boolean hasEnableBatchRegex = hasEnableBatchRegexConfig(props);
 
     if (hasTopicsConfig && hasTopicsRegexConfig) {
       throw new ConfigException(TOPICS_CONFIG + " and " + TOPICS_REGEX_CONFIG +
@@ -505,7 +521,7 @@ public class BigQuerySinkConfig extends AbstractConfig {
     }
 
     if (upsertDeleteEnabled(props)) {
-      if (gcsBatchLoadingEnabled(props)) {
+      if (hasEnableBatch || hasEnableBatchRegex) {
         throw new ConfigException("Cannot enable both upsert/delete and GCS batch loading");
       }
 
@@ -552,8 +568,13 @@ public class BigQuerySinkConfig extends AbstractConfig {
         || Boolean.TRUE.toString().equalsIgnoreCase(deleteStr);
   }
 
-  public static boolean gcsBatchLoadingEnabled(Map<String, String> props) {
+  public static boolean hasEnableBatchConfig(Map<String, String> props) {
     String batchLoadStr = props.get(ENABLE_BATCH_CONFIG);
+    return batchLoadStr != null && !batchLoadStr.isEmpty();
+  }
+
+  public static boolean hasEnableBatchRegexConfig(Map<String, String> props) {
+    String batchLoadStr = props.get(ENABLE_BATCH_REGEX_CONFIG);
     return batchLoadStr != null && !batchLoadStr.isEmpty();
   }
 
@@ -664,14 +685,17 @@ public class BigQuerySinkConfig extends AbstractConfig {
     return getBoolean(UPSERT_ENABLED_CONFIG) || getBoolean(DELETE_ENABLED_CONFIG);
   }
 
+  public boolean isBatchLoadEnabled() {
+    return !getList(ENABLE_BATCH_CONFIG).isEmpty() || !getString(ENABLE_BATCH_REGEX_CONFIG).isEmpty();
+  }
+
   /**
    * Verifies that a bucket is specified if GCS batch loading is enabled.
    * @throws ConfigException Exception thrown if no bucket is specified and batch loading is on.
    */
   private void verifyBucketSpecified() throws ConfigException {
     // Throw an exception if GCS Batch loading will be used but no bucket is specified
-    if (getString(GCS_BUCKET_NAME_CONFIG).equals("")
-        && !getList(ENABLE_BATCH_CONFIG).isEmpty()) {
+    if (getString(GCS_BUCKET_NAME_CONFIG).equals("") && isBatchLoadEnabled()) {
       throw new ConfigException("Batch loading enabled for some topics, but no bucket specified");
     }
   }
@@ -698,6 +722,16 @@ public class BigQuerySinkConfig extends AbstractConfig {
     }
   }
 
+  private void checkBatchLoadConfigs() {
+    List<String> hasEnableBatch = getList(ENABLE_BATCH_CONFIG);
+    String hasEnableBatchRegex = getString(ENABLE_BATCH_REGEX_CONFIG);
+
+    if (!hasEnableBatch.isEmpty() && !hasEnableBatchRegex.isEmpty()) {
+      throw new ConfigException(ENABLE_BATCH_CONFIG + " and " + ENABLE_BATCH_REGEX_CONFIG +
+              " are mutually exclusive options, but both are set.");
+    }
+  }
+
   protected BigQuerySinkConfig(ConfigDef config, Map<String, String> properties) {
     super(config, properties);
     verifyBucketSpecified();
@@ -708,6 +742,7 @@ public class BigQuerySinkConfig extends AbstractConfig {
     verifyBucketSpecified();
     checkAutoCreateTables();
     checkBigQuerySchemaUpdateConfigs();
+    checkBatchLoadConfigs();
   }
 
 }

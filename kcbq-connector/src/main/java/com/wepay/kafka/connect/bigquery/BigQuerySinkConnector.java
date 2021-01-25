@@ -110,7 +110,7 @@ public class BigQuerySinkConnector extends SinkConnector {
     List<Map<String, String>> taskConfigs = new ArrayList<>();
     for (int i = 0; i < maxTasks; i++) {
       HashMap<String, String> taskConfig = new HashMap<>(configProperties);
-      if (i == 0 && !config.getList(BigQuerySinkConfig.ENABLE_BATCH_CONFIG).isEmpty()) {
+      if (i == 0 && config.isBatchLoadEnabled()) {
         // if batch loading is enabled, configure first task to do the GCS -> BQ loading
         taskConfig.put(GCS_BQ_TASK_CONFIG_KEY, "true");
       }

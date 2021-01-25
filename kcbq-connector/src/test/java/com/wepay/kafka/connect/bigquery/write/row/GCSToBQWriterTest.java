@@ -21,7 +21,6 @@ package com.wepay.kafka.connect.bigquery.write.row;
 
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.Table;
-import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageException;
@@ -143,6 +142,93 @@ public class GCSToBQWriterTest {
       verify(storage, times(4)).create((BlobInfo)anyObject(), (byte[])anyObject());
     }
   }
+  @Test
+  public void testGCSTopicRegexNoFailure() {
+    // test succeeding on first attempt
+    final String topic = "test_topic";
+    final String gcsTopicRegex = "test_.*";
+    final String dataset = "scratch";
+    final Map<String, String> properties = makeProperties("3", "2000", topic, dataset, gcsTopicRegex);
+
+    BigQuery bigQuery = mock(BigQuery.class);
+    expectTable(bigQuery);
+    Storage storage = mock(Storage.class);
+    SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
+
+    SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
+    SchemaManager schemaManager = mock(SchemaManager.class);
+
+    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager);
+    testTask.initialize(sinkTaskContext);
+    testTask.start(properties);
+    testTask.put(
+            Collections.singletonList(spoofSinkRecord(topic, 0, 0, "some_field", "some_value")));
+    testTask.flush(Collections.emptyMap());
+
+    verify(storage, times(1)).create((BlobInfo)anyObject(), (byte[])anyObject());
+  }
+
+  @Test
+  public void testGCSTopicRegexSomeFailures(){
+    // test failure through all configured retry attempts.
+    final String topic = "test_topic";
+    final String gcsTopicRegex = "test_.*";
+    final String dataset = "scratch";
+    final Map<String, String> properties = makeProperties("3", "2000", topic, dataset, gcsTopicRegex);
+
+    BigQuery bigQuery = mock(BigQuery.class);
+    expectTable(bigQuery);
+    Storage storage = mock(Storage.class);
+    SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
+
+    SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
+    SchemaManager schemaManager = mock(SchemaManager.class);
+
+    when(storage.create((BlobInfo)anyObject(), (byte[])anyObject()))
+            .thenThrow(new StorageException(500, "internal server error")) // throw first time
+            .thenReturn(null); // return second time. (we don't care about the result.)
+
+    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager);
+    testTask.initialize(sinkTaskContext);
+    testTask.start(properties);
+    testTask.put(
+            Collections.singletonList(spoofSinkRecord(topic, 0, 0, "some_field", "some_value")));
+    testTask.flush(Collections.emptyMap());
+
+    verify(storage, times(2)).create((BlobInfo)anyObject(), (byte[])anyObject());
+  }
+
+  @Test
+  public void testGCSTopicRegexAllFailures(){
+    // test failure through all configured retry attempts.
+    final String topic = "test_topic";
+    final String gcsTopicRegex = "test_.*";
+    final String dataset = "scratch";
+    final Map<String, String> properties = makeProperties("3", "2000", topic, dataset, gcsTopicRegex);
+
+    BigQuery bigQuery = mock(BigQuery.class);
+    expectTable(bigQuery);
+    Storage storage = mock(Storage.class);
+    SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
+
+    SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
+    SchemaManager schemaManager = mock(SchemaManager.class);
+
+    when(storage.create((BlobInfo)anyObject(), (byte[])anyObject()))
+            .thenThrow(new StorageException(500, "internal server error"));
+
+    BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, schemaRetriever, storage, schemaManager);
+    testTask.initialize(sinkTaskContext);
+    testTask.start(properties);
+    testTask.put(
+            Collections.singletonList(spoofSinkRecord(topic, 0, 0, "some_field", "some_value")));
+    try {
+      testTask.flush(Collections.emptyMap());
+      Assert.fail("expected testTask.flush to fail.");
+    } catch (ConnectException ex){
+      verify(storage, times(4)).create((BlobInfo)anyObject(), (byte[])anyObject());
+    }
+  }
 
   private void expectTable(BigQuery mockBigQuery) {
     Table mockTable = mock(Table.class);
@@ -170,6 +256,18 @@ public class GCSToBQWriterTest {
     // gcs config
     properties.put(BigQuerySinkConfig.ENABLE_BATCH_CONFIG, topic);
     properties.put(BigQuerySinkConfig.GCS_BUCKET_NAME_CONFIG, "myBucket");
+    properties.put(BigQuerySinkConfig.AUTO_CREATE_BUCKET_CONFIG, "false");
+    return properties;
+  }
+
+  private Map<String,String> makeProperties(String bigqueryRetry,
+                                            String bigqueryRetryWait,
+                                            String topic,
+                                            String dataset,
+                                            String gcsTopicRegex){
+    Map<String,String> properties = makeProperties(bigqueryRetry, bigqueryRetryWait, topic, dataset);
+    properties.remove(BigQuerySinkConfig.ENABLE_BATCH_CONFIG);
+    properties.put(BigQuerySinkConfig.ENABLE_BATCH_REGEX_CONFIG, gcsTopicRegex);
     return properties;
   }
 

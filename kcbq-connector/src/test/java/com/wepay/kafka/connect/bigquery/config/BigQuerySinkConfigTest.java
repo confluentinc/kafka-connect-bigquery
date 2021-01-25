@@ -79,4 +79,15 @@ public class BigQuerySinkConfigTest {
 
     new BigQuerySinkConfig(badConfigProperties);
   }
+
+  @Test(expected = ConfigException.class)
+  public void testBadBatchLoadConfig(){
+    Map<String, String> badConfigProperties = propertiesFactory.getProperties();
+
+    badConfigProperties.put(BigQuerySinkConfig.GCS_BUCKET_NAME_CONFIG, "myBucket");
+    badConfigProperties.put(BigQuerySinkConfig.ENABLE_BATCH_CONFIG, "topic");
+    badConfigProperties.put(BigQuerySinkConfig.ENABLE_BATCH_REGEX_CONFIG, ".*");
+
+    new BigQuerySinkConfig(badConfigProperties);
+  }
 }

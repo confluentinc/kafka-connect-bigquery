@@ -104,6 +104,7 @@ public class BigQuerySinkConnectorIT extends BaseConnectorIT {
         boxByteArray(new byte[] { 0x0, 0xf, 0x1E, 0x2D, 0x3C, 0x4B, 0x5A, 0x69, 0x78 })
     ));
     testCases.put("gcs-load", expectedGcsLoadRows);
+    testCases.put("secondary-gcs-load", expectedGcsLoadRows);
 
     List<List<Object>> expectedNullsRows = new ArrayList<>();
     expectedNullsRows.add(Arrays.asList(1L, "Required string", null, 42L, false));
@@ -168,7 +169,7 @@ public class BigQuerySinkConnectorIT extends BaseConnectorIT {
     Collection<String> tables = TEST_TOPICS.stream()
         .map(this::suffixedAndSanitizedTable)
         .collect(Collectors.toSet());
-    BucketClearer.clearBucket(keyFile(), project(), gcsBucket(), gcsFolder(), keySource());
+    BucketClearer.clearBucket(keyFile(), project(), gcsBucket(), gcsFolder(), keySource(), bucketCreationDeletionAllowed());
     TableClearer.clearTables(newBigQuery(), dataset(), tables);
 
     startConnect();
@@ -216,6 +217,31 @@ public class BigQuerySinkConnectorIT extends BaseConnectorIT {
         "bigquery-connector", TEST_TOPICS, numRecordsProduced, tasksMax, TimeUnit.MINUTES.toMillis(3));
 
     TEST_CASES.forEach(this::verify);
+  }
+
+  @Test
+  public void testGCSTopicRegex() throws Exception {
+    final int tasksMax = 1;
+    final String connectorName = "bigquery-connector";
+    final String gcsTopicRegex = ".*gcs.*";
+
+    TEST_CASES.keySet()
+            .stream()
+            .filter(s -> s.matches(gcsTopicRegex))
+            .forEach(this::populate);
+
+    connect.configureConnector(connectorName, connectorProps(tasksMax, gcsTopicRegex));
+
+    waitForConnectorToStart(connectorName, tasksMax);
+
+    waitForCommittedRecords(
+        "bigquery-connector", TEST_TOPICS, numRecordsProduced, tasksMax, TimeUnit.MINUTES.toMillis(3));
+
+    TEST_CASES.entrySet()
+            .stream()
+            .filter(entry -> entry.getKey().matches(gcsTopicRegex))
+            .collect(Collectors.toMap(map -> map.getKey(), map -> map.getValue()))
+            .forEach(this::verify);
   }
 
   private void populate(String testCase) {
@@ -271,7 +297,7 @@ public class BigQuerySinkConnectorIT extends BaseConnectorIT {
     result.put(BigQuerySinkConfig.ALLOW_NEW_BIGQUERY_FIELDS_CONFIG, "true");
     result.put(BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG, "true");
     result.put(BigQuerySinkConfig.ENABLE_BATCH_CONFIG, suffixedAndSanitizedTable("kcbq_test_gcs-load"));
-    result.put(BigQuerySinkConfig.BATCH_LOAD_INTERVAL_SEC_CONFIG, "10");
+    result.put(BigQuerySinkConfig.BATCH_LOAD_INTERVAL_SEC_CONFIG, "1");
     result.put(BigQuerySinkConfig.GCS_BUCKET_NAME_CONFIG, gcsBucket());
     result.put(BigQuerySinkConfig.GCS_FOLDER_NAME_CONFIG, gcsFolder());
     result.put(BigQuerySinkConfig.SCHEMA_RETRIEVER_CONFIG, IdentitySchemaRetriever.class.getName());
@@ -285,6 +311,13 @@ public class BigQuerySinkConnectorIT extends BaseConnectorIT {
       result.put("transforms.addSuffix.replacement", "$1" + escapedSuffix);
     }
 
+    return result;
+  }
+
+  private Map<String, String> connectorProps(int tasksMax, String gcsTopicRegex) {
+    Map<String, String> result = connectorProps(tasksMax);
+    result.remove(BigQuerySinkConfig.ENABLE_BATCH_CONFIG);
+    result.put(BigQuerySinkConfig.ENABLE_BATCH_REGEX_CONFIG, gcsTopicRegex);
     return result;
   }
 

@@ -42,7 +42,8 @@ public class BucketClearer {
    *                  filename; if "JSON", then {@code key} will be treated as a raw JSON string.
    */
   public static void clearBucket(
-      String key, String project, String bucketName, String folderName, String keySource) {
+      String key, String project, String bucketName, String folderName, String keySource,
+      boolean bucketCreationDeletionAllowed) {
     Storage gcs = new GCSBuilder(project).setKey(key).setKeySource(keySource).build();
     Bucket bucket = gcs.get(bucketName);
     if (bucket != null) {
@@ -51,10 +52,19 @@ public class BucketClearer {
       for (Blob blob : listBlobs(bucket, folderName)) {
         gcs.delete(blob.getBlobId());
       }
-      bucket.delete();
-      logger.info("Bucket {} deleted successfully", bucketName);
+      if (bucketCreationDeletionAllowed) {
+        bucket.delete();
+        logger.info("Bucket {} deleted successfully", bucketName);
+      }
     } else {
-      logger.info("Bucket {} does not exist", bucketName);
+      if (bucketCreationDeletionAllowed) {
+        logger.info("Bucket {} does not exist", bucketName);
+      }
+      else {
+        throw new IllegalStateException(String.format(
+                "Creation of buckets by the integration test is forbidden, but the expected bucket %s doe not exist ",
+                bucketName));
+      }
     }
   }
 
