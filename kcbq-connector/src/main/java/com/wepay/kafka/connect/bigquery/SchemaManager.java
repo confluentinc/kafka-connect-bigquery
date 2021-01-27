@@ -19,6 +19,7 @@
 
 package com.wepay.kafka.connect.bigquery;
 
+
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Clustering;
@@ -451,12 +452,13 @@ public class SchemaManager {
       if (timestampPartitionFieldName.isPresent()) {
         timePartitioning = timePartitioning.toBuilder().setField(timestampPartitionFieldName.get()).build();
       }
-
+  
       builder.setTimePartitioning(timePartitioning);
+
       if (timestampPartitionFieldName.isPresent() && clusteringFieldName.isPresent()) {
         Clustering clustering = Clustering.newBuilder()
-                .setFields(clusteringFieldName.get())
-                .build();
+            .setFields(clusteringFieldName.get())
+            .build();
         builder.setClustering(clustering);
       }
     }
