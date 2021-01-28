@@ -85,7 +85,7 @@ public class SchemaManagerTest {
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
 
     TableInfo tableInfo = schemaManager
-        .constructTableInfo(tableId, fakeBigQuerySchema, testDoc);
+        .constructTableInfo(tableId, fakeBigQuerySchema, testDoc, true);
 
     Assert.assertEquals("Kafka doc does not match BigQuery table description",
         testDoc, tableInfo.getDescription());
@@ -103,7 +103,7 @@ public class SchemaManagerTest {
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
 
     TableInfo tableInfo = schemaManager
-        .constructTableInfo(tableId, fakeBigQuerySchema, testDoc);
+        .constructTableInfo(tableId, fakeBigQuerySchema, testDoc, true);
 
     Assert.assertEquals("Kafka doc does not match BigQuery table description",
         testDoc, tableInfo.getDescription());
@@ -123,7 +123,7 @@ public class SchemaManagerTest {
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
 
     TableInfo tableInfo = schemaManager
-        .constructTableInfo(tableId, fakeBigQuerySchema, testDoc);
+        .constructTableInfo(tableId, fakeBigQuerySchema, testDoc, true);
 
     Assert.assertEquals("Kafka doc does not match BigQuery table description",
         testDoc, tableInfo.getDescription());
