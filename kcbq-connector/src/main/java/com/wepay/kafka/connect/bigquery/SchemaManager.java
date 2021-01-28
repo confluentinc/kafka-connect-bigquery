@@ -450,19 +450,19 @@ public class SchemaManager {
       // pseudocolumn can be queried to filter out rows that are still in the streaming buffer
       builder.setTimePartitioning(TimePartitioning.of(Type.DAY));
     } else if (createSchema) {
-        TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY);
-        if (timestampPartitionFieldName.isPresent()) {
-          timePartitioning = timePartitioning.toBuilder().setField(timestampPartitionFieldName.get()).build();
-        }
+      TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY);
+      if (timestampPartitionFieldName.isPresent()) {
+        timePartitioning = timePartitioning.toBuilder().setField(timestampPartitionFieldName.get()).build();
+      }
 
-        builder.setTimePartitioning(timePartitioning);
+      builder.setTimePartitioning(timePartitioning);
 
-        if (timestampPartitionFieldName.isPresent() && clusteringFieldName.isPresent()) {
-          Clustering clustering = Clustering.newBuilder()
-                  .setFields(clusteringFieldName.get())
-                  .build();
-          builder.setClustering(clustering);
-        }
+      if (timestampPartitionFieldName.isPresent() && clusteringFieldName.isPresent()) {
+        Clustering clustering = Clustering.newBuilder()
+                .setFields(clusteringFieldName.get())
+                .build();
+        builder.setClustering(clustering);
+      }
     }
 
     StandardTableDefinition tableDefinition = builder.build();
