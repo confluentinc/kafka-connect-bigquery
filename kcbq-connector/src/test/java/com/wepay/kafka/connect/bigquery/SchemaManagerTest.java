@@ -152,7 +152,7 @@ public class SchemaManagerTest {
             testField.get(),
             definition.getTimePartitioning().getField());
 
-    Optional<String> updateField = Optional.of("testUpdateField"); // This will be irrelevant in an update scenario
+    Optional<String> updateField = Optional.of("testUpdateField");
     schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
             mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), updateField, Optional.empty());
 
@@ -225,7 +225,6 @@ public class SchemaManagerTest {
             testField.get(),
             definition.getClustering().getFields());
 
-    // The updateTestField will be irrelevant in an update scenario
     Optional<List<String>> updateTestField = Optional.of(Arrays.asList("column3", "column4"));
     schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
             mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName, updateTestField);
