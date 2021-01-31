@@ -118,7 +118,7 @@ public class SchemaManagerTest {
   public void testUpdateTimestampPartitionNull() {
     Optional<String> testField = Optional.of("testField");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-            mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), testField, Optional.empty());
+        mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), testField, Optional.empty());
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
@@ -174,10 +174,10 @@ public class SchemaManagerTest {
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
 
     TableInfo tableInfo = schemaManager
-            .constructTableInfo(tableId, fakeBigQuerySchema, testDoc, true);
+        .constructTableInfo(tableId, fakeBigQuerySchema, testDoc, true);
 
     Assert.assertEquals("Kafka doc does not match BigQuery table description",
-            testDoc, tableInfo.getDescription());
+        testDoc, tableInfo.getDescription());
     StandardTableDefinition definition = tableInfo.getDefinition();
     Assert.assertNotNull(definition.getClustering());
     Assert.assertEquals("The field name does not match the field name of time partition",
