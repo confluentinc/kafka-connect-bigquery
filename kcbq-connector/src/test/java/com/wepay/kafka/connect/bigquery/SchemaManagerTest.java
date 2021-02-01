@@ -478,5 +478,4 @@ public class SchemaManagerTest {
     when(result.valueSchema()).thenReturn(valueSchema);
     return result;
   }
-  
 }
