@@ -79,7 +79,7 @@ public class SchemaManagerTest {
     Optional<String> kafkaKeyFieldName = Optional.of("kafkaKey");
     Optional<String> kafkaDataFieldName = Optional.of("kafkaData");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, kafkaKeyFieldName, kafkaDataFieldName, Optional.empty(), Optional.empty());
+        mockBigQuery, false, false, false, kafkaKeyFieldName, kafkaDataFieldName, Optional.empty(), Optional.empty(), Optional.empty());
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
@@ -91,13 +91,15 @@ public class SchemaManagerTest {
         testDoc, tableInfo.getDescription());
     Assert.assertNull("Timestamp partition field name is not null",
         ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getField());
+    Assert.assertNull("Partition expiration is not null",
+        ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getExpirationMs());
   }
 
   @Test
   public void testTimestampPartitionSet() {
     Optional<String> testField = Optional.of("testField");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), testField, Optional.empty());
+        mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), testField, Optional.empty(), Optional.empty());
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
@@ -110,6 +112,52 @@ public class SchemaManagerTest {
     Assert.assertEquals("The field name does not match the field name of time partition",
         testField.get(),
         ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getField());
+    Assert.assertNull("Partition expiration is not null",
+        ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getExpirationMs());
+  }
+
+  @Test
+  public void testPartitionExpirationSetWithoutFieldName() {
+    Optional<Long> testExpirationMs = Optional.of(86400000L);
+    SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
+        mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), Optional.empty(), testExpirationMs, Optional.empty());
+
+    when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
+    when(mockKafkaSchema.doc()).thenReturn(testDoc);
+
+    TableInfo tableInfo = schemaManager
+        .constructTableInfo(tableId, fakeBigQuerySchema, testDoc);
+
+    Assert.assertEquals("Kafka doc does not match BigQuery table description",
+        testDoc, tableInfo.getDescription());
+    Assert.assertEquals("The partition expiration does not match the expiration in ms",
+        testExpirationMs.get(),
+        ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getExpirationMs());
+    Assert.assertNull("Timestamp partition field name is not null",
+        ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getField());
+  }
+
+  @Test
+  public void testPartitionExpirationSetWithFieldName() {
+    Optional<Long> testExpirationMs = Optional.of(86400000L);
+    Optional<String> testField = Optional.of("testField");
+    SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
+        mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), testField, testExpirationMs, Optional.empty());
+
+    when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
+    when(mockKafkaSchema.doc()).thenReturn(testDoc);
+
+    TableInfo tableInfo = schemaManager
+        .constructTableInfo(tableId, fakeBigQuerySchema, testDoc);
+
+    Assert.assertEquals("Kafka doc does not match BigQuery table description",
+        testDoc, tableInfo.getDescription());
+    Assert.assertEquals("The partition expiration does not match the expiration in ms",
+        testExpirationMs.get(),
+        ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getExpirationMs());
+    Assert.assertEquals("The field name does not match the field name of time partition",
+        testField.get(),
+        ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getField());
   }
 
   @Test
@@ -117,7 +165,7 @@ public class SchemaManagerTest {
     Optional<String> timestampPartitionFieldName = Optional.of("testField");
     Optional<List<String>> testField = Optional.of(Arrays.asList("column1", "column2"));
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName, testField);
+        mockBigQuery, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName, Optional.empty(), testField);
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
@@ -323,7 +371,7 @@ public class SchemaManagerTest {
       boolean allowNewFields, boolean allowFieldRelaxation, boolean allowUnionization) {
     return new SchemaManager(new IdentitySchemaRetriever(), mockSchemaConverter, mockBigQuery,
         allowNewFields, allowFieldRelaxation, allowUnionization,
-        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
   }
 
   private void testGetAndValidateProposedSchema(
