@@ -90,6 +90,7 @@ public class SchemaManager {
    *                                    If set to null, ingestion time-based partitioning will be
    *                                    used instead.
    * @param clusteringFieldName
+   * @param timePartitioningType The time partitioning type (HOUR, DAY, etc.) to use for created tables.
    */
   public SchemaManager(
       SchemaRetriever schemaRetriever,

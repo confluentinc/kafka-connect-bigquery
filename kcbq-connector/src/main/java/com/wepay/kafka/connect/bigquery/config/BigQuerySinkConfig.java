@@ -504,7 +504,23 @@ public class BigQuerySinkConfig extends AbstractConfig {
             TIME_PARTITIONING_TYPE_DEFAULT,
             ConfigDef.CaseInsensitiveValidString.in(TIME_PARTITIONING_TYPES.toArray(new String[0])),
             TIME_PARTITIONING_TYPE_IMPORTANCE,
-            TIME_PARTITIONING_TYPE_DOC
+            TIME_PARTITIONING_TYPE_DOC,
+            "",
+            -1,
+            ConfigDef.Width.NONE,
+            TIME_PARTITIONING_TYPE_CONFIG,
+            new ConfigDef.Recommender() {
+              @Override
+              public List<Object> validValues(String s, Map<String, Object> map) {
+                // Construct a new list to transform from List<String> to List<Object>
+                return new ArrayList<>(TIME_PARTITIONING_TYPES);
+              }
+
+              @Override
+              public boolean visible(String s, Map<String, Object> map) {
+                return true;
+              }
+            }
         );
   }
 
