@@ -119,7 +119,8 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
   private static final String BIGQUERY_PARTITION_EXPIRATION_DOC =
           "The amount of time, in milliseconds, after which partitions should be deleted from the table. If this " +
                   "field is set, all data in partitions in this table older than the specified partition " +
-                  "expiration time will be permanently deleted.";
+                  "expiration time will be permanently deleted. " +
+                  "Existing tables will not be altered to use this partition expiration.";
 
   public static final String BIGQUERY_CLUSTERING_FIELD_NAMES_CONFIG = "clusteringPartitionFieldNames";
   private static final ConfigDef.Type BIGQUERY_CLUSTERING_FIELD_NAMES_TYPE = ConfigDef.Type.LIST;
