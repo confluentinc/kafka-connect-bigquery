@@ -68,6 +68,7 @@ public class SchemaManager {
   private final Optional<String> timestampPartitionFieldName;
   private final Optional<Long> partitionExpiration;
   private final Optional<List<String>> clusteringFieldName;
+  private final TimePartitioning.Type timePartitioningType;
   private final boolean intermediateTables;
   private final ConcurrentMap<TableId, Object> tableCreateLocks;
   private final ConcurrentMap<TableId, Object> tableUpdateLocks;
@@ -90,6 +91,7 @@ public class SchemaManager {
    *                                    If set to null, ingestion time-based partitioning will be
    *                                    used instead.
    * @param clusteringFieldName
+   * @param timePartitioningType The time partitioning type (HOUR, DAY, etc.) to use for created tables.
    */
   public SchemaManager(
       SchemaRetriever schemaRetriever,
@@ -102,7 +104,8 @@ public class SchemaManager {
       Optional<String> kafkaDataFieldName,
       Optional<String> timestampPartitionFieldName,
       Optional<Long> partitionExpiration,
-      Optional<List<String>> clusteringFieldName) {
+      Optional<List<String>> clusteringFieldName,
+      TimePartitioning.Type timePartitioningType) {
     this(
         schemaRetriever,
         schemaConverter,
@@ -115,6 +118,7 @@ public class SchemaManager {
         timestampPartitionFieldName,
         partitionExpiration,
         clusteringFieldName,
+        timePartitioningType,
         false,
         new ConcurrentHashMap<>(),
         new ConcurrentHashMap<>(),
@@ -133,6 +137,7 @@ public class SchemaManager {
       Optional<String> timestampPartitionFieldName,
       Optional<Long> partitionExpiration,
       Optional<List<String>> clusteringFieldName,
+      TimePartitioning.Type timePartitioningType,
       boolean intermediateTables,
       ConcurrentMap<TableId, Object> tableCreateLocks,
       ConcurrentMap<TableId, Object> tableUpdateLocks,
@@ -148,6 +153,7 @@ public class SchemaManager {
     this.timestampPartitionFieldName = timestampPartitionFieldName;
     this.partitionExpiration = partitionExpiration;
     this.clusteringFieldName = clusteringFieldName;
+    this.timePartitioningType = timePartitioningType;
     this.intermediateTables = intermediateTables;
     this.tableCreateLocks = tableCreateLocks;
     this.tableUpdateLocks = tableUpdateLocks;
@@ -167,6 +173,7 @@ public class SchemaManager {
         timestampPartitionFieldName,
         partitionExpiration,
         clusteringFieldName,
+        timePartitioningType,
         true,
         tableCreateLocks,
         tableUpdateLocks,
@@ -456,7 +463,7 @@ public class SchemaManager {
       // pseudocolumn can be queried to filter out rows that are still in the streaming buffer
       builder.setTimePartitioning(TimePartitioning.of(Type.DAY));
     } else if (createSchema) {
-      TimePartitioning.Builder timePartitioningBuilder = TimePartitioning.of(Type.DAY).toBuilder();
+      TimePartitioning.Builder timePartitioningBuilder = TimePartitioning.of(timePartitioningType).toBuilder();
       timestampPartitionFieldName.ifPresent(timePartitioningBuilder::setField);
       partitionExpiration.ifPresent(timePartitioningBuilder::setExpirationMs);
 
