@@ -101,6 +101,9 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
     InsertAllResponse writeResponse = null;
     InsertAllRequest request = null;
 
+    logger.info("performWriteRequest with table {} and rowcount {}",
+            tableId.getFullTableId().toString(), rows.size());
+
     try {
       request = createInsertAllRequest(tableId, rows.values());
       writeResponse = bigQuery.insertAll(request);
@@ -111,6 +114,8 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
       }
     } catch (BigQueryException exception) {
       // Should only perform one table creation attempt.
+      logger.warn("createInsertAllRequest threw message {} / reason {}",
+              exception.getMessage(), exception.getReason());
       if (isTableNotExistedException(exception) && autoCreateTables) {
         attemptTableCreate(tableId.getBaseTableId(), new ArrayList<>(rows.keySet()));
       } else if (isTableMissingSchema(exception)) {
@@ -124,12 +129,18 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
     // so multiple insertion attempts may be necessary.
     int attemptCount = 0;
     while (writeResponse == null || writeResponse.hasErrors()) {
-      logger.trace("insertion failed");
+      logger.warn("insertion failed, attempt # {}", attemptCount);
+      if (writeResponse != null) {
+        writeResponse.getInsertErrors()
+                .forEach((idx, error)
+                -> logger.warn("BigQuery error @ {}: {}", idx, error));
+      }
+
       if (writeResponse == null
           || onlyContainsInvalidSchemaErrors(writeResponse.getInsertErrors())) {
         try {
           // If the table was missing its schema, we never received a writeResponse
-          logger.debug("re-attempting insertion");
+          logger.trace("re-attempting insertion");
           writeResponse = bigQuery.insertAll(request);
         } catch (BigQueryException exception) {
           // no-op, we want to keep retrying the insert
@@ -150,7 +161,8 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
         throw new ExpectedInterruptException("Interrupted while waiting to retry write");
       }
     }
-    logger.debug("table insertion completed successfully");
+    logger.debug("Successfully inserted {} rows to table {}",
+            rows.size(), tableId.getFullTableId().toString());
     return new HashMap<>();
   }
 

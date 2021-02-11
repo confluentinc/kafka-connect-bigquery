@@ -252,6 +252,13 @@ public class BigQuerySinkConfig extends AbstractConfig {
           "If true, the existing table schema (if one is present) will be unionized with new "
               + "record schemas during schema updates";
 
+  public static final String IGNORE_INVALID_FIELDS_CONFIG =                    "ignoreInvalidFields";
+  private static final ConfigDef.Type IGNORE_INVALID_FIELDS_TYPE =             ConfigDef.Type.BOOLEAN;
+  public static final Boolean IGNORE_INVALID_FIELDS_DEFAULT =                  false;
+  private static final ConfigDef.Importance IGNORE_INVALID_FIELDS_IMPORTANCE = ConfigDef.Importance.MEDIUM;
+  private static final String IGNORE_INVALID_FIELDS_DOC =
+          "If true, prevents throwing an exception if a field is not a record";
+
   public static final String UPSERT_ENABLED_CONFIG =                    "upsertEnabled";
   private static final ConfigDef.Type UPSERT_ENABLED_TYPE =             ConfigDef.Type.BOOLEAN;
   public static final boolean UPSERT_ENABLED_DEFAULT =                  false;
@@ -429,6 +436,12 @@ public class BigQuerySinkConfig extends AbstractConfig {
             ALL_BQ_FIELDS_NULLABLE_DEFAULT,
             ALL_BQ_FIELDS_NULLABLE_IMPORTANCE,
             ALL_BQ_FIELDS_NULLABLE_DOC
+        ).define(
+            IGNORE_INVALID_FIELDS_CONFIG,
+            IGNORE_INVALID_FIELDS_TYPE,
+            IGNORE_INVALID_FIELDS_DEFAULT,
+            IGNORE_INVALID_FIELDS_IMPORTANCE,
+            IGNORE_INVALID_FIELDS_DOC
         ).define(
             CONVERT_DOUBLE_SPECIAL_VALUES_CONFIG,
             CONVERT_DOUBLE_SPECIAL_VALUES_TYPE,
@@ -700,6 +713,10 @@ public class BigQuerySinkConfig extends AbstractConfig {
 
   public boolean isUpsertDeleteEnabled() {
     return getBoolean(UPSERT_ENABLED_CONFIG) || getBoolean(DELETE_ENABLED_CONFIG);
+  }
+
+  public boolean isIgnoreInvalidFieldsEnabled() {
+    return getBoolean(IGNORE_INVALID_FIELDS_CONFIG);
   }
 
   public TimePartitioning.Type getTimePartitioningType() {

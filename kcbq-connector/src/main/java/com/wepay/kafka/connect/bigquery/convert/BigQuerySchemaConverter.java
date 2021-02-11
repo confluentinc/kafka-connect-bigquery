@@ -39,12 +39,17 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 /**
  * Class for converting from {@link Schema Kafka Connect Schemas} to
  * {@link com.google.cloud.bigquery.Schema BigQuery Schemas}.
  */
 public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud.bigquery.Schema> {
 
+  private static final Logger logger = LoggerFactory.getLogger(BigQuerySchemaConverter.class);
   /**
    * The name of the field that contains keys from a converted Kafka Connect map.
    */
@@ -106,6 +111,10 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
           ConversionConnectException("Top-level Kafka Connect schema must be of type 'struct'");
     }
 
+    logger.debug("Converting schema type {} name {}",
+            kafkaConnectSchema.type(),
+            (!kafkaConnectSchema.name().isEmpty() ? kafkaConnectSchema.name() : "no name" ));
+
     throwOnCycle(kafkaConnectSchema, new ArrayList<>());
 
     List<com.google.cloud.bigquery.Field> fields = kafkaConnectSchema.fields().stream()
@@ -126,7 +135,23 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
     }
 
     if (seenSoFar.contains(kafkaConnectSchema)) {
-      throw new ConversionConnectException("Kafka Connect schema contains cycle");
+
+      logger.error("throwOnCycle schema name {}", kafkaConnectSchema.name());
+
+      if (!kafkaConnectSchema.fields().isEmpty()) {
+        /*
+         * If we print out each field in the schema that aids debugging by
+         * making it clear where the cycle is.
+         */
+        logger.error("throwOnCycle fields");
+        kafkaConnectSchema.fields().forEach((f) ->
+                logger.error("\t index {} name {} {}",
+                        f.index(),
+                        f.schema().name() ,
+                        f));
+      }
+      throw new ConversionConnectException("Kafka Connect schema " +
+              kafkaConnectSchema.name() + " contains a cycle");
     }
 
     seenSoFar.add(kafkaConnectSchema);

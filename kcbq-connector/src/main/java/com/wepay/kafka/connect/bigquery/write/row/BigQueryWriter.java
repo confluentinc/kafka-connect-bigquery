@@ -104,7 +104,7 @@ public abstract class BigQueryWriter {
   public void writeRows(PartitionedTableId table,
                         SortedMap<SinkRecord, InsertAllRequest.RowToInsert> rows)
       throws BigQueryConnectException, BigQueryException, InterruptedException {
-    logger.debug("writing {} row{} to table {}", rows.size(), rows.size() != 1 ? "s" : "", table);
+    logger.debug("writing {} row{} to table {}", rows.size(), rows.size() > 1 ? "s" : "", table);
 
     Exception mostRecentException = null;
     Map<Long, List<BigQueryError>> failedRowsMap = null;
@@ -120,7 +120,8 @@ public abstract class BigQueryWriter {
           // table insertion completed with no reported errors
           return;
         } else if (isPartialFailure(rows, failedRowsMap)) {
-          logger.info("{} rows succeeded, {} rows failed",
+          logger.debug("failedRowsMap: {}", failedRowsMap);
+          logger.debug("{} rows succeeded, {} rows failed",
               rows.size() - failedRowsMap.size(), failedRowsMap.size());
           // update insert rows and retry in case of partial failure
           rows = getFailedRows(rows, failedRowsMap.keySet(), table);
@@ -128,9 +129,12 @@ public abstract class BigQueryWriter {
           retryCount++;
         } else {
           // throw an exception in case of complete failure
+          logger.debug("failedRowsMap: {}", failedRowsMap);
           throw new BigQueryConnectException(failedRowsMap);
         }
       } catch (BigQueryException err) {
+        logger.debug("failedRowsMap: {}", failedRowsMap);
+
         mostRecentException = err;
         if (err.getCode() == INTERNAL_SERVICE_ERROR
             || err.getCode() == SERVICE_UNAVAILABLE
@@ -140,7 +144,7 @@ public abstract class BigQueryWriter {
              todo possibly this page is inaccurate for bigquery, but the message we are getting
              suggest it's an internal backend error and we should retry, so lets take that at face
              value. */
-          logger.warn("BQ backend error: {}, attempting retry", err.getCode());
+          logger.warn("BigQuery backend error: {}, attempting retry", err.getCode());
           retryCount++;
         } else if (err.getCode() == FORBIDDEN
                    && err.getError() != null
@@ -192,7 +196,10 @@ public abstract class BigQueryWriter {
       }
       index++;
     }
-    logger.debug("{} rows failed to be written to table {}.", rows.size(), table.getFullTableName());
+    logger.debug("Failed to write {} row{} to table {}.",
+            rows.size(),
+            rows.size() > 1 ? "s" : "",
+            table.getFullTableName());
     return failRows;
   }
 

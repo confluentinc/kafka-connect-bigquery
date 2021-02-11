@@ -42,11 +42,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Class for converting from {@link SinkRecord SinkRecords} and BigQuery rows, which are represented
  * as {@link Map Maps} from {@link String Strings} to {@link Object Objects}.
  */
 public class BigQueryRecordConverter implements RecordConverter<Map<String, Object>> {
+
+  private static final Logger logger = LoggerFactory.getLogger(BigQueryRecordConverter.class);
 
   private static final Set<Class<?>> BASIC_TYPES = new HashSet<>(
           Arrays.asList(
@@ -81,7 +86,7 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
       if (kafkaConnectStruct instanceof Map) {
         return (Map<String, Object>) convertSchemalessRecord(kafkaConnectStruct);
       }
-      throw new ConversionConnectException("Only Map objects supported in absence of schema for " +
+      throw new ConversionConnectException("Schema-less records must be Map objects for " +
               "record conversion to BigQuery format.");
     }
     if (kafkaConnectSchema.type() != Schema.Type.STRUCT) {
@@ -120,14 +125,14 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
                     if (!(e.getKey() instanceof String)) {
                       throw new ConversionConnectException(
                           "Failed to convert record to bigQuery format: " +
-                              "Map objects in absence of schema needs to have string value keys. ");
+                              "Map objects in a schemaless record must have string value keys.");
                     }
                     m.put(e.getKey(), convertSchemalessRecord(e.getValue()));
                   },
                   HashMap::putAll);
     }
     throw new ConversionConnectException("Unsupported class " + value.getClass() +
-        " found in schemaless record data. Can't convert record to bigQuery format");
+        " found in schemaless record data. Cannot convert record to bigQuery format.");
   }
 
   private Object convertObject(Object kafkaConnectObject, Schema kafkaConnectSchema) {
@@ -137,9 +142,15 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
         return null;
       } else {
         throw new ConversionConnectException(
-            kafkaConnectSchema.name() + " is not optional, but converting object had null value");
+            kafkaConnectSchema.name() + " is not optional but object to convert was null.");
       }
     }
+
+    logger.debug("convertObject: object hashcode {} schema name {} type {} {}",
+            kafkaConnectObject.hashCode(), kafkaConnectSchema.name(),
+            kafkaConnectSchema.type().toString(),
+            kafkaConnectSchema.type().getName());
+
     if (LogicalConverterRegistry.isRegisteredLogicalType(kafkaConnectSchema.name())) {
       return convertLogical(kafkaConnectObject, kafkaConnectSchema);
     }

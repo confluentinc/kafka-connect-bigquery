@@ -189,7 +189,7 @@ public class BigQuerySinkTask extends SinkTask {
       tableName = smtReplacement[0];
     } else {
       throw new ConfigException("Incorrect regex replacement format. " +
-              "SMT replacement should either produce the <dataset>:<tableName> format or just the <tableName> format.");
+              "SMT replacement should produce either <dataset>:<tableName> or <tableName> only.");
     }
 
     if (sanitize) {

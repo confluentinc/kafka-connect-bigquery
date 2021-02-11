@@ -195,7 +195,7 @@ public class SchemaManager {
   public void createOrUpdateTable(TableId table, List<SinkRecord> records) {
     synchronized (lock(tableCreateLocks, table)) {
       if (bigQuery.getTable(table) == null) {
-        logger.debug("{} doesn't exist; creating instead of updating", table(table));
+        logger.info("Table {} doesn't exist; creating instead of updating", table(table));
         if (createTable(table, records)) {
           return;
         }
@@ -203,7 +203,7 @@ public class SchemaManager {
     }
 
     // Table already existed; attempt to update instead
-    logger.debug("{} already exists; updating instead of creating", table(table));
+    logger.debug("Table {} exists; updating instead of creating", table(table));
     updateSchema(table, records);
   }
 
@@ -217,18 +217,32 @@ public class SchemaManager {
     synchronized (lock(tableCreateLocks, table)) {
       if (schemaCache.containsKey(table)) {
         // Table already exists; noop
-        logger.debug("Skipping create of {} as it should already exist or appear very soon", table(table));
+        logger.debug("Skipping creation of {} as it should already exist or appear very soon", table(table));
         return false;
       }
+
       TableInfo tableInfo = getTableInfo(table, records, true);
+
       logger.info("Attempting to create {} with schema {}",
           table(table), tableInfo.getDefinition().getSchema());
+      logger.info("Full table info: {}", table.toString() );
+      logger.info("Table Project: {} | Table Dataset: {}",
+              table.getProject(), table.getDataset());
+      logger.info("Table IAM: {}", table.getIAMResourceName() );
+      logger.info("Table.getTable():\n{}", table.getTable());
+
       try {
         bigQuery.create(tableInfo);
-        logger.debug("Successfully created {}", table(table));
+        logger.info("Successfully created {}", table(table));
         schemaCache.put(table, tableInfo.getDefinition().getSchema());
         return true;
       } catch (BigQueryException e) {
+
+        logger.error("Caught BigQueryException with code {} and message {}",
+                e.getCode(), e.getMessage());
+        logger.error("Reason {}\nDebugInfo {}\n" ,
+                e.getReason(), e.getDebugInfo());
+
         if (e.getCode() == 409) {
           logger.debug("Failed to create {} as it already exists (possibly created by another task)", table(table));
           schemaCache.put(table, readTableSchema(table));
@@ -320,7 +334,25 @@ public class SchemaManager {
   private com.google.cloud.bigquery.Schema convertRecordSchema(SinkRecord record) {
     Schema kafkaValueSchema = schemaRetriever.retrieveValueSchema(record);
     Schema kafkaKeySchema = kafkaKeyFieldName.isPresent() ? schemaRetriever.retrieveKeySchema(record) : null;
+
+    logger.info("convertRecordSchema: partition {} offset {} topic {}",
+            (record.kafkaPartition() == null ? "null" : record.kafkaPartition()),
+            record.kafkaOffset(),
+            (record.topic() == null ? "null" : record.topic())
+    );
+    logger.info("convertRecordSchema: value schema name {} version {}",
+            (kafkaValueSchema.name() == null ? "null" : kafkaValueSchema.name()),
+            (kafkaValueSchema.version() == null ? "null" : kafkaValueSchema.version())
+    );
+    if (kafkaKeySchema != null) {
+      logger.info("convertRecordSchema: key schema {} {}",
+              kafkaKeySchema.name(), kafkaKeySchema.version());
+    }
     com.google.cloud.bigquery.Schema result = getBigQuerySchema(kafkaKeySchema, kafkaValueSchema);
+    if (result != null) {
+      logger.info("convertRecordSchema: result {} {}",
+              result.toString(), result.getFields());
+    }
     return result;
   }
 

@@ -43,8 +43,7 @@ import java.util.stream.Collectors;
 public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
 
   private static final Logger logger = LoggerFactory.getLogger(KCBQThreadPoolExecutor.class);
-
-
+  private static BigQuerySinkTaskConfig cfg;
   private ConcurrentHashMap.KeySetView<Throwable, Boolean> encounteredErrors =
       ConcurrentHashMap.newKeySet();
 
@@ -59,7 +58,8 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
           // the following line is irrelevant because the core and max thread counts are the same.
           1, TimeUnit.SECONDS,
           workQueue);
-  }
+    cfg = config;
+    }
 
   @Override
   protected void afterExecute(Runnable runnable, Throwable throwable) {
@@ -105,8 +105,13 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
   public void maybeThrowEncounteredErrors() {
     if (encounteredErrors.size() > 0) {
       String errorString = createErrorString(encounteredErrors);
-      throw new BigQueryConnectException("Some write threads encountered unrecoverable errors: "
-          + errorString + "; See logs for more detail");
+      if (!cfg.isIgnoreInvalidFieldsEnabled()) {
+        throw new BigQueryConnectException("Some write threads encountered unrecoverable errors: "
+                + errorString + "; See logs for more detail");
+      } else {
+        logger.warn("Write thread ignored an error {}", errorString);
+        encounteredErrors.clear();
+      }
     }
   }
 
