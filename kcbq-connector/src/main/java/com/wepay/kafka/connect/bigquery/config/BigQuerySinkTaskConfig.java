@@ -118,8 +118,8 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
   private static final ConfigDef.Importance BIGQUERY_PARTITION_EXPIRATION_IMPORTANCE = ConfigDef.Importance.LOW;
   private static final String BIGQUERY_PARTITION_EXPIRATION_DOC =
           "The amount of time, in milliseconds, after which partitions should be deleted from the table. If this " +
-                  "field is set, all data in partitions older than the specified partition expiration time will be " +
-                  "permanently deleted.";
+                  "field is set, all data in partitions in this table older than the specified partition " +
+                  "expiration time will be permanently deleted.";
 
   public static final String BIGQUERY_CLUSTERING_FIELD_NAMES_CONFIG = "clusteringPartitionFieldNames";
   private static final ConfigDef.Type BIGQUERY_CLUSTERING_FIELD_NAMES_TYPE = ConfigDef.Type.LIST;
@@ -261,7 +261,8 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
     }
     getPartitionExpirationMs().ifPresent(partitionExpiration -> {
       if (partitionExpiration <= 0) {
-        throw new ConfigException("The partition expiration value must be positive.");
+        throw new ConfigException(BIGQUERY_PARTITION_EXPIRATION_CONFIG, partitionExpiration,
+                "The partition expiration value must be positive.");
       }
     });
   }

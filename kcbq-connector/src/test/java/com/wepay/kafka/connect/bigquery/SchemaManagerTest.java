@@ -181,11 +181,12 @@ public class SchemaManagerTest {
 
     Assert.assertEquals("Kafka doc does not match BigQuery table description",
         testDoc, tableInfo.getDescription());
+    StandardTableDefinition tableDefinition = (StandardTableDefinition) tableInfo.getDefinition();
     Assert.assertEquals("The partition expiration does not match the expiration in ms",
         testExpirationMs.get(),
-        ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getExpirationMs());
+        tableDefinition.getTimePartitioning().getExpirationMs());
     Assert.assertNull("Timestamp partition field name is not null",
-        ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getField());
+        tableDefinition.getTimePartitioning().getField());
   }
 
   @Test
@@ -203,12 +204,13 @@ public class SchemaManagerTest {
 
     Assert.assertEquals("Kafka doc does not match BigQuery table description",
         testDoc, tableInfo.getDescription());
+    StandardTableDefinition tableDefinition = (StandardTableDefinition) tableInfo.getDefinition();
     Assert.assertEquals("The partition expiration does not match the expiration in ms",
         testExpirationMs.get(),
-        ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getExpirationMs());
+        tableDefinition.getTimePartitioning().getExpirationMs());
     Assert.assertEquals("The field name does not match the field name of time partition",
         testField.get(),
-        ((StandardTableDefinition) tableInfo.getDefinition()).getTimePartitioning().getField());
+        tableDefinition.getTimePartitioning().getField());
   }
 
   @Test
