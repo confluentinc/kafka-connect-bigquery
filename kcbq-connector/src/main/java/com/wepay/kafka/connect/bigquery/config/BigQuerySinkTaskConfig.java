@@ -109,8 +109,8 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
       ConfigDef.Importance.LOW;
   private static final String BIGQUERY_TIMESTAMP_PARTITION_FIELD_NAME_DOC =
       "The name of the field in the value that contains the timestamp to partition by in BigQuery"
-          + " and enable timestamp partitioning for each table. Leave this configuration blank,"
-          + " to enable ingestion time partitioning for each table.";
+      + " and enable timestamp partitioning for each table. Leave this configuration blank,"
+      + " to enable ingestion time partitioning for each table.";
 
   public static final String BIGQUERY_PARTITION_EXPIRATION_CONFIG = "partitionExpirationMs";
   private static final ConfigDef.Type BIGQUERY_PARTITION_EXPIRATION_TYPE = ConfigDef.Type.LONG;
