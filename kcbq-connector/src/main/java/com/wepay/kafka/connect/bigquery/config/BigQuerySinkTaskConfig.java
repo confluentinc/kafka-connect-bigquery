@@ -117,10 +117,10 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
   private static final String BIGQUERY_PARTITION_EXPIRATION_DEFAULT = null;
   private static final ConfigDef.Importance BIGQUERY_PARTITION_EXPIRATION_IMPORTANCE = ConfigDef.Importance.LOW;
   private static final String BIGQUERY_PARTITION_EXPIRATION_DOC =
-          "The amount of time, in milliseconds, after which partitions should be deleted from the tables this " +
-          "connector creates. If this field is set, all data in partitions in this connector's tables that are " +
-          "older than the specified partition expiration time will be permanently deleted. " +
-          "Existing tables will not be altered to use this partition expiration time.";
+      "The amount of time, in milliseconds, after which partitions should be deleted from the tables this "
+      + "connector creates. If this field is set, all data in partitions in this connector's tables that are "
+      + "older than the specified partition expiration time will be permanently deleted. "
+      + "Existing tables will not be altered to use this partition expiration time.";
 
   public static final String BIGQUERY_CLUSTERING_FIELD_NAMES_CONFIG = "clusteringPartitionFieldNames";
   private static final ConfigDef.Type BIGQUERY_CLUSTERING_FIELD_NAMES_TYPE = ConfigDef.Type.LIST;
