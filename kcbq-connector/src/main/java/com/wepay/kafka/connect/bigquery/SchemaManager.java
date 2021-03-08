@@ -201,7 +201,7 @@ public class SchemaManager {
   public void createOrUpdateTable(TableId table, List<SinkRecord> records) {
     synchronized (lock(tableCreateLocks, table)) {
       if (bigQuery.getTable(table) == null) {
-        logger.info("Table {} doesn't exist; creating instead of updating", table(table));
+        logger.debug("Table {} doesn't exist; creating instead of updating", table(table));
         if (createTable(table, records)) {
           return;
         }
@@ -229,13 +229,13 @@ public class SchemaManager {
 
       TableInfo tableInfo = getTableInfo(table, records, true);
 
-      logger.info("Attempting to create {} with schema {}",
+      logger.trace("Attempting to create {} with schema {}",
           table(table), tableInfo.getDefinition().getSchema());
-      logger.info("Full table info: {}", table.toString() );
-      logger.info("Table Project: {} | Table Dataset: {}",
+      logger.trace("Full table info: {}", table.toString() );
+      logger.trace("Table Project: {} | Table Dataset: {}",
               table.getProject(), table.getDataset());
-      logger.info("Table IAM: {}", table.getIAMResourceName() );
-      logger.info("Table.getTable():\n{}", table.getTable());
+      logger.trace("Table IAM: {}", table.getIAMResourceName() );
+      logger.trace("Table.getTable():\n{}", table.getTable());
 
       try {
         bigQuery.create(tableInfo);
@@ -346,17 +346,17 @@ public class SchemaManager {
             record.kafkaOffset(),
             (record.topic() == null ? "null" : record.topic())
     );
-    logger.info("convertRecordSchema: value schema name {} version {}",
+    logger.trace("convertRecordSchema: value schema name {} version {}",
             (kafkaValueSchema.name() == null ? "null" : kafkaValueSchema.name()),
             (kafkaValueSchema.version() == null ? "null" : kafkaValueSchema.version())
     );
     if (kafkaKeySchema != null) {
-      logger.info("convertRecordSchema: key schema {} {}",
+      logger.trace("convertRecordSchema: key schema {} {}",
               kafkaKeySchema.name(), kafkaKeySchema.version());
     }
     com.google.cloud.bigquery.Schema result = getBigQuerySchema(kafkaKeySchema, kafkaValueSchema);
     if (result != null) {
-      logger.info("convertRecordSchema: result {} {}",
+      logger.debug("convertRecordSchema: result {} {}",
               result.toString(), result.getFields());
     }
     return result;

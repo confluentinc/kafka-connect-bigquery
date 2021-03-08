@@ -136,14 +136,14 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
 
     if (seenSoFar.contains(kafkaConnectSchema)) {
 
-      logger.error("throwOnCycle schema name {}", kafkaConnectSchema.name());
+      logger.error("Detected a cycle in schema {}", kafkaConnectSchema.name());
 
       if (!kafkaConnectSchema.fields().isEmpty()) {
         /*
          * If we print out each field in the schema that aids debugging by
          * making it clear where the cycle is.
          */
-        logger.error("throwOnCycle fields");
+        logger.error("fields in the cyclic schema:");
         kafkaConnectSchema.fields().forEach((f) ->
                 logger.error("\t index {} name {} {}",
                         f.index(),

@@ -67,9 +67,11 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
 
     // Skip interrupted exceptions, as they are thrown by design on task shutdown
     if (throwable != null && !(throwable instanceof ExpectedInterruptException)) {
+      String name = throwable.getClass().getName();
+      String msg = throwable.getMessage();
       logger.error("Task failed with {} error: {}",
-                   throwable.getClass().getName(),
-                   throwable.getMessage());
+              name != null ? name : "classname is null",
+              msg != null ? msg : "message is null");
       logger.debug("Error Task Stacktrace:", throwable);
       encounteredErrors.add(throwable);
     }
