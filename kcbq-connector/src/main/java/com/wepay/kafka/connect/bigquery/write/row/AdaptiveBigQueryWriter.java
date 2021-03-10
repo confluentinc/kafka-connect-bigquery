@@ -101,7 +101,7 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
     InsertAllResponse writeResponse = null;
     InsertAllRequest request = null;
 
-    logger.info("performWriteRequest with table {} and rowcount {}",
+    logger.trace("performWriteRequest with table {} and rowcount {}",
             tableId.getFullTableId().toString(), rows.size());
 
     try {
@@ -109,12 +109,14 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
       writeResponse = bigQuery.insertAll(request);
       // Should only perform one schema update attempt.
       if (writeResponse.hasErrors()
-              && onlyContainsInvalidSchemaErrors(writeResponse.getInsertErrors())) {
+              && onlyContainsInvalidSchemaErrors(writeResponse.getInsertErrors(),
+              tableId.getFullTableId().toString())) {
         attemptSchemaUpdate(tableId, new ArrayList<>(rows.keySet()));
       }
     } catch (BigQueryException exception) {
       // Should only perform one table creation attempt.
-      logger.warn("createInsertAllRequest threw message {} / reason {}",
+      logger.warn("createInsertAllRequest to {} threw message {} / reason {}",
+              tableId.getBaseTableId().toString(),
               exception.getMessage(), exception.getReason());
       if (isTableNotExistedException(exception) && autoCreateTables) {
         attemptTableCreate(tableId.getBaseTableId(), new ArrayList<>(rows.keySet()));
@@ -129,7 +131,9 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
     // so multiple insertion attempts may be necessary.
     int attemptCount = 0;
     while (writeResponse == null || writeResponse.hasErrors()) {
-      logger.warn("insertion failed, attempt # {}", attemptCount);
+      logger.warn("insertion to {} failed, attempt # {}",
+              tableId.getFullTableId().toString(),
+              attemptCount);
       if (writeResponse != null) {
         writeResponse.getInsertErrors()
                 .forEach((idx, error)
@@ -137,7 +141,8 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
       }
 
       if (writeResponse == null
-          || onlyContainsInvalidSchemaErrors(writeResponse.getInsertErrors())) {
+          || onlyContainsInvalidSchemaErrors(writeResponse.getInsertErrors(),
+              tableId.getFullTableId().toString())) {
         try {
           // If the table was missing its schema, we never received a writeResponse
           logger.trace("re-attempting insertion");
@@ -193,8 +198,10 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
    * inserted rows and the schema of the actual BigQuery table.
    * This is why we can't have nice things, Google.
    */
-  private boolean onlyContainsInvalidSchemaErrors(Map<Long, List<BigQueryError>> errors) {
-    logger.trace("write response contained errors: \n{}", errors);
+  private boolean onlyContainsInvalidSchemaErrors(Map<Long, List<BigQueryError>> errors,
+                                                  String tableName) {
+    logger.debug("Table {}: write response contained errors: \n{}",
+            tableName != null ? tableName : "(null table name!)", errors);
     boolean invalidSchemaError = false;
     for (List<BigQueryError> errorList : errors.values()) {
       for (BigQueryError error : errorList) {
