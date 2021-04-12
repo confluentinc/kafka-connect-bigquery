@@ -393,7 +393,12 @@ public class SchemaManager {
     firstSchemaFields.forEach((name, firstField) -> {
       Field secondField = secondSchemaFields.get(name);
       if (secondField == null) {
-        unionizedSchemaFields.put(name, firstField.toBuilder().setMode(Field.Mode.NULLABLE).build());
+        // Repeated fields are implicitly nullable; no need to set a new mode for them
+        if (!Field.Mode.REPEATED.equals(firstField.getMode())) {
+          unionizedSchemaFields.put(name, firstField.toBuilder().setMode(Field.Mode.NULLABLE).build());
+        } else {
+          unionizedSchemaFields.put(name, firstField);
+        }
       } else if (isFieldRelaxation(firstField, secondField)) {
         unionizedSchemaFields.put(name, secondField);
       } else {
@@ -403,7 +408,12 @@ public class SchemaManager {
 
     secondSchemaFields.forEach((name, secondField) -> {
       if (!unionizedSchemaFields.containsKey(name)) {
-        unionizedSchemaFields.put(name, secondField.toBuilder().setMode(Field.Mode.NULLABLE).build());
+        if (Field.Mode.REPEATED.equals(secondField.getMode())) {
+        // Repeated fields are implicitly nullable; no need to set a new mode for them
+          unionizedSchemaFields.put(name, secondField);
+        } else {
+          unionizedSchemaFields.put(name, secondField.toBuilder().setMode(Field.Mode.NULLABLE).build());
+        }
       }
     });
     return com.google.cloud.bigquery.Schema.of(unionizedSchemaFields.values());
@@ -411,8 +421,11 @@ public class SchemaManager {
 
   private void validateSchemaChange(
       com.google.cloud.bigquery.Schema existingSchema, com.google.cloud.bigquery.Schema proposedSchema) {
+    logger.trace("Validating schema change. Existing schema: {}; proposed Schema: {}",
+        existingSchema.toString(), proposedSchema.toString());
     Map<String, Field> earliestSchemaFields = schemaFields(existingSchema);
     Map<String, Field> proposedSchemaFields = schemaFields(proposedSchema);
+
     for (Map.Entry<String, Field> entry : proposedSchemaFields.entrySet()) {
       if (!earliestSchemaFields.containsKey(entry.getKey())) {
         if (!isValidFieldAddition(entry.getValue())) {
@@ -439,6 +452,7 @@ public class SchemaManager {
   private boolean isValidFieldAddition(Field newField) {
     return allowNewBQFields && (
         newField.getMode().equals(Field.Mode.NULLABLE) ||
+        newField.getMode().equals(Field.Mode.REPEATED) ||
         (newField.getMode().equals(Field.Mode.REQUIRED) && allowBQRequiredFieldRelaxation));
   }
 
@@ -449,7 +463,7 @@ public class SchemaManager {
     Map<String, Field> proposedSchemaFields = schemaFields(proposedSchema);
     List<Field> newSchemaFields = new ArrayList<>();
     for (Map.Entry<String, Field> entry : proposedSchemaFields.entrySet()) {
-      if (!existingSchemaFields.containsKey(entry.getKey())) {
+      if (!existingSchemaFields.containsKey(entry.getKey()) && !Field.Mode.REPEATED.equals(entry.getValue().getMode())) {
         newSchemaFields.add(entry.getValue().toBuilder().setMode(Field.Mode.NULLABLE).build());
       } else {
         newSchemaFields.add(entry.getValue());
@@ -480,7 +494,12 @@ public class SchemaManager {
    */
   private Map<String, Field> schemaFields(com.google.cloud.bigquery.Schema schema) {
     Map<String, Field> result = new LinkedHashMap<>();
-    schema.getFields().forEach(field -> result.put(field.getName(), field));
+    schema.getFields().forEach(field -> {
+      if (field.getMode() == null) {
+        field = field.toBuilder().setMode(Field.Mode.NULLABLE).build();
+      }
+      result.put(field.getName(), field);
+    });
     return result;
   }
 

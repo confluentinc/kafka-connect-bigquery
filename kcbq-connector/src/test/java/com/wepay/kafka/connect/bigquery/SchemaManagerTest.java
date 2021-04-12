@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.Field.Mode;
 import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.Table;
@@ -49,7 +50,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 public class SchemaManagerTest {
 
@@ -442,6 +442,50 @@ public class SchemaManagerTest {
     testGetAndValidateProposedSchema(schemaManager, existingSchema, disjointSchema, expectedSchema);
   }
 
+  @Test
+  public void testSuccessfulUnionizedUpdateWithNewRepeatedField() {
+    com.google.cloud.bigquery.Schema reducedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build()
+    );
+
+    com.google.cloud.bigquery.Schema expandedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build(),
+        Field.newBuilder("f2", LegacySQLTypeName.INTEGER).setMode(Field.Mode.REPEATED).build()
+    );
+
+    com.google.cloud.bigquery.Schema expectedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build(),
+        Field.newBuilder("f2", LegacySQLTypeName.INTEGER).setMode(Field.Mode.REPEATED).build()
+    );
+
+    SchemaManager schemaManager = createSchemaManager(true, true, true);
+
+    // Unionization should work symmetrically, so test both cases of reduced/expanded as the current/new schemas
+    testGetAndValidateProposedSchema(schemaManager, reducedSchema, expandedSchema, expectedSchema);
+    testGetAndValidateProposedSchema(schemaManager, expandedSchema, reducedSchema, expectedSchema);
+  }
+
+  @Test
+  public void testSuccessfulUpdateWithNewRepeatedField() {
+    com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build()
+    );
+
+    com.google.cloud.bigquery.Schema expandedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build(),
+        Field.newBuilder("f2", LegacySQLTypeName.INTEGER).setMode(Field.Mode.REPEATED).build()
+    );
+
+    com.google.cloud.bigquery.Schema expectedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build(),
+        Field.newBuilder("f2", LegacySQLTypeName.INTEGER).setMode(Field.Mode.REPEATED).build()
+    );
+
+    SchemaManager schemaManager = createSchemaManager(true, true, false);
+
+    testGetAndValidateProposedSchema(schemaManager, existingSchema, expandedSchema, expectedSchema);
+  }
+
   @Test(expected = BigQueryConnectException.class)
   public void testDisallowedUnionizedUpdateWithNewField() {
     com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
@@ -500,6 +544,27 @@ public class SchemaManagerTest {
     SchemaManager schemaManager = createSchemaManager(true, true, true);
 
     testGetAndValidateProposedSchema(schemaManager, existingSchema, newSchemas, expectedSchema);
+  }
+
+  @Test
+  public void FieldsWithUnspecifiedModeShouldNotCauseNpe() {
+    com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).build()
+    );
+
+    com.google.cloud.bigquery.Schema expandedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).build(),
+        Field.newBuilder("f2", LegacySQLTypeName.INTEGER).build()
+    );
+
+    com.google.cloud.bigquery.Schema expectedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Mode.NULLABLE).build(),
+        Field.newBuilder("f2", LegacySQLTypeName.INTEGER).setMode(Mode.NULLABLE).build()
+    );
+
+    SchemaManager schemaManager = createSchemaManager(true, true, true);
+
+    testGetAndValidateProposedSchema(schemaManager, existingSchema, expandedSchema, expectedSchema);
   }
 
   private SchemaManager createSchemaManager(
