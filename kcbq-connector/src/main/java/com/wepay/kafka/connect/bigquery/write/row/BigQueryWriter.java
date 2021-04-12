@@ -92,7 +92,7 @@ public abstract class BigQueryWriter {
                                                     Collection<InsertAllRequest.RowToInsert> rows) {
     return InsertAllRequest.newBuilder(tableId.getFullTableId(), rows)
         .setIgnoreUnknownValues(false)
-        .setSkipInvalidRows(false)
+        .setSkipInvalidRows(true)
         .build();
   }
 
@@ -196,10 +196,13 @@ public abstract class BigQueryWriter {
       }
       index++;
     }
-    logger.debug("Failed to write {} row{} to table {}.",
-            rows.size(),
-            rows.size() > 1 ? "s" : "",
-            table.getFullTableName());
+    if (!failRows.isEmpty()) {
+      logger.warn("Failed to write {} row{} to table {}.",
+              rows.size(),
+              rows.size() > 1 ? "s" : "",
+              table.getFullTableName());
+      logger.warn(failRows.toString());
+    }
     return failRows;
   }
 

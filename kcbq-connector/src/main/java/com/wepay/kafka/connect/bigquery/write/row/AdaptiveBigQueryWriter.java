@@ -38,9 +38,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 
 /**
@@ -101,7 +101,7 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
     InsertAllResponse writeResponse = null;
     InsertAllRequest request = null;
 
-    logger.trace("performWriteRequest with table {} and rowcount {}",
+    logger.debug("performWriteRequest with table {} and rowcount {}",
             tableId.getFullTableId().toString(), rows.size());
 
     try {
@@ -134,11 +134,14 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
       logger.warn("insertion to {} failed, attempt # {}",
               tableId.getFullTableId().toString(),
               attemptCount);
+
       if (writeResponse != null) {
         writeResponse.getInsertErrors()
                 .forEach((idx, error)
-                -> logger.warn("BigQuery error @ {}: {}", idx, error));
+                -> logger.warn("BigQuery error @ {}: {} ", idx, error));
       }
+
+      logger.debug("rows: {}", rows.values());
 
       if (writeResponse == null
           || onlyContainsInvalidSchemaErrors(writeResponse.getInsertErrors(),
@@ -159,6 +162,7 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
         throw new BigQueryConnectException(
             "Failed to write rows after BQ table creation or schema update within "
                 + RETRY_LIMIT + " attempts for: " + tableId.getBaseTableId());
+
       }
       try {
         Thread.sleep(RETRY_WAIT_TIME);
