@@ -555,6 +555,13 @@ public class BigQuerySchemaConverterTest {
   }
 
   @Test
+  public void testTombstone() {
+    com.google.cloud.bigquery.Schema bigQueryTestSchema =
+        new BigQuerySchemaConverter(true).convertSchema(null);
+    assertEquals(com.google.cloud.bigquery.Schema.of(), bigQueryTestSchema);
+  }
+
+  @Test
   public void testNullable() {
     final String nullableFieldName = "Nullable";
     final String requiredFieldName = "Required";
