@@ -100,6 +100,9 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
    *         existing one.
    */
   public com.google.cloud.bigquery.Schema convertSchema(Schema kafkaConnectSchema) {
+    if (kafkaConnectSchema == null) {
+      return com.google.cloud.bigquery.Schema.of();
+    }
     // TODO: Permit non-struct keys
     if (kafkaConnectSchema.type() != Schema.Type.STRUCT) {
       throw new
