@@ -19,7 +19,6 @@
 
 package com.wepay.kafka.connect.bigquery;
 
-import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -35,7 +34,6 @@ import com.google.cloud.bigquery.TableInfo;
 
 import com.google.common.collect.ImmutableList;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
-import com.wepay.kafka.connect.bigquery.convert.BigQuerySchemaConverter;
 import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
 
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
