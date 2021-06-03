@@ -19,6 +19,7 @@
 
 package com.wepay.kafka.connect.bigquery;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -32,7 +33,9 @@ import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 
+import com.google.common.collect.ImmutableList;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
+import com.wepay.kafka.connect.bigquery.convert.BigQuerySchemaConverter;
 import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
 
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
@@ -384,6 +387,36 @@ public class SchemaManagerTest {
     testGetAndValidateProposedSchema(schemaManager, existingSchema, expandedSchema, expectedSchema);
   }
 
+  @Test
+  public void testTombstoneRecordWithNullValueSchemaShouldNotCauseNpe() {
+    com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build()
+    );
+
+    com.google.cloud.bigquery.Schema newSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.NULLABLE).build()
+    );
+
+    SchemaManager schemaManager = createSchemaManager(false, true, true);
+    testGetAndValidateProposedSchema(schemaManager, existingSchema, ImmutableList.of(newSchema),
+        com.google.cloud.bigquery.Schema.of(), recordWithNullValueSchema());
+  }
+
+  @Test
+  public void testTombstoneRecordWithNullValueSchemaShouldNotCauseNpe_allowUnionization() {
+    com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build()
+    );
+
+    com.google.cloud.bigquery.Schema newSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.NULLABLE).build()
+    );
+
+    SchemaManager schemaManager = createSchemaManager(false, true, true);
+    testGetAndValidateProposedSchema(schemaManager, existingSchema, ImmutableList.of(newSchema),
+        newSchema, recordWithNullValueSchema());
+  }
+
   private SchemaManager createSchemaManager(
       boolean allowNewFields, boolean allowFieldRelaxation, boolean allowUnionization) {
     return new SchemaManager(new IdentitySchemaRetriever(), mockSchemaConverter, mockBigQuery,
@@ -405,10 +438,23 @@ public class SchemaManagerTest {
       com.google.cloud.bigquery.Schema existingSchema,
       List<com.google.cloud.bigquery.Schema> newSchemas,
       com.google.cloud.bigquery.Schema expectedSchema) {
+    testGetAndValidateProposedSchema(
+        schemaManager,
+        existingSchema,
+        newSchemas,
+        expectedSchema,
+        recordWithValueSchema(mockKafkaSchema));
+  }
+
+  private void testGetAndValidateProposedSchema(
+      SchemaManager schemaManager,
+      com.google.cloud.bigquery.Schema existingSchema,
+      List<com.google.cloud.bigquery.Schema> newSchemas,
+      com.google.cloud.bigquery.Schema expectedSchema,
+      SinkRecord sinkRecord) {
     Table existingTable = existingSchema != null ? tableWithSchema(existingSchema) : null;
 
-    SinkRecord mockSinkRecord = recordWithValueSchema(mockKafkaSchema);
-    List<SinkRecord> incomingSinkRecords = Collections.nCopies(newSchemas.size(), mockSinkRecord);
+    List<SinkRecord> incomingSinkRecords = Collections.nCopies(newSchemas.size(), sinkRecord);
 
     when(mockBigQuery.getTable(tableId)).thenReturn(existingTable);
     OngoingStubbing<com.google.cloud.bigquery.Schema> converterStub =
@@ -440,6 +486,12 @@ public class SchemaManagerTest {
   private SinkRecord recordWithValueSchema(Schema valueSchema) {
     SinkRecord result = mock(SinkRecord.class);
     when(result.valueSchema()).thenReturn(valueSchema);
+    return result;
+  }
+
+  private SinkRecord recordWithNullValueSchema() {
+    SinkRecord result = mock(SinkRecord.class);
+    when(result.valueSchema()).thenReturn(null);
     return result;
   }
 }

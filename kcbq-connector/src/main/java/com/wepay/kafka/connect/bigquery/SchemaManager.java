@@ -495,6 +495,9 @@ public class SchemaManager {
   }
 
   private com.google.cloud.bigquery.Schema getBigQuerySchema(Schema kafkaKeySchema, Schema kafkaValueSchema) {
+    if (kafkaValueSchema == null) {
+      return com.google.cloud.bigquery.Schema.of();
+    }
     com.google.cloud.bigquery.Schema valueSchema = schemaConverter.convertSchema(kafkaValueSchema);
 
     List<Field> schemaFields = intermediateTables
