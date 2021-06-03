@@ -395,7 +395,7 @@ public class SchemaManagerTest {
         Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.NULLABLE).build()
     );
 
-    SchemaManager schemaManager = createSchemaManager(false, true, true);
+    SchemaManager schemaManager = createSchemaManager(false, true, false);
     testGetAndValidateProposedSchema(schemaManager, existingSchema, ImmutableList.of(newSchema),
         com.google.cloud.bigquery.Schema.of(), recordWithNullValueSchema());
   }
