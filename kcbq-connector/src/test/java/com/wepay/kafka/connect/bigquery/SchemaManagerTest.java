@@ -385,34 +385,41 @@ public class SchemaManagerTest {
     testGetAndValidateProposedSchema(schemaManager, existingSchema, expandedSchema, expectedSchema);
   }
 
-  @Test
-  public void testTombstoneRecordWithNullValueSchemaShouldNotCauseNpe() {
+  @Test(expected = BigQueryConnectException.class)
+  public void testDisallowedUnionizedUpdateWithTombstoneRecord() {
     com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
         Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build()
     );
 
-    com.google.cloud.bigquery.Schema newSchema = com.google.cloud.bigquery.Schema.of(
-        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.NULLABLE).build()
-    );
+    Table existingTable = tableWithSchema(existingSchema);
+    List<SinkRecord> incomingSinkRecords = ImmutableList.of(recordWithValueSchema(null));
 
+    when(mockBigQuery.getTable(tableId)).thenReturn(existingTable);
     SchemaManager schemaManager = createSchemaManager(false, true, false);
-    testGetAndValidateProposedSchema(schemaManager, existingSchema, ImmutableList.of(newSchema),
-        com.google.cloud.bigquery.Schema.of(), recordWithNullValueSchema());
+    schemaManager.getAndValidateProposedSchema(tableId, incomingSinkRecords);
   }
 
   @Test
-  public void testTombstoneRecordWithNullValueSchemaShouldNotCauseNpe_allowUnionization() {
+  public void testAllowedUnionizedUpdateWithTombstoneRecord() {
     com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
         Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build()
     );
 
-    com.google.cloud.bigquery.Schema newSchema = com.google.cloud.bigquery.Schema.of(
+    com.google.cloud.bigquery.Schema expectedSchema = com.google.cloud.bigquery.Schema.of(
         Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.NULLABLE).build()
     );
 
+    Table existingTable = tableWithSchema(existingSchema);
+    SinkRecord tombstone = recordWithValueSchema(null);
+    List<SinkRecord> incomingSinkRecords = ImmutableList.of(tombstone);
+
+    when(mockBigQuery.getTable(tableId)).thenReturn(existingTable);
+
     SchemaManager schemaManager = createSchemaManager(false, true, true);
-    testGetAndValidateProposedSchema(schemaManager, existingSchema, ImmutableList.of(newSchema),
-        newSchema, recordWithNullValueSchema());
+    com.google.cloud.bigquery.Schema proposedSchema =
+        schemaManager.getAndValidateProposedSchema(tableId, incomingSinkRecords);
+
+    Assert.assertEquals(expectedSchema, proposedSchema);
   }
 
   private SchemaManager createSchemaManager(
@@ -484,12 +491,6 @@ public class SchemaManagerTest {
   private SinkRecord recordWithValueSchema(Schema valueSchema) {
     SinkRecord result = mock(SinkRecord.class);
     when(result.valueSchema()).thenReturn(valueSchema);
-    return result;
-  }
-
-  private SinkRecord recordWithNullValueSchema() {
-    SinkRecord result = mock(SinkRecord.class);
-    when(result.valueSchema()).thenReturn(null);
     return result;
   }
 }
