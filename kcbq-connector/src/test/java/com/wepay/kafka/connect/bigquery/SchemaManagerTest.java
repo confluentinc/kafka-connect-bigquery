@@ -443,23 +443,10 @@ public class SchemaManagerTest {
       com.google.cloud.bigquery.Schema existingSchema,
       List<com.google.cloud.bigquery.Schema> newSchemas,
       com.google.cloud.bigquery.Schema expectedSchema) {
-    testGetAndValidateProposedSchema(
-        schemaManager,
-        existingSchema,
-        newSchemas,
-        expectedSchema,
-        recordWithValueSchema(mockKafkaSchema));
-  }
-
-  private void testGetAndValidateProposedSchema(
-      SchemaManager schemaManager,
-      com.google.cloud.bigquery.Schema existingSchema,
-      List<com.google.cloud.bigquery.Schema> newSchemas,
-      com.google.cloud.bigquery.Schema expectedSchema,
-      SinkRecord sinkRecord) {
     Table existingTable = existingSchema != null ? tableWithSchema(existingSchema) : null;
 
-    List<SinkRecord> incomingSinkRecords = Collections.nCopies(newSchemas.size(), sinkRecord);
+    SinkRecord mockSinkRecord = recordWithValueSchema(mockKafkaSchema);
+    List<SinkRecord> incomingSinkRecords = Collections.nCopies(newSchemas.size(), mockSinkRecord);
 
     when(mockBigQuery.getTable(tableId)).thenReturn(existingTable);
     OngoingStubbing<com.google.cloud.bigquery.Schema> converterStub =
