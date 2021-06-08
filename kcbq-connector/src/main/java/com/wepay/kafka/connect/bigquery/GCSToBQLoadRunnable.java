@@ -163,7 +163,10 @@ public class GCSToBQLoadRunnable implements Runnable {
     String project = matcher.group("project");
     String dataset = matcher.group("dataset");
     String table = matcher.group("table");
-    logger.debug("Table data: project: {}; dataset: {}; table: {}", project, dataset, table);
+    logger.trace("Table data: project: {}; dataset: {}; table: {}",
+            project != null ? project : "null",
+            dataset != null ? dataset : "null",
+            table != null ? table : "null ");
 
     if (project == null) {
       return TableId.of(dataset, table);
@@ -218,10 +221,10 @@ public class GCSToBQLoadRunnable implements Runnable {
   private void checkJobs() {
     if (activeJobs.isEmpty()) {
       // quick exit if nothing needs to be done.
-      logger.debug("No active jobs to check. Skipping check jobs.");
+      logger.trace("No active jobs to check. Skipping check jobs.");
       return;
     }
-    logger.debug("Checking {} active jobs", activeJobs.size());
+    logger.trace("Checking {} active jobs", activeJobs.size());
 
     Iterator<Map.Entry<Job, List<BlobId>>> jobIterator = activeJobs.entrySet().iterator();
     int successCount = 0;
@@ -230,7 +233,7 @@ public class GCSToBQLoadRunnable implements Runnable {
     while (jobIterator.hasNext()) {
       Map.Entry<Job, List<BlobId>> jobEntry = jobIterator.next();
       Job job = jobEntry.getKey();
-      logger.debug("Checking next job: {}", job.getJobId());
+      logger.trace("Checking next job: {}", job.getJobId());
 
       try {
         if (job.isDone()) {
@@ -271,11 +274,11 @@ public class GCSToBQLoadRunnable implements Runnable {
     int successfulDeletes = 0;
 
     if (numberOfBlobs == 0) {
-      logger.info("No blobs to delete");
+      logger.debug("No blobs to delete");
       return;
     }
 
-    logger.info("Attempting to delete {} blobs", numberOfBlobs);
+    logger.debug("Attempting to delete {} blobs", numberOfBlobs);
 
     try {
       // Issue a batch delete api call

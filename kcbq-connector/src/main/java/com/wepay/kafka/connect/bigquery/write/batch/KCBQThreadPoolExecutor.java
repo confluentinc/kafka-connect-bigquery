@@ -43,8 +43,6 @@ import java.util.stream.Collectors;
 public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
 
   private static final Logger logger = LoggerFactory.getLogger(KCBQThreadPoolExecutor.class);
-
-
   private ConcurrentHashMap.KeySetView<Throwable, Boolean> encounteredErrors =
       ConcurrentHashMap.newKeySet();
 
@@ -59,7 +57,7 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
           // the following line is irrelevant because the core and max thread counts are the same.
           1, TimeUnit.SECONDS,
           workQueue);
-  }
+    }
 
   @Override
   protected void afterExecute(Runnable runnable, Throwable throwable) {
@@ -67,9 +65,11 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
 
     // Skip interrupted exceptions, as they are thrown by design on task shutdown
     if (throwable != null && !(throwable instanceof ExpectedInterruptException)) {
+      String name = throwable.getClass().getName();
+      String msg = throwable.getMessage();
       logger.error("Task failed with {} error: {}",
-                   throwable.getClass().getName(),
-                   throwable.getMessage());
+              name != null ? name : "classname is null",
+              msg != null ? msg : "message is null");
       logger.debug("Error Task Stacktrace:", throwable);
       encounteredErrors.add(throwable);
     }
@@ -106,7 +106,7 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
     if (encounteredErrors.size() > 0) {
       String errorString = createErrorString(encounteredErrors);
       throw new BigQueryConnectException("Some write threads encountered unrecoverable errors: "
-          + errorString + "; See logs for more detail");
+              + errorString + "; See logs for more detail");
     }
   }
 
