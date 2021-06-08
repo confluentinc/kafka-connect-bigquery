@@ -500,7 +500,8 @@ public class SchemaManager {
     if (kafkaValueSchema == null) {
       if (!allowSchemaUnionization) {
         throw new BigQueryConnectException(
-            "Cannot convert schema for record with value schema.");
+            "Cannot create/update BigQuery table for record with no value schema. "
+            + "If delete mode is enabled, it may be necessary to enable schema unionization to handle this case.");
       }
       return com.google.cloud.bigquery.Schema.of();
     }
