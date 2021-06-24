@@ -431,10 +431,14 @@ public class SchemaManager {
    * @param records The records used to get the unionized table description
    * @return The resulting table description
    */
-  private String getUnionizedTableDescription(List<SinkRecord> records) {
+  @VisibleForTesting
+  String getUnionizedTableDescription(List<SinkRecord> records) {
     String tableDescription = null;
     for (SinkRecord record : records) {
       Schema kafkaValueSchema = schemaRetriever.retrieveValueSchema(record);
+      if (kafkaValueSchema == null) {
+        continue;
+      }
       tableDescription = kafkaValueSchema.doc() != null ? kafkaValueSchema.doc() : tableDescription;
     }
     return tableDescription;
@@ -503,9 +507,12 @@ public class SchemaManager {
             "Cannot create/update BigQuery table for record with no value schema. "
             + "If delete mode is enabled, it may be necessary to enable schema unionization to handle this case.");
       }
-      return com.google.cloud.bigquery.Schema.of();
     }
-    com.google.cloud.bigquery.Schema valueSchema = schemaConverter.convertSchema(kafkaValueSchema);
+
+    com.google.cloud.bigquery.Schema valueSchema = com.google.cloud.bigquery.Schema.of();;
+    if (kafkaValueSchema != null) {
+      valueSchema  = schemaConverter.convertSchema(kafkaValueSchema);
+    }
 
     List<Field> schemaFields = intermediateTables
         ? getIntermediateSchemaFields(valueSchema, kafkaKeySchema)
