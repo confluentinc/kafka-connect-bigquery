@@ -30,6 +30,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,8 @@ import java.util.TreeMap;
  * A class for writing lists of rows to a BigQuery table.
  */
 public abstract class BigQueryWriter {
+
+  private static final int UNKNOWN_CODE = BigQueryException.UNKNOWN_CODE;
 
   private static final int WAIT_MAX_JITTER = 1000;
 
@@ -134,6 +137,10 @@ public abstract class BigQueryWriter {
           retryCount++;
         } else if (BigQueryErrorResponses.isRateLimitExceededError(err)) {
           logger.warn("Rate limit exceeded for table {}, attempting retry", table);
+          retryCount++;
+        } else if (err.getCode() == UNKNOWN_CODE && err.getCause() != null && err.getCause() instanceof IOException){
+          //Retry when IO exceptions occur
+          logger.warn("IO Exception: {}, attempting retry", err.getCause().getMessage());
           retryCount++;
         } else {
           throw err;
