@@ -30,6 +30,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,7 @@ import java.util.TreeMap;
  */
 public abstract class BigQueryWriter {
 
+  private static final int UNKNOWN_CODE = BigQueryException.UNKNOWN_CODE;
   private static final int FORBIDDEN = 403;
   private static final int INTERNAL_SERVICE_ERROR = 500;
   private static final int BAD_GATEWAY = 502;
@@ -153,6 +155,10 @@ public abstract class BigQueryWriter {
                    && RATE_LIMIT_EXCEEDED_REASON.equals(err.getReason())) {
           // rate limit exceeded error
           logger.warn("Rate limit exceeded for table {}, attempting retry", table);
+          retryCount++;
+        } else if (err.getCode() == UNKNOWN_CODE && err.getCause() != null && err.getCause() instanceof IOException){
+          //Retry when IO exceptions occur
+          logger.warn("IO Exception: {}, attempting retry", err.getCause().getMessage());
           retryCount++;
         } else {
           throw err;
