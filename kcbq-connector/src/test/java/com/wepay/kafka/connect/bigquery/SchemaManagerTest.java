@@ -385,43 +385,6 @@ public class SchemaManagerTest {
     testGetAndValidateProposedSchema(schemaManager, existingSchema, expandedSchema, expectedSchema);
   }
 
-  @Test(expected = BigQueryConnectException.class)
-  public void testDisallowedUnionizedUpdateWithTombstoneRecord() {
-    com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
-        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build()
-    );
-
-    Table existingTable = tableWithSchema(existingSchema);
-    List<SinkRecord> incomingSinkRecords = ImmutableList.of(recordWithValueSchema(null));
-
-    when(mockBigQuery.getTable(tableId)).thenReturn(existingTable);
-    SchemaManager schemaManager = createSchemaManager(false, true, false);
-    schemaManager.getAndValidateProposedSchema(tableId, incomingSinkRecords);
-  }
-
-  @Test
-  public void testAllowedUnionizedUpdateWithTombstoneRecord() {
-    com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
-        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build()
-    );
-
-    com.google.cloud.bigquery.Schema expectedSchema = com.google.cloud.bigquery.Schema.of(
-        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.NULLABLE).build()
-    );
-
-    Table existingTable = tableWithSchema(existingSchema);
-    SinkRecord tombstone = recordWithValueSchema(null);
-    List<SinkRecord> incomingSinkRecords = ImmutableList.of(tombstone);
-
-    when(mockBigQuery.getTable(tableId)).thenReturn(existingTable);
-
-    SchemaManager schemaManager = createSchemaManager(false, true, true);
-    com.google.cloud.bigquery.Schema proposedSchema =
-        schemaManager.getAndValidateProposedSchema(tableId, incomingSinkRecords);
-
-    Assert.assertEquals(expectedSchema, proposedSchema);
-  }
-
   private SchemaManager createSchemaManager(
       boolean allowNewFields, boolean allowFieldRelaxation, boolean allowUnionization) {
     return new SchemaManager(new IdentitySchemaRetriever(), mockSchemaConverter, mockBigQuery,
