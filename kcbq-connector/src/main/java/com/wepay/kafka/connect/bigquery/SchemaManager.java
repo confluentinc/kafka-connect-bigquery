@@ -289,7 +289,7 @@ public class SchemaManager {
         if (existingSchema == null) {
           throw new BigQueryConnectException(errorMessage);
         }
-        logger.debug(errorMessage + " Will reuse existing schema.");
+        logger.debug(errorMessage + " Will fall back to existing schema.");
         return existingSchema;
       }
       result = convertRecordSchema(recordToConvert);
