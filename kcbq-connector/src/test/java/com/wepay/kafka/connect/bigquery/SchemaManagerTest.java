@@ -385,6 +385,14 @@ public class SchemaManagerTest {
     testGetAndValidateProposedSchema(schemaManager, existingSchema, expandedSchema, expectedSchema);
   }
 
+  @Test
+  public void testGetUnionizedTableDescriptionFromNullValueSchema() {
+    SchemaManager schemaManager = createSchemaManager(false, true, true);
+    SinkRecord tombstone = recordWithValueSchema(null);
+    List<SinkRecord> incomingSinkRecords = ImmutableList.of(tombstone);
+    Assert.assertNull(schemaManager.getUnionizedTableDescription(incomingSinkRecords));
+  }
+
   private SchemaManager createSchemaManager(
       boolean allowNewFields, boolean allowFieldRelaxation, boolean allowUnionization) {
     return new SchemaManager(new IdentitySchemaRetriever(), mockSchemaConverter, mockBigQuery,
