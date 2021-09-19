@@ -26,14 +26,14 @@ import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
-import com.wepay.kafka.connect.bigquery.exception.SinkConfigConnectException;
 
 import com.wepay.kafka.connect.bigquery.utils.TopicToTableResolver;
 import com.wepay.kafka.connect.bigquery.utils.Version;
 
+import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.common.config.ConfigException;
 
+import org.apache.kafka.common.config.ConfigValue;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
 
@@ -85,10 +85,9 @@ public class BigQuerySinkConnector extends SinkConnector {
     if (testBigQuery != null) {
       return testBigQuery;
     }
-    String projectName = config.getString(BigQuerySinkConfig.PROJECT_CONFIG);
-    String key = config.getKeyFile();
-    String keySource = config.getString(BigQuerySinkConfig.KEY_SOURCE_CONFIG);
-    return new BigQueryHelper().setKeySource(keySource).connect(projectName, key);
+    return new GcpClientBuilder.BigQueryBuilder()
+        .withConfig(config)
+        .build();
   }
 
   private void ensureExistingTables() {
@@ -102,6 +101,18 @@ public class BigQuerySinkConnector extends SinkConnector {
         throw new BigQueryConnectException("Table '" + tableId + "' does not exist");
       }
     }
+  }
+
+  @Override
+  public Config validate(Map<String, String> properties) {
+    List<ConfigValue> singlePropertyValidations = config().validate(properties);
+    // If any of our properties had malformed syntax or failed a validation to ensure, e.g., that it fell within an
+    // acceptable numeric range, we only report those errors since they prevent us from being able to construct a
+    // valid BigQuerySinkConfig instance
+    if (singlePropertyValidations.stream().anyMatch(v -> !v.errorMessages().isEmpty())) {
+      return new Config(singlePropertyValidations);
+    }
+    return new BigQuerySinkConfig(properties).validate();
   }
 
   @Override
