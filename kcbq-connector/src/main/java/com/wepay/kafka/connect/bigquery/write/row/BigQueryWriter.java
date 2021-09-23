@@ -105,7 +105,7 @@ public abstract class BigQueryWriter {
                         List<InsertAllRequest.RowToInsert> rows,
                         String topic)
       throws BigQueryConnectException, BigQueryException, InterruptedException {
-    logger.info("writing {} row{} to table {}", rows.size(), rows.size() != 1 ? "s" : "", table);
+    logger.debug("writing {} row{} to table {}", rows.size(), rows.size() != 1 ? "s" : "", table);
 
     Exception mostRecentException = null;
     Map<Long, List<BigQueryError>> failedRowsMap = null;

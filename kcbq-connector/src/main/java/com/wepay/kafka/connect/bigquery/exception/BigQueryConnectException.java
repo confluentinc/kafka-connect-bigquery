@@ -53,7 +53,7 @@ public class BigQueryConnectException extends ConnectException {
     for (Map.Entry<Long, List<BigQueryError>> errorsEntry : errorsMap.entrySet()) {
       for (BigQueryError error : errorsEntry.getValue()) {
         messageBuilder.append(String.format(
-            "%n\t[row index %d]: %s: %s: %s",
+            "%n\t[row index %d] (location %s, reason: %s): %s",
             errorsEntry.getKey(),
             error.getLocation(),
             error.getReason(),
