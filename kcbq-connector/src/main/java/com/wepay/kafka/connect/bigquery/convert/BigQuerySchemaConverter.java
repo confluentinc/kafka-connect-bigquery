@@ -29,7 +29,6 @@ import com.wepay.kafka.connect.bigquery.convert.logicaltype.LogicalTypeConverter
 import com.wepay.kafka.connect.bigquery.exception.ConversionConnectException;
 
 import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.Schema.Type;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,6 +55,8 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
   public static final String MAP_VALUE_FIELD_NAME = "value";
 
   private static final Map<Schema.Type, LegacySQLTypeName> PRIMITIVE_TYPE_MAP;
+
+  private static final String AVRO_DOC_PARAMETER = "io.confluent.connect.avro.field.doc.";
 
   static {
     // force registration
@@ -178,6 +179,9 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
       setNullability(kafkaConnectSchema, res);
       if (kafkaConnectSchema.doc() != null) {
         res.setDescription(kafkaConnectSchema.doc());
+      } else if (kafkaConnectSchema.parameters() != null &&
+              kafkaConnectSchema.parameters().get(AVRO_DOC_PARAMETER + fieldName) != null){
+        res.setDescription(kafkaConnectSchema.parameters().get(AVRO_DOC_PARAMETER + fieldName));
       }
       return res;
     });

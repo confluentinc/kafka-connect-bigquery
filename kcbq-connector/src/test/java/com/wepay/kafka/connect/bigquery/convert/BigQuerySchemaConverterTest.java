@@ -609,6 +609,30 @@ public class BigQuerySchemaConverterTest {
     assertEquals(bigQueryExpectedSchema, bigQueryTestSchema);
   }
 
+    @Test
+    public void testDescriptionInField() {
+        final String fieldName = "WithDoc";
+        final String fieldDoc = "test documentation";
+
+        com.google.cloud.bigquery.Schema bigQueryExpectedSchema =
+                com.google.cloud.bigquery.Schema.of(
+                        com.google.cloud.bigquery.Field.newBuilder(fieldName,
+                                LegacySQLTypeName.STRING)
+                                .setMode(com.google.cloud.bigquery.Field.Mode.REQUIRED)
+                                .setDescription(fieldDoc)
+                                .build()
+                );
+
+        Schema kafkaConnectTestSchema =
+                SchemaBuilder.struct()
+                        .field(fieldName, SchemaBuilder.string().parameter("io.confluent.connect.avro.field.doc." + fieldName,fieldDoc).build())
+                        .build();
+
+        com.google.cloud.bigquery.Schema bigQueryTestSchema =
+                new BigQuerySchemaConverter(false).convertSchema(kafkaConnectTestSchema);
+        assertEquals(bigQueryExpectedSchema, bigQueryTestSchema);
+    }
+
   @Test
   public void testAllFieldsNullable() {
     final String fieldName = "RequiredField";
