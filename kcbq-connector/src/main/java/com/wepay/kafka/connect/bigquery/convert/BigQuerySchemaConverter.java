@@ -109,9 +109,11 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
 
     throwOnCycle(kafkaConnectSchema, new ArrayList<>());
 
+    Map<String, String> recordLevelParameters = kafkaConnectSchema.parameters() != null ? kafkaConnectSchema.parameters() : new HashMap<>();
+
     List<com.google.cloud.bigquery.Field> fields = kafkaConnectSchema.fields().stream()
         .flatMap(kafkaConnectField ->
-          convertField(kafkaConnectField.schema(), kafkaConnectField.name())
+          convertField(recordLevelParameters, kafkaConnectField.schema(), kafkaConnectField.name())
           .map(Stream::of)
           .orElse(Stream.empty())
         )
@@ -150,7 +152,7 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
     seenSoFar.remove(seenSoFar.size() - 1);
   }
 
-  private Optional<com.google.cloud.bigquery.Field.Builder> convertField(Schema kafkaConnectSchema,
+  private Optional<com.google.cloud.bigquery.Field.Builder> convertField(Map<String, String> recordLevelParameters, Schema kafkaConnectSchema,
                                                                          String fieldName) {
     Optional<com.google.cloud.bigquery.Field.Builder> result;
     Schema.Type kafkaConnectSchemaType = kafkaConnectSchema.type();
@@ -161,13 +163,13 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
     } else {
       switch (kafkaConnectSchemaType) {
         case STRUCT:
-          result = convertStruct(kafkaConnectSchema, fieldName);
+          result = convertStruct(recordLevelParameters, kafkaConnectSchema, fieldName);
           break;
         case ARRAY:
-          result = convertArray(kafkaConnectSchema, fieldName);
+          result = convertArray(recordLevelParameters, kafkaConnectSchema, fieldName);
           break;
         case MAP:
-          result = convertMap(kafkaConnectSchema, fieldName);
+          result = convertMap(recordLevelParameters, kafkaConnectSchema, fieldName);
           break;
         default:
           throw new ConversionConnectException(
@@ -179,9 +181,8 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
       setNullability(kafkaConnectSchema, res);
       if (kafkaConnectSchema.doc() != null) {
         res.setDescription(kafkaConnectSchema.doc());
-      } else if (kafkaConnectSchema.parameters() != null &&
-              kafkaConnectSchema.parameters().get(AVRO_DOC_PARAMETER + fieldName) != null){
-        res.setDescription(kafkaConnectSchema.parameters().get(AVRO_DOC_PARAMETER + fieldName));
+      } else if (recordLevelParameters.get(AVRO_DOC_PARAMETER + fieldName) != null){
+        res.setDescription(recordLevelParameters.get(AVRO_DOC_PARAMETER + fieldName));
       }
       return res;
     });
@@ -202,12 +203,13 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
     }
   }
 
-  private Optional<com.google.cloud.bigquery.Field.Builder> convertStruct(Schema kafkaConnectSchema,
+  private Optional<com.google.cloud.bigquery.Field.Builder> convertStruct(Map<String, String> recordLevelParameters, Schema kafkaConnectSchema,
                                                                           String fieldName) {
+
     List<com.google.cloud.bigquery.Field> bigQueryRecordFields = kafkaConnectSchema.fields()
         .stream()
         .flatMap(kafkaConnectField ->
-            convertField(kafkaConnectField.schema(), kafkaConnectField.name())
+            convertField(recordLevelParameters, kafkaConnectField.schema(), kafkaConnectField.name())
             .map(Stream::of)
             .orElse(Stream.empty())
         )
@@ -224,21 +226,21 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
                                                                   fieldList));
   }
 
-  private Optional<com.google.cloud.bigquery.Field.Builder> convertArray(Schema kafkaConnectSchema,
+  private Optional<com.google.cloud.bigquery.Field.Builder> convertArray(Map<String, String> recordLevelParameters, Schema kafkaConnectSchema,
                                                                          String fieldName) {
     Schema elementSchema = kafkaConnectSchema.valueSchema();
-    return convertField(elementSchema, fieldName)
+    return convertField(recordLevelParameters, elementSchema, fieldName)
         .map(builder -> builder.setMode(com.google.cloud.bigquery.Field.Mode.REPEATED));
   }
 
-  private Optional<com.google.cloud.bigquery.Field.Builder> convertMap(Schema kafkaConnectSchema,
+  private Optional<com.google.cloud.bigquery.Field.Builder> convertMap(Map<String, String> recordLevelParameters, Schema kafkaConnectSchema,
                                                                        String fieldName) {
     Schema keySchema = kafkaConnectSchema.keySchema();
     Schema valueSchema = kafkaConnectSchema.valueSchema();
 
-    Optional<com.google.cloud.bigquery.Field> maybeKeyField = convertField(keySchema, MAP_KEY_FIELD_NAME)
+    Optional<com.google.cloud.bigquery.Field> maybeKeyField = convertField(recordLevelParameters, keySchema, MAP_KEY_FIELD_NAME)
         .map(com.google.cloud.bigquery.Field.Builder::build);
-    Optional<com.google.cloud.bigquery.Field> maybeValueField = convertField(valueSchema, MAP_VALUE_FIELD_NAME)
+    Optional<com.google.cloud.bigquery.Field> maybeValueField = convertField(recordLevelParameters, valueSchema, MAP_VALUE_FIELD_NAME)
         .map(com.google.cloud.bigquery.Field.Builder::build);
 
     return maybeKeyField.flatMap(keyField ->

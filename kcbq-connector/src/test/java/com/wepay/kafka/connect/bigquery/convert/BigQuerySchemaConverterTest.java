@@ -625,7 +625,8 @@ public class BigQuerySchemaConverterTest {
 
         Schema kafkaConnectTestSchema =
                 SchemaBuilder.struct()
-                        .field(fieldName, SchemaBuilder.string().parameter("io.confluent.connect.avro.field.doc." + fieldName,fieldDoc).build())
+                        .parameter("io.confluent.connect.avro.field.doc." + fieldName,fieldDoc)
+                        .field(fieldName, SchemaBuilder.string().build())
                         .build();
 
         com.google.cloud.bigquery.Schema bigQueryTestSchema =
