@@ -590,6 +590,25 @@ public class BigQuerySinkConfig extends AbstractConfig {
     return new Config(initialValidation);
   }
 
+  /**
+   * Ensure that this config is valid (including multi-property validations performed in {@link #validate()}, and if any errors
+   * are detected, throw an exception.
+   * @throws ConnectException if this config is invalid
+   */
+  public void ensureValid() {
+    Config config = validate();
+    List<String> errors = config.configValues().stream()
+        .filter(v -> !v.errorMessages().isEmpty())
+        .map(v -> "For property '" + v.name() + "': " + String.join(",", v.errorMessages()))
+        .collect(Collectors.toList());
+    if (!errors.isEmpty()) {
+      throw new ConnectException(
+          "The connector config is invalid and contains the following errors:\n"
+              + String.join("\n", errors)
+      );
+    }
+  }
+
   public static class MapValidator implements ConfigDef.Validator {
     @Override
     public void ensureValid(String name, Object value) {

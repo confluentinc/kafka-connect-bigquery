@@ -19,15 +19,10 @@
 
 package com.wepay.kafka.connect.bigquery;
 
-import com.google.cloud.bigquery.BigQuery;
-import com.google.cloud.bigquery.TableId;
-
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
-import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 
-import com.wepay.kafka.connect.bigquery.utils.TopicToTableResolver;
 import com.wepay.kafka.connect.bigquery.utils.Version;
 
 import org.apache.kafka.common.config.Config;
@@ -50,28 +45,9 @@ import java.util.Map;
  * {@link org.apache.kafka.connect.sink.SinkTask SinkTasks}.
  */
 public class BigQuerySinkConnector extends SinkConnector {
-  private final BigQuery testBigQuery;
-  private final SchemaManager testSchemaManager;
 
-  public BigQuerySinkConnector() {
-    testBigQuery = null;
-    testSchemaManager = null;
-  }
-
-  // For testing purposes only; will never be called by the Kafka Connect framework
-  BigQuerySinkConnector(BigQuery bigQuery) {
-    this.testBigQuery = bigQuery;
-    this.testSchemaManager = null;
-  }
-
-  // For testing purposes only; will never be called by the Kafka Connect framework
-  BigQuerySinkConnector(BigQuery bigQuery, SchemaManager schemaManager) {
-    this.testBigQuery = bigQuery;
-    this.testSchemaManager = schemaManager;
-  }
-
-  private BigQuerySinkConfig config;
-  private Map<String, String> configProperties;
+  BigQuerySinkConfig config;
+  Map<String, String> configProperties;
 
   private static final Logger logger = LoggerFactory.getLogger(BigQuerySinkConnector.class);
 
@@ -79,28 +55,6 @@ public class BigQuerySinkConnector extends SinkConnector {
   public ConfigDef config() {
     logger.trace("connector.config()");
     return BigQuerySinkConfig.getConfig();
-  }
-
-  private BigQuery getBigQuery() {
-    if (testBigQuery != null) {
-      return testBigQuery;
-    }
-    return new GcpClientBuilder.BigQueryBuilder()
-        .withConfig(config)
-        .build();
-  }
-
-  private void ensureExistingTables() {
-    BigQuery bigQuery = getBigQuery();
-    Map<String, TableId> topicsToTableIds = TopicToTableResolver.getTopicsToTables(config);
-    for (TableId tableId : topicsToTableIds.values()) {
-      if (bigQuery.getTable(tableId) == null) {
-        logger.warn(
-          "You may want to enable auto table creation by setting {}=true in the properties file",
-            BigQuerySinkConfig.TABLE_CREATE_CONFIG);
-        throw new BigQueryConnectException("Table '" + tableId + "' does not exist");
-      }
-    }
   }
 
   @Override
@@ -120,10 +74,8 @@ public class BigQuerySinkConnector extends SinkConnector {
     logger.trace("connector.start()");
     configProperties = properties;
     config = new BigQuerySinkConfig(properties);
-
-    if (!config.getBoolean(BigQuerySinkConfig.TABLE_CREATE_CONFIG)) {
-      ensureExistingTables();
-    }
+    // Revalidate here in case the connector has been upgraded and its old config is no longer valid
+    config.ensureValid();
   }
 
   @Override
