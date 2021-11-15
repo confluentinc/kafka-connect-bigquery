@@ -79,6 +79,58 @@ public class BigQueryErrorResponsesIT extends BaseConnectorIT {
   }
 
   @Test
+  public void testWriteToRecreatedTable() throws Exception {
+    TableId  table = TableId.of(dataset(), suffixedAndSanitizedTable("recreated table"));
+    TableClearer.clearTables(bigQuery, dataset(), table.getTable());
+
+    Schema schema = Schema.of(Field.of("f1", LegacySQLTypeName.STRING));
+
+    // Create the table...
+    bigQuery.create(TableInfo.newBuilder(table, StandardTableDefinition.of(schema)).build());
+
+    // Make sure that it exists...
+    TestUtils.waitForCondition(
+        () -> {
+          return bigQuery.getTable(table) != null;
+        },
+        60_000L,
+        "Table does not appear to exist one minute after issuing create request"
+    );
+    logger.info("Created {} successfully", table(table));
+
+    // Delete it...
+    bigQuery.delete(table);
+
+    // Make sure that it's deleted
+    TestUtils.waitForCondition(
+        () -> {
+          return bigQuery.getTable(table) == null;
+        },
+        60_000L,
+        "Table still appears to exist  one minute after issuing delete request"
+    );
+    logger.info("Deleted {} successfully", table(table));
+
+    // Recreate it...
+    bigQuery.create(TableInfo.newBuilder(table, StandardTableDefinition.of(schema)).build());
+
+    TestUtils.waitForCondition(
+        () -> {
+          // Try to write to it...
+          try {
+            bigQuery.insertAll(InsertAllRequest.of(table, RowToInsert.of(Collections.singletonMap("f1", "v1"))));
+            return false;
+          } catch (BigQueryException e) {
+            logger.debug("Recreated table write error", e);
+            return BigQueryErrorResponses.isNonExistentTableError(e);
+          }
+        },
+        60_000L,
+        "Never failed to write to just-recreated table"
+    );
+  }
+
+  @Test
   public void testWriteToTableWithoutSchema() {
     TableId table = TableId.of(dataset(), suffixedAndSanitizedTable("missing schema"));
     createOrAssertSchemaMatches(table, Schema.of());
