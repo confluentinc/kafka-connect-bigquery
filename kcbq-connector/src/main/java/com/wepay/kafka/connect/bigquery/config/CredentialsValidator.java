@@ -65,11 +65,11 @@ public abstract class CredentialsValidator<ClientBuilder extends GcpClientBuilde
           .build();
       return Optional.empty();
     } catch (RuntimeException e) {
-      if (e.getMessage() == null) {
-        return Optional.of("An unexpected error occurred while validating credentials for " + gcpService());
-      } else {
-        return Optional.of("Cannot build client for " + gcpService() + ": " + e.getMessage());
+      String errorMessage = "An unexpected error occurred while validating credentials for " + gcpService();
+      if (e.getMessage() != null) {
+        errorMessage += ": " + e.getMessage();
       }
+      return Optional.of(errorMessage);
     }
   }
 
