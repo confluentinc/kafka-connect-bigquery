@@ -43,6 +43,18 @@ public class PartitioningModeValidatorTest {
   }
 
   @Test
+  public void testDecoratorSyntaxWithoutTimestampPartitionFieldName() {
+    BigQuerySinkConfig config = mock(BigQuerySinkConfig.class);
+    when(config.getBoolean(BIGQUERY_PARTITION_DECORATOR_CONFIG)).thenReturn(true);
+    when(config.getTimestampPartitionFieldName()).thenReturn(Optional.empty());
+
+    assertEquals(
+        Optional.empty(),
+        new PartitioningModeValidator().doValidate(config)
+    );
+  }
+
+  @Test
   public void testDecoratorSyntaxWithTimestampPartitionFieldName() {
     BigQuerySinkConfig config = mock(BigQuerySinkConfig.class);
     when(config.getBoolean(BIGQUERY_PARTITION_DECORATOR_CONFIG)).thenReturn(true);
