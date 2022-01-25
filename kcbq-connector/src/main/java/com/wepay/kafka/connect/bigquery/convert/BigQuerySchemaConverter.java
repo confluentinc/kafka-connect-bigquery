@@ -28,8 +28,8 @@ import com.wepay.kafka.connect.bigquery.convert.logicaltype.LogicalConverterRegi
 import com.wepay.kafka.connect.bigquery.convert.logicaltype.LogicalTypeConverter;
 import com.wepay.kafka.connect.bigquery.exception.ConversionConnectException;
 
+import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.Schema.Type;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -84,9 +84,16 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
   }
 
   private final boolean allFieldsNullable;
+  private final boolean sanitizeFieldName;
 
-  public BigQuerySchemaConverter(boolean allFieldsNullable) {
+  // visible for testing
+  BigQuerySchemaConverter(boolean allFieldsNullable) {
+    this(allFieldsNullable, false);
+  }
+
+  public BigQuerySchemaConverter(boolean allFieldsNullable, boolean sanitizeFieldName) {
     this.allFieldsNullable = allFieldsNullable;
+    this.sanitizeFieldName = sanitizeFieldName;
   }
 
   /**
@@ -153,6 +160,10 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
                                                                          String fieldName) {
     Optional<com.google.cloud.bigquery.Field.Builder> result;
     Schema.Type kafkaConnectSchemaType = kafkaConnectSchema.type();
+    if (sanitizeFieldName) {
+      fieldName = FieldNameSanitizer.sanitizeName(fieldName);
+    }
+
     if (LogicalConverterRegistry.isRegisteredLogicalType(kafkaConnectSchema.name())) {
       result = Optional.of(convertLogical(kafkaConnectSchema, fieldName));
     } else if (PRIMITIVE_TYPE_MAP.containsKey(kafkaConnectSchemaType)) {

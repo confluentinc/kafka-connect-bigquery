@@ -22,6 +22,7 @@ package com.wepay.kafka.connect.bigquery.convert;
 
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.LegacySQLTypeName;
+import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Test;
 
@@ -79,6 +80,30 @@ public class KafkaDataConverterTest {
                 insertTimeField)
                 .setMode(Field.Mode.NULLABLE)
                 .build();
+        Field actualBigQuerySchema = KafkaDataBuilder.buildKafkaDataField(kafkaDataFieldName);
+        assertEquals(expectedBigQuerySchema, actualBigQuerySchema);
+    }
+
+    @Test
+    public void testKafkaDataFieldNameSanitized() {
+        String kafkaDataFieldName = "kafka data";
+
+        Field topicField = Field.of("topic", LegacySQLTypeName.STRING);
+        Field partitionField = Field.of("partition", LegacySQLTypeName.INTEGER);
+        Field offsetField = Field.of("offset", LegacySQLTypeName.INTEGER);
+        Field insertTimeField = Field.newBuilder("insertTime",LegacySQLTypeName.TIMESTAMP)
+            .setMode(Field.Mode.NULLABLE)
+            .build();
+
+        Field expectedBigQuerySchema = Field.newBuilder(
+                FieldNameSanitizer.sanitizeName(kafkaDataFieldName),
+                LegacySQLTypeName.RECORD,
+                topicField,
+                partitionField,
+                offsetField,
+                insertTimeField)
+            .setMode(Field.Mode.NULLABLE)
+            .build();
         Field actualBigQuerySchema = KafkaDataBuilder.buildKafkaDataField(kafkaDataFieldName);
         assertEquals(expectedBigQuerySchema, actualBigQuerySchema);
     }

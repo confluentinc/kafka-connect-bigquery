@@ -22,6 +22,7 @@ package com.wepay.kafka.connect.bigquery.convert;
 
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.LegacySQLTypeName;
+import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 import java.util.HashMap;
@@ -52,7 +53,9 @@ public class KafkaDataBuilder {
                 .setMode(com.google.cloud.bigquery.Field.Mode.NULLABLE);
         Field insertTimeField = insertTimeBuilder.build();
 
-        return Field.newBuilder(kafkaDataFieldName, LegacySQLTypeName.RECORD,
+        return Field.newBuilder(
+                FieldNameSanitizer.sanitizeName(kafkaDataFieldName),
+                LegacySQLTypeName.RECORD,
                 topicField, partitionField, offsetField, insertTimeField)
                 .setMode(com.google.cloud.bigquery.Field.Mode.NULLABLE).build();
     }
