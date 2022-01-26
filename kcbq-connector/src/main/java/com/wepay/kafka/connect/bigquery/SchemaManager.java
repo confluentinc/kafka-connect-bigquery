@@ -67,7 +67,7 @@ public class SchemaManager {
   private final boolean allowNewBQFields;
   private final boolean allowBQRequiredFieldRelaxation;
   private final boolean allowSchemaUnionization;
-  private final boolean sanitizeFieldName;
+  private final boolean sanitizeFieldNames;
   private final Optional<String> kafkaKeyFieldName;
   private final Optional<String> kafkaDataFieldName;
   private final Optional<String> timestampPartitionFieldName;
@@ -85,7 +85,7 @@ public class SchemaManager {
    * @param allowNewBQFields If set to true, allows new fields to be added to BigQuery Schema.
    * @param allowBQRequiredFieldRelaxation If set to true, allows changing field mode from REQUIRED to NULLABLE
    * @param allowSchemaUnionization If set to true, allows existing and new schemas to be unionized
-   * @param sanitizeFieldName If true, sanitizes field names on converted BigQuery schema
+   * @param sanitizeFieldNames If true, sanitizes field names to adhere to BigQuery column name restrictions
    * @param kafkaKeyFieldName The name of kafka key field to be used in BigQuery.
    *                          If set to null, Kafka Key Field will not be included in BigQuery.
    * @param kafkaDataFieldName The name of kafka data field to be used in BigQuery.

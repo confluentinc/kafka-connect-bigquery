@@ -57,7 +57,7 @@ public class SanitizeFieldNameIT extends BaseConnectorIT {
   private static final String CONNECTOR_NAME = "kcbq-sink-connector";
   private static final long NUM_RECORDS_PRODUCED = 20;
   private static final int TASKS_MAX = 3;
-  private static final String KAFKA_FIELD_NAME = "kafkaKey";
+  private static final String KAFKA_KEY_FIELD_NAME = "kafkaKey";
 
   private BigQuery bigQuery;
 
