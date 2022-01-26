@@ -103,7 +103,7 @@ public class SchemaManager {
       boolean allowNewBQFields,
       boolean allowBQRequiredFieldRelaxation,
       boolean allowSchemaUnionization,
-      boolean sanitizeFieldName,
+      boolean sanitizeFieldNames,
       Optional<String> kafkaKeyFieldName,
       Optional<String> kafkaDataFieldName,
       Optional<String> timestampPartitionFieldName,
@@ -115,7 +115,7 @@ public class SchemaManager {
         allowNewBQFields,
         allowBQRequiredFieldRelaxation,
         allowSchemaUnionization,
-        sanitizeFieldName,
+        sanitizeFieldNames,
         kafkaKeyFieldName,
         kafkaDataFieldName,
         timestampPartitionFieldName,
@@ -133,7 +133,7 @@ public class SchemaManager {
       boolean allowNewBQFields,
       boolean allowBQRequiredFieldRelaxation,
       boolean allowSchemaUnionization,
-      boolean sanitizeFieldName,
+      boolean sanitizeFieldNames,
       Optional<String> kafkaKeyFieldName,
       Optional<String> kafkaDataFieldName,
       Optional<String> timestampPartitionFieldName,
@@ -148,7 +148,7 @@ public class SchemaManager {
     this.allowNewBQFields = allowNewBQFields;
     this.allowBQRequiredFieldRelaxation = allowBQRequiredFieldRelaxation;
     this.allowSchemaUnionization = allowSchemaUnionization;
-    this.sanitizeFieldName = sanitizeFieldName;
+    this.sanitizeFieldNames = sanitizeFieldNames;
     this.kafkaKeyFieldName = kafkaKeyFieldName;
     this.kafkaDataFieldName = kafkaDataFieldName;
     this.timestampPartitionFieldName = timestampPartitionFieldName;
@@ -167,7 +167,7 @@ public class SchemaManager {
         allowNewBQFields,
         allowBQRequiredFieldRelaxation,
         allowSchemaUnionization,
-        sanitizeFieldName,
+        sanitizeFieldNames,
         kafkaKeyFieldName,
         kafkaDataFieldName,
         timestampPartitionFieldName,
@@ -611,7 +611,9 @@ public class SchemaManager {
 
     List<Field> valueFields = new ArrayList<>(valueSchema.getFields());
     if (kafkaDataFieldName.isPresent()) {
-      Field kafkaDataField = KafkaDataBuilder.buildKafkaDataField(kafkaDataFieldName.get());
+      String dataFieldName = sanitizeFieldNames ?
+          FieldNameSanitizer.sanitizeName(kafkaDataFieldName.get()) : kafkaDataFieldName.get();
+      Field kafkaDataField = KafkaDataBuilder.buildKafkaDataField(dataFieldName);
       valueFields.add(kafkaDataField);
     }
 
@@ -653,13 +655,15 @@ public class SchemaManager {
     List<Field> result = new ArrayList<>(valueSchema.getFields());
 
     if (kafkaDataFieldName.isPresent()) {
-      Field kafkaDataField = KafkaDataBuilder.buildKafkaDataField(kafkaDataFieldName.get());
+      String dataFieldName = sanitizeFieldNames ?
+          FieldNameSanitizer.sanitizeName(kafkaDataFieldName.get()) : kafkaDataFieldName.get();
+      Field kafkaDataField = KafkaDataBuilder.buildKafkaDataField(dataFieldName);
       result.add(kafkaDataField);
     }
 
     if (kafkaKeyFieldName.isPresent()) {
       com.google.cloud.bigquery.Schema keySchema = schemaConverter.convertSchema(kafkaKeySchema);
-      String keyFieldName = sanitizeFieldName ?
+      String keyFieldName = sanitizeFieldNames ?
           FieldNameSanitizer.sanitizeName(kafkaKeyFieldName.get()) : kafkaKeyFieldName.get();
       Field kafkaKeyField = Field.newBuilder(
           keyFieldName,

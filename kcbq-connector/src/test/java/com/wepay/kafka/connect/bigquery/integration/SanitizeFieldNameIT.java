@@ -96,7 +96,7 @@ public class SanitizeFieldNameIT extends BaseConnectorIT {
     props.put(KEY_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
     props.put(VALUE_CONVERTER_CLASS_CONFIG, JsonConverter.class.getName());
 
-    props.put(BigQuerySinkConfig.KAFKA_KEY_FIELD_NAME_CONFIG, KAFKA_FIELD_NAME);
+    props.put(BigQuerySinkConfig.KAFKA_KEY_FIELD_NAME_CONFIG, KAFKA_KEY_FIELD_NAME);
 
     // start a sink connector
     connect.configureConnector(CONNECTOR_NAME, props);
@@ -119,7 +119,7 @@ public class SanitizeFieldNameIT extends BaseConnectorIT {
     // wait for tasks to write to BigQuery and commit offsets for their records
     waitForCommittedRecords(CONNECTOR_NAME, topic, NUM_RECORDS_PRODUCED, TASKS_MAX);
 
-    List<List<Object>> allRows = readAllRows(bigQuery, table, KAFKA_FIELD_NAME + ".key_1");
+    List<List<Object>> allRows = readAllRows(bigQuery, table, KAFKA_KEY_FIELD_NAME + ".key_1");
     List<List<Object>> expectedRows = LongStream.range(0, NUM_RECORDS_PRODUCED)
         .mapToObj(i -> Arrays.asList(
             "a string",

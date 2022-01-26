@@ -54,7 +54,7 @@ public class KafkaDataBuilder {
         Field insertTimeField = insertTimeBuilder.build();
 
         return Field.newBuilder(
-                FieldNameSanitizer.sanitizeName(kafkaDataFieldName),
+                kafkaDataFieldName,
                 LegacySQLTypeName.RECORD,
                 topicField, partitionField, offsetField, insertTimeField)
                 .setMode(com.google.cloud.bigquery.Field.Mode.NULLABLE).build();

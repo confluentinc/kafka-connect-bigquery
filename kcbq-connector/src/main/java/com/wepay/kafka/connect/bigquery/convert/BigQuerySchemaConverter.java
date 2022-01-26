@@ -84,16 +84,16 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
   }
 
   private final boolean allFieldsNullable;
-  private final boolean sanitizeFieldName;
+  private final boolean sanitizeFieldNames;
 
   // visible for testing
   BigQuerySchemaConverter(boolean allFieldsNullable) {
     this(allFieldsNullable, false);
   }
 
-  public BigQuerySchemaConverter(boolean allFieldsNullable, boolean sanitizeFieldName) {
+  public BigQuerySchemaConverter(boolean allFieldsNullable, boolean sanitizeFieldNames) {
     this.allFieldsNullable = allFieldsNullable;
-    this.sanitizeFieldName = sanitizeFieldName;
+    this.sanitizeFieldNames = sanitizeFieldNames;
   }
 
   /**
@@ -160,7 +160,7 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
                                                                          String fieldName) {
     Optional<com.google.cloud.bigquery.Field.Builder> result;
     Schema.Type kafkaConnectSchemaType = kafkaConnectSchema.type();
-    if (sanitizeFieldName) {
+    if (sanitizeFieldNames) {
       fieldName = FieldNameSanitizer.sanitizeName(fieldName);
     }
 

@@ -20,7 +20,10 @@
 package com.wepay.kafka.connect.bigquery;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.cloud.bigquery.BigQuery;
@@ -35,11 +38,14 @@ import com.google.cloud.bigquery.TableInfo;
 
 import com.google.common.collect.ImmutableList;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
+import com.wepay.kafka.connect.bigquery.convert.BigQuerySchemaConverter;
 import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
 
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.retrieve.IdentitySchemaRetriever;
 import java.util.Random;
+
+import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import org.apache.kafka.connect.data.Schema;
 
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -48,6 +54,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.OngoingStubbing;
 
 import java.util.ArrayList;
@@ -451,8 +458,14 @@ public class SchemaManagerTest {
 
   private SchemaManager createSchemaManager(
       boolean allowNewFields, boolean allowFieldRelaxation, boolean allowUnionization) {
-    return new SchemaManager(new IdentitySchemaRetriever(), mockSchemaConverter, mockBigQuery,
-        allowNewFields, allowFieldRelaxation, allowUnionization, false,
+    return createSchemaManager(
+        allowNewFields, allowFieldRelaxation, allowUnionization, false, mockSchemaConverter);
+  }
+
+  private SchemaManager createSchemaManager(
+      boolean allowNewFields, boolean allowFieldRelaxation, boolean allowUnionization, boolean sanitizeFieldNames, SchemaConverter<com.google.cloud.bigquery.Schema> schemaConverter) {
+    return new SchemaManager(new IdentitySchemaRetriever(), schemaConverter, mockBigQuery,
+        allowNewFields, allowFieldRelaxation, allowUnionization, sanitizeFieldNames,
         Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
   }
 
@@ -599,6 +612,35 @@ public class SchemaManagerTest {
         )
     );
     assertUnion(makeNullable(s2), s1, s2);
+  }
+
+  @Test
+  public void testFieldNameSanitizedOnCreateTable() {
+    Schema embeddedStructWithInvalidFieldName = SchemaBuilder.struct()
+        .field("embedded-invalid", Schema.INT32_SCHEMA)
+        .build();
+    Schema schemaWithInvalidFieldNames = SchemaBuilder.struct()
+        .field("1st field", Schema.BOOLEAN_SCHEMA)
+        .field("second-field", Schema.STRING_SCHEMA)
+        .field("embedded", embeddedStructWithInvalidFieldName)
+        .build();
+
+    List<SinkRecord> incomingSinkRecords = Collections.nCopies(2, recordWithValueSchema(schemaWithInvalidFieldNames));
+    BigQuerySchemaConverter converter = new BigQuerySchemaConverter(true, true);
+
+    SchemaManager schemaManager = createSchemaManager(false, false, false, true, converter);
+    schemaManager.createTable(tableId, incomingSinkRecords);
+
+    ArgumentCaptor<TableInfo> tableInfoCaptor = ArgumentCaptor.forClass(TableInfo.class);
+
+    verify(mockBigQuery).create(tableInfoCaptor.capture());
+
+    com.google.cloud.bigquery.Schema actualSchema = tableInfoCaptor.getValue().getDefinition().getSchema();
+    for (org.apache.kafka.connect.data.Field field : schemaWithInvalidFieldNames.fields()) {
+      String sanitizedName = FieldNameSanitizer.sanitizeName(field.name());
+      assertEquals(sanitizedName, actualSchema.getFields().get(sanitizedName).getName());
+    }
+    assertEquals("embedded_invalid", actualSchema.getFields().get("embedded").getSubFields().get(0).getName());
   }
 
   private com.google.cloud.bigquery.Schema makeNullable(com.google.cloud.bigquery.Schema s) {
