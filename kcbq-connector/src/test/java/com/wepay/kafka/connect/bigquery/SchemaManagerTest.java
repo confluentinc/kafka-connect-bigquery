@@ -399,6 +399,89 @@ public class SchemaManagerTest {
   }
 
   @Test
+  public void testFieldNamesSanitizedNoExistingSchema() {
+    BigQuerySchemaConverter converter = new BigQuerySchemaConverter(false, true);
+
+    Schema kafkaSchema = SchemaBuilder.struct()
+        .field("f 1", Schema.BOOLEAN_SCHEMA)
+        .field("f 2", Schema.INT32_SCHEMA)
+        .build();
+    com.google.cloud.bigquery.Schema expectedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f_1", LegacySQLTypeName.BOOLEAN).setMode(Mode.REQUIRED).build(),
+        Field.newBuilder("f_2", LegacySQLTypeName.INTEGER).setMode(Mode.REQUIRED).build()
+    );
+
+    SchemaManager schemaManager = createSchemaManager(false, false, false, true, converter);
+    testGetAndValidateProposedSchema(schemaManager, null,
+        null, expectedSchema,
+        Collections.singletonList(recordWithValueSchema(kafkaSchema)));
+  }
+
+  @Test
+  public void testFieldNameSanitizedNewFields() {
+    BigQuerySchemaConverter converter = new BigQuerySchemaConverter(false, true);
+    com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Mode.REQUIRED).build()
+    );
+    Schema kafkaSchema = SchemaBuilder.struct()
+        .field("f1", Schema.BOOLEAN_SCHEMA)
+        .field("f 1", Schema.BOOLEAN_SCHEMA)
+        .field("f 2", Schema.INT32_SCHEMA)
+        .build();
+    com.google.cloud.bigquery.Schema expectedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Mode.REQUIRED).build(),
+        Field.newBuilder("f_1", LegacySQLTypeName.BOOLEAN).setMode(Mode.NULLABLE).build(),
+        Field.newBuilder("f_2", LegacySQLTypeName.INTEGER).setMode(Mode.NULLABLE).build()
+    );
+
+    SchemaManager schemaManager = createSchemaManager(true, true, false, true, converter);
+    testGetAndValidateProposedSchema(schemaManager, existingSchema,
+        null, expectedSchema,
+        Collections.singletonList(recordWithValueSchema(kafkaSchema)));
+  }
+
+  @Test
+  public void testFieldNamesSanitizedUnionizedFields() {
+    BigQuerySchemaConverter converter = new BigQuerySchemaConverter(false, true);
+    com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Mode.REQUIRED).build()
+    );
+    Schema kafkaSchema = SchemaBuilder.struct()
+        .field("f 1", Schema.BOOLEAN_SCHEMA)
+        .field("f 2", Schema.INT32_SCHEMA)
+        .build();
+    com.google.cloud.bigquery.Schema expectedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Mode.NULLABLE).build(),
+        Field.newBuilder("f_1", LegacySQLTypeName.BOOLEAN).setMode(Mode.NULLABLE).build(),
+        Field.newBuilder("f_2", LegacySQLTypeName.INTEGER).setMode(Mode.NULLABLE).build()
+    );
+
+    SchemaManager schemaManager = createSchemaManager(true, true, true, true, converter);
+    testGetAndValidateProposedSchema(schemaManager, existingSchema,
+        null, expectedSchema,
+        Collections.singletonList(recordWithValueSchema(kafkaSchema)));
+  }
+
+  @Test
+  public void testFieldNamesSanitizedFieldRelaxation() {
+    BigQuerySchemaConverter converter = new BigQuerySchemaConverter(false, true);
+    com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f_1", LegacySQLTypeName.BOOLEAN).setMode(Mode.REQUIRED).build()
+    );
+    Schema kafkaSchema = SchemaBuilder.struct()
+        .field("f 1", Schema.OPTIONAL_BOOLEAN_SCHEMA)
+        .build();
+    com.google.cloud.bigquery.Schema expectedSchema = com.google.cloud.bigquery.Schema.of(
+        Field.newBuilder("f_1", LegacySQLTypeName.BOOLEAN).setMode(Mode.NULLABLE).build()
+    );
+
+    SchemaManager schemaManager = createSchemaManager(true, true, false, true, converter);
+    testGetAndValidateProposedSchema(schemaManager, existingSchema,
+        null, expectedSchema,
+        Collections.singletonList(recordWithValueSchema(kafkaSchema)));
+  }
+
+  @Test
   public void testUpdateWithOnlyTombstoneRecordsAndExistingSchema() {
     com.google.cloud.bigquery.Schema existingSchema = com.google.cloud.bigquery.Schema.of(
         Field.newBuilder("f1", LegacySQLTypeName.BOOLEAN).setMode(Field.Mode.REQUIRED).build()
@@ -495,12 +578,15 @@ public class SchemaManagerTest {
       List<SinkRecord> incomingSinkRecords) {
     Table existingTable = existingSchema != null ? tableWithSchema(existingSchema) : null;
     when(mockBigQuery.getTable(tableId)).thenReturn(existingTable);
-    OngoingStubbing<com.google.cloud.bigquery.Schema> converterStub =
-        when(mockSchemaConverter.convertSchema(mockKafkaSchema));
-    for (com.google.cloud.bigquery.Schema newSchema : newSchemas) {
-      // The converter will return the schemas in the order that they are provided to it with the
-      // call to "thenReturn"
-      converterStub = converterStub.thenReturn(newSchema);
+
+    if (newSchemas != null) {
+      OngoingStubbing<com.google.cloud.bigquery.Schema> converterStub =
+          when(mockSchemaConverter.convertSchema(mockKafkaSchema));
+      for (com.google.cloud.bigquery.Schema newSchema : newSchemas) {
+        // The converter will return the schemas in the order that they are provided to it with the
+        // call to "thenReturn"
+        converterStub = converterStub.thenReturn(newSchema);
+      }
     }
 
     com.google.cloud.bigquery.Schema proposedSchema =
