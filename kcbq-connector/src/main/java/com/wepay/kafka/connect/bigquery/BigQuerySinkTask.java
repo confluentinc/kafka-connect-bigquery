@@ -198,7 +198,12 @@ public class BigQuerySinkTask extends SinkTask {
     if (sanitize) {
       tableName = FieldNameSanitizer.sanitizeName(tableName);
     }
-    TableId baseTableId = TableId.of(dataset, tableName);
+    TableId baseTableId;
+    String project = config.getString(BigQuerySinkConfig.PROJECT_CONFIG);
+    if (project != null)
+      baseTableId = TableId.of(project, dataset, tableName);
+    else
+      baseTableId = TableId.of(dataset, tableName);
     if (upsertDelete) {
       TableId intermediateTableId = mergeBatches.intermediateTableFor(baseTableId);
       // If upsert/delete is enabled, we want to stream into a non-partitioned intermediate table
@@ -310,6 +315,13 @@ public class BigQuerySinkTask extends SinkTask {
     return bigQuery.updateAndGet(bq -> bq != null ? bq : newBigQuery());
   }
 
+  private BigQuery getBigQuery(String project) {
+    if (testBigQuery != null) {
+      return testBigQuery;
+    }
+    return bigQuery.updateAndGet(bq -> bq != null ? bq : newBigQuery(project));
+  }
+
   private void setTimePartitioningForTimestamp(
       TableId table, PartitionedTableId.Builder builder, TimePartitioning timePartitioning, Long timestamp
   ) {
@@ -342,6 +354,13 @@ public class BigQuerySinkTask extends SinkTask {
     return new GcpClientBuilder.BigQueryBuilder()
         .withConfig(config)
         .build();
+  }
+
+  private BigQuery newBigQuery(String project) {
+    return new GcpClientBuilder.BigQueryBuilder()
+            .withConfig(config)
+            .withProject(project)
+            .build();
   }
 
   private SchemaManager getSchemaManager() {
@@ -499,7 +518,13 @@ public class BigQuerySinkTask extends SinkTask {
         ));
       }
     }
-    GCSToBQLoadRunnable loadRunnable = new GCSToBQLoadRunnable(getBigQuery(), bucket);
+    String gcsProject = config.getString(BigQuerySinkConfig.GCS_PROJECT_CONFIG);
+    BigQuery bigQuery;
+    if (gcsProject != null)
+       bigQuery = getBigQuery(gcsProject);
+    else
+       bigQuery = getBigQuery();
+    GCSToBQLoadRunnable loadRunnable = new GCSToBQLoadRunnable(bigQuery, bucket);
 
     int intervalSec = config.getInt(BigQuerySinkConfig.BATCH_LOAD_INTERVAL_SEC_CONFIG);
     loadExecutor.scheduleAtFixedRate(loadRunnable, intervalSec, intervalSec, TimeUnit.SECONDS);
