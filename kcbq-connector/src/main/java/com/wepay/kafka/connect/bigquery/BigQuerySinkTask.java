@@ -140,8 +140,7 @@ public class BigQuerySinkTask extends SinkTask {
     this.cache = testCache;
   }
 
-  @Override
-  public void flush(Map<TopicPartition, OffsetAndMetadata> offsets) {
+  public Map<TopicPartition, OffsetAndMetadata> custom_flush(Map<TopicPartition, OffsetAndMetadata> offsets) {
     if (upsertDelete) {
       throw new ConnectException("This connector cannot perform upsert/delete on older versions of "
           + "the Connect framework; please upgrade to version 0.10.2.0 or later");
@@ -149,10 +148,7 @@ public class BigQuerySinkTask extends SinkTask {
 
     // Return immediately here since the executor will already be shutdown
     if (stopped) {
-      // Still have to check for errors in order to prevent offsets being committed for records that
-      // we've failed to write
-      executor.maybeThrowEncounteredError();
-      return;
+      return null;
     }
 
     try {
@@ -162,6 +158,7 @@ public class BigQuerySinkTask extends SinkTask {
     }
 
     topicPartitionManager.resumeAll();
+    return offsets;
   }
 
   @Override
@@ -172,8 +169,7 @@ public class BigQuerySinkTask extends SinkTask {
       return result;
     }
 
-    flush(offsets);
-    return offsets;
+    return custom_flush(offsets);
   }
 
   private PartitionedTableId getRecordTable(SinkRecord record) {

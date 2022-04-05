@@ -60,10 +60,8 @@ import org.mockito.ArgumentCaptor;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @SuppressWarnings("unchecked")
 public class BigQueryWriterTest {
@@ -105,7 +103,7 @@ public class BigQueryWriterTest {
     testTask.start(properties);
     testTask.put(
         Collections.singletonList(spoofSinkRecord(topic, 0, 0, "some_field", "some_value")));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
 
     verify(bigQuery, times(1)).insertAll(anyObject());
   }
@@ -141,7 +139,7 @@ public class BigQueryWriterTest {
     testTask.start(properties);
     testTask.put(
             Collections.singletonList(spoofSinkRecord(topic, 0, 0, "some_field", "some_value")));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
 
     verify(schemaManager, times(1)).createTable(anyObject(), anyObject());
     verify(bigQuery, times(2)).insertAll(anyObject());
@@ -177,7 +175,7 @@ public class BigQueryWriterTest {
     testTask.start(properties);
     testTask.put(
             Collections.singletonList(spoofSinkRecord(topic, 0, 0, "some_field", "some_value")));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
   }
 
   @Test
@@ -220,7 +218,7 @@ public class BigQueryWriterTest {
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
     testTask.put(sinkRecordList);
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
 
     ArgumentCaptor<InsertAllRequest> varArgs = ArgumentCaptor.forClass(InsertAllRequest.class);
     verify(bigQuery, times(2)).insertAll(varArgs.capture());
@@ -274,7 +272,7 @@ public class BigQueryWriterTest {
     testTask.start(properties);
     testTask.put(sinkRecordList);
     Exception expectedEx =  assertThrows(BigQueryConnectException.class, 
-                                        () -> testTask.flush(Collections.emptyMap())); 
+                                        () -> testTask.preCommit(Collections.emptyMap()));
     assertTrue(expectedEx.getMessage().contains("test_topic"));
   }
   /**
