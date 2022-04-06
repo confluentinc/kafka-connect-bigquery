@@ -89,6 +89,7 @@ public class BigQuerySinkTask extends SinkTask {
   private GCSToBQWriter gcsToBQWriter;
   private BigQuerySinkTaskConfig config;
   private SinkRecordConverter recordConverter;
+  private Map<String, TableId> topicsToBaseTableIds =  new HashMap<>();
 
   private boolean useMessageTimeDatePartitioning;
   private boolean usePartitionDecorator;
@@ -198,6 +199,7 @@ public class BigQuerySinkTask extends SinkTask {
     if (sanitize) {
       tableName = FieldNameSanitizer.sanitizeName(tableName);
     }
+    
     TableId baseTableId = TableId.of(dataset, tableName);
     if (upsertDelete) {
       TableId intermediateTableId = mergeBatches.intermediateTableFor(baseTableId);
@@ -247,7 +249,8 @@ public class BigQuerySinkTask extends SinkTask {
           TableWriterBuilder tableWriterBuilder;
           if (config.getList(BigQuerySinkConfig.ENABLE_BATCH_CONFIG).contains(record.topic())) {
             String topic = record.topic();
-            String gcsBlobName = topic + "_" + uuid + "_" + Instant.now().toEpochMilli();
+            long offset = record.kafkaOffset();
+            String gcsBlobName = topic + "_" + uuid + "_" + Instant.now().toEpochMilli()+"_"+records.size()+"_"+offset;
             String gcsFolderName = config.getString(BigQuerySinkConfig.GCS_FOLDER_NAME_CONFIG);
             if (gcsFolderName != null && !"".equals(gcsFolderName)) {
               gcsBlobName = gcsFolderName + "/" + gcsBlobName;
@@ -467,6 +470,33 @@ public class BigQuerySinkTask extends SinkTask {
             config.getBoolean(BigQuerySinkConfig.BIGQUERY_PARTITION_DECORATOR_CONFIG);
     sanitize =
             config.getBoolean(BigQuerySinkConfig.SANITIZE_TOPICS_CONFIG);
+    
+    List<String> loadGCS = config.getList(BigQuerySinkConfig.ENABLE_BATCH_CONFIG);
+    
+    for(String sLoadGCS : loadGCS) {
+    	
+    	  String tableName;
+        String dataset = config.getString(BigQuerySinkConfig.DEFAULT_DATASET_CONFIG);
+        String[] smtReplacement = sLoadGCS.split(":");
+
+        if (smtReplacement.length == 2) {
+          dataset = smtReplacement[0];
+          tableName = smtReplacement[1];
+        } else if (smtReplacement.length == 1) {
+          tableName = smtReplacement[0];
+        } else {
+          throw new ConnectException(String.format(
+              "Incorrect regex replacement format in topic name '%s'. "
+                  + "SMT replacement should either produce the <dataset>:<tableName> format " 
+                  + "or just the <tableName> format.",
+              "ERROR"
+          ));
+        }
+
+        TableId baseTableId = TableId.of(dataset, tableName);
+    	  topicsToBaseTableIds.put(sLoadGCS,baseTableId);    	
+    }
+    
     if (config.getBoolean(BigQuerySinkTaskConfig.GCS_BQ_TASK_CONFIG)) {
       startGCSToBQLoadTask();
     } else if (upsertDelete) {
@@ -499,7 +529,8 @@ public class BigQuerySinkTask extends SinkTask {
         ));
       }
     }
-    GCSToBQLoadRunnable loadRunnable = new GCSToBQLoadRunnable(getBigQuery(), bucket);
+    
+    GCSToBQLoadRunnable loadRunnable = new GCSToBQLoadRunnable(getBigQuery(), bucket, topicsToBaseTableIds);
 
     int intervalSec = config.getInt(BigQuerySinkConfig.BATCH_LOAD_INTERVAL_SEC_CONFIG);
     loadExecutor.scheduleAtFixedRate(loadRunnable, intervalSec, intervalSec, TimeUnit.SECONDS);
