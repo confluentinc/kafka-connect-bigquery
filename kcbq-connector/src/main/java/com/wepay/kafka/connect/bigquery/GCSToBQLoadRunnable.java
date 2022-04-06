@@ -27,10 +27,12 @@ import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.LoadJobConfiguration;
 import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.JobStatistics.LoadStatistics;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.StorageException;
+
 
 import com.wepay.kafka.connect.bigquery.write.row.GCSToBQWriter;
 
@@ -75,15 +77,18 @@ public class GCSToBQLoadRunnable implements Runnable {
   private static String SOURCE_URI_FORMAT = "gs://%s/%s";
   public static final Pattern METADATA_TABLE_PATTERN =
           Pattern.compile("((?<project>[^:]+):)?(?<dataset>[^.]+)\\.(?<table>.+)");
-
+  private final Set<TableId> targetTableIds;
   /**
    * Create a {@link GCSToBQLoadRunnable} with the given bigquery, bucket, and ms wait interval.
+   * Create a {@link GCSToBQLoadRunnable} with the given bigquery, bucket, target tables and ms wait interval.
    * @param bigQuery the {@link BigQuery} instance.
    * @param bucket the the GCS bucket to read from.
+   * @param topicsToBaseTableIds target tables to write to
    */
-  public GCSToBQLoadRunnable(BigQuery bigQuery, Bucket bucket) {
+  public GCSToBQLoadRunnable(BigQuery bigQuery, Bucket bucket, Map<String, TableId> topicsToBaseTableIds) {
     this.bigQuery = bigQuery;
     this.bucket = bucket;
+    this.targetTableIds = topicsToBaseTableIds.values().stream().collect(Collectors.toSet());
     this.activeJobs = new HashMap<>();
     this.claimedBlobIds = new HashSet<>();
     this.deletableBlobIds = new HashSet<>();
@@ -111,12 +116,16 @@ public class GCSToBQLoadRunnable implements Runnable {
       TableId table = getTableFromBlob(blob);
       logger.debug("Checking blob bucket={}, name={}, table={} ", blob.getBucket(), blob.getName(), table );
 
-      if (table == null || claimedBlobIds.contains(blobId) || deletableBlobIds.contains(blobId)) {
+      if (table == null
+    		 || claimedBlobIds.contains(blobId)
+    		 || deletableBlobIds.contains(blobId)
+    		 || !targetTableIds.contains(table)) {
         // don't do anything if:
         // 1. we don't know what table this should be uploaded to or
         // 2. this blob is already claimed by a currently-running job or
         // 3. this blob is up for deletion.
-        continue;
+    	  // 4. this blob is not targeted for our target  tables
+    	continue;
       }
 
       if (!tableToURIs.containsKey(table)) {
@@ -233,7 +242,13 @@ public class GCSToBQLoadRunnable implements Runnable {
       logger.debug("Checking next job: {}", job.getJobId());
 
       try {
+    	//waiting load job until finished
+    	job = job.waitFor();
         if (job.isDone()) {
+          // log a message job's rows count
+          LoadStatistics stats = job.getStatistics();
+          logger.trace("Job is row count: id={}, count={}", job.getJobId(), stats.getOutputRows());
+         
           logger.trace("Job is marked done: id={}, status={}", job.getJobId(), job.getStatus());
           List<BlobId> blobIdsToDelete = jobEntry.getValue();
           jobIterator.remove();
@@ -244,7 +259,7 @@ public class GCSToBQLoadRunnable implements Runnable {
           deletableBlobIds.addAll(blobIdsToDelete);
           logger.trace("Completed blobs marked as deletable: {}", blobIdsToDelete);
         }
-      } catch (BigQueryException ex) {
+      } catch (BigQueryException | InterruptedException ex) {
         // log a message.
         logger.warn("GCS to BQ load job failed", ex);
         // remove job from active jobs (it's not active anymore)
