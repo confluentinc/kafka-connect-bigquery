@@ -71,6 +71,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.intTable;
@@ -96,7 +97,7 @@ public class BigQuerySinkTask extends SinkTask {
   private boolean upsertDelete;
   private MergeBatches mergeBatches;
   private MergeQueries mergeQueries;
-  private volatile boolean stopped;
+  private final AtomicBoolean stopped = new AtomicBoolean();
 
   private TopicPartitionManager topicPartitionManager;
 
@@ -147,7 +148,7 @@ public class BigQuerySinkTask extends SinkTask {
     }
 
     // Return immediately here since the executor will already be shutdown
-    if (stopped) {
+    if (stopped.get()) {
       return null;
     }
 
@@ -433,7 +434,7 @@ public class BigQuerySinkTask extends SinkTask {
   @Override
   public void start(Map<String, String> properties) {
     logger.trace("task.start()");
-    stopped = false;
+    stopped.set(false);
     config = new BigQuerySinkTaskConfig(properties);
 
     upsertDelete = config.getBoolean(BigQuerySinkConfig.UPSERT_ENABLED_CONFIG)
@@ -525,7 +526,7 @@ public class BigQuerySinkTask extends SinkTask {
         });
       }
     } finally {
-      stopped = true;
+      stopped.set(true);
     }
 
     logger.trace("task.stop()");
