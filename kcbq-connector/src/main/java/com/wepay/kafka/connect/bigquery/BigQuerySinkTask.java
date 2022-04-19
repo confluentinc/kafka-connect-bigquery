@@ -206,29 +206,42 @@ public class BigQuerySinkTask extends SinkTask {
     }
 
     PartitionedTableId.Builder builder = new PartitionedTableId.Builder(baseTableId);
-    if (usePartitionDecorator) {
-      Table bigQueryTable = retrieveCachedTable(baseTableId);
-      TimePartitioning timePartitioning = TimePartitioning.of(Type.DAY);
-      if (bigQueryTable != null) {
-        StandardTableDefinition standardTableDefinition = bigQueryTable.getDefinition();
-        if (standardTableDefinition != null && standardTableDefinition.getTimePartitioning() != null) {
-          timePartitioning = standardTableDefinition.getTimePartitioning();
-        }
-      }
 
-      if (useMessageTimeDatePartitioning) {
-        if (record.timestampType() == TimestampType.NO_TIMESTAMP_TYPE) {
-          throw new ConnectException(
-              "Message has no timestamp type, cannot use message timestamp to partition.");
-        }
-        setTimePartitioningForTimestamp(baseTableId, builder, timePartitioning, record.timestamp());
+    //fix for issue 154
+    if (useMessageTimeDatePartitioning) {
+      //validation of config and table partition values
+      //check if the connector is configured to create tables with time partitioned other than DAY
+      Optional<TimePartitioning.Type> timePartitioningType = config.getTimePartitioningType();
+      StandardTableDefinition tableDef = getTableTimeParition(baseTableId);
+      if ((!Optional.of(TimePartitioning.Type.DAY).equals(timePartitioningType)) || (tableDef.getTimePartitioning() != null && tableDef.getTimePartitioning().getType() != Type.DAY)) {
+        //TODO: check this is the correct type of exception
+        throw new ConnectException(
+                "Message time partitioning is only supported for tables partitioned by day.");
       } else {
-        setTimePartitioning(baseTableId, builder, timePartitioning);
+        //Otherwise, stream to tables using decorator syntax
+        setTimePartitioningForTimestamp(baseTableId, builder, tableDef.getTimePartitioning(), record.timestamp());
       }
     }
 
     return builder.build();
   }
+
+  /**
+   * detects that it will write to a table with a time partitioning type other than DAY
+   * @return true if other than day
+   */
+  private StandardTableDefinition getTableTimeParition(TableId baseTableId) {
+    Table bigQueryTable = retrieveCachedTable(baseTableId);
+    if (bigQueryTable != null) {
+      StandardTableDefinition standardTableDefinition = bigQueryTable.getDefinition();
+      if (standardTableDefinition != null) {
+        return standardTableDefinition;
+      }
+    }
+    //TODO: fix this - should not return null
+    return null;
+  }
+
 
   @Override
   public void put(Collection<SinkRecord> records) {
@@ -462,9 +475,10 @@ public class BigQuerySinkTask extends SinkTask {
     executor = new KCBQThreadPoolExecutor(config, new LinkedBlockingQueue<>());
     topicPartitionManager = new TopicPartitionManager();
     useMessageTimeDatePartitioning =
-        config.getBoolean(BigQuerySinkConfig.BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG);
-    usePartitionDecorator = 
-            config.getBoolean(BigQuerySinkConfig.BIGQUERY_PARTITION_DECORATOR_CONFIG);
+            config.getBoolean(BigQuerySinkConfig.BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG);
+    //fix for issue #154
+    //as this is deprecated this is now set to false by default.
+    usePartitionDecorator = false;
     sanitize =
             config.getBoolean(BigQuerySinkConfig.SANITIZE_TOPICS_CONFIG);
     if (config.getBoolean(BigQuerySinkTaskConfig.GCS_BQ_TASK_CONFIG)) {
