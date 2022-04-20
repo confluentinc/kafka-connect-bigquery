@@ -238,7 +238,7 @@ public class BigQuerySinkTask extends SinkTask {
         return standardTableDefinition;
       }
     }
-    //TODO: fix this - should not return null
+    //Issue #154 return null if partition is DAY
     return null;
   }
 
