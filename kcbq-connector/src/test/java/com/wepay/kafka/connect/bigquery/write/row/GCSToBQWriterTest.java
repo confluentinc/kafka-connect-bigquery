@@ -81,7 +81,7 @@ public class GCSToBQWriterTest {
     testTask.start(properties);
     testTask.put(
         Collections.singletonList(spoofSinkRecord(topic, 0, 0, "some_field", "some_value")));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
 
     verify(storage, times(1)).create((BlobInfo)anyObject(), (byte[])anyObject());
   }
@@ -111,7 +111,7 @@ public class GCSToBQWriterTest {
     testTask.start(properties);
     testTask.put(
         Collections.singletonList(spoofSinkRecord(topic, 0, 0, "some_field", "some_value")));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
 
     verify(storage, times(2)).create((BlobInfo)anyObject(), (byte[])anyObject());
   }
@@ -141,7 +141,7 @@ public class GCSToBQWriterTest {
     testTask.put(
         Collections.singletonList(spoofSinkRecord(topic, 0, 0, "some_field", "some_value")));
     try {
-      testTask.flush(Collections.emptyMap());
+      testTask.preCommit(Collections.emptyMap());
       Assert.fail("expected testTask.flush to fail.");
     } catch (ConnectException ex){
       verify(storage, times(4)).create((BlobInfo)anyObject(), (byte[])anyObject());

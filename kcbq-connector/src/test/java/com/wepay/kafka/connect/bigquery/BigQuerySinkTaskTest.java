@@ -48,7 +48,6 @@ import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.write.batch.MergeBatches;
-import org.apache.kafka.common.config.ConfigException;
 
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
@@ -124,7 +123,7 @@ public class BigQuerySinkTaskTest {
     testTask.start(properties);
 
     testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
     verify(bigQuery, times(1)).insertAll(any(InsertAllRequest.class));
   }
 
@@ -158,7 +157,7 @@ public class BigQuerySinkTaskTest {
     SinkRecord spoofedRecord =
         spoofSinkRecord(topic, "k", "key", "v", "value", TimestampType.NO_TIMESTAMP_TYPE, null);
     testTask.put(Collections.singletonList(spoofedRecord));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
     verify(bigQuery, times(1)).insertAll(any(InsertAllRequest.class));
   }
 
@@ -233,7 +232,7 @@ public class BigQuerySinkTaskTest {
 
     testTask.put(Collections.singletonList(spoofSinkRecord(topic, "value", "message text",
         TimestampType.CREATE_TIME, 1509007584334L)));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
     ArgumentCaptor<InsertAllRequest> argument = ArgumentCaptor.forClass(InsertAllRequest.class);
 
     verify(bigQuery, times(1)).insertAll(argument.capture());
@@ -271,7 +270,7 @@ public class BigQuerySinkTaskTest {
     
     testTask.put(Collections.singletonList(spoofSinkRecord(topic, "value", "message text",
         TimestampType.CREATE_TIME, 1509007584334L)));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
     ArgumentCaptor<InsertAllRequest> argument = ArgumentCaptor.forClass(InsertAllRequest.class);
     
     verify(bigQuery, times(1)).insertAll(argument.capture());
@@ -307,7 +306,7 @@ public class BigQuerySinkTaskTest {
     testTask.start(properties);
     testTask.put(Collections.singletonList(spoofSinkRecord(topic, "value", "message text",
         TimestampType.CREATE_TIME, 1509007584334L)));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
     ArgumentCaptor<InsertAllRequest> argument = ArgumentCaptor.forClass(InsertAllRequest.class);
     
     verify(bigQuery, times(1)).insertAll(argument.capture());
@@ -474,7 +473,7 @@ public class BigQuerySinkTaskTest {
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
 
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
   }
 
   @Test
@@ -500,16 +499,16 @@ public class BigQuerySinkTaskTest {
     assertThrows(
         "first call to flush should fail",
         Exception.class,
-        () -> testTask.flush(Collections.emptyMap()));
+        () -> testTask.preCommit(Collections.emptyMap()));
     assertThrows(
         "second call to flush should fail",
         Exception.class,
-        () -> testTask.flush(Collections.emptyMap()));
+        () -> testTask.preCommit(Collections.emptyMap()));
     testTask.stop();
     assertThrows(
         "third call to flush (after task stop) should fail",
         Exception.class,
-        () -> testTask.flush(Collections.emptyMap()));
+        () -> testTask.preCommit(Collections.emptyMap()));
   }
 
   @Test
@@ -547,7 +546,7 @@ public class BigQuerySinkTaskTest {
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
     testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
 
     verify(bigQuery, times(4)).insertAll(anyObject());
   }
@@ -588,7 +587,7 @@ public class BigQuerySinkTaskTest {
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
     testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
 
     verify(bigQuery, times(3)).insertAll(anyObject());
   }
@@ -626,7 +625,7 @@ public class BigQuerySinkTaskTest {
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
     testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
   }
 
   // Make sure that an InterruptedException is properly translated into a ConnectException
@@ -659,11 +658,11 @@ public class BigQuerySinkTaskTest {
     testTask.start(properties);
 
     testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
 
     testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
     Thread.currentThread().interrupt();
-    testTask.flush(Collections.emptyMap());
+    testTask.preCommit(Collections.emptyMap());
   }
 
   @Test(expected = ConnectException.class)

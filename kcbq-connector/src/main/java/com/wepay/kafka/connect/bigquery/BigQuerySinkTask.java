@@ -71,6 +71,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.intTable;
@@ -96,7 +97,7 @@ public class BigQuerySinkTask extends SinkTask {
   private boolean upsertDelete;
   private MergeBatches mergeBatches;
   private MergeQueries mergeQueries;
-  private volatile boolean stopped;
+  private final AtomicBoolean stopped = new AtomicBoolean();
 
   private TopicPartitionManager topicPartitionManager;
 
@@ -140,19 +141,15 @@ public class BigQuerySinkTask extends SinkTask {
     this.cache = testCache;
   }
 
-  @Override
-  public void flush(Map<TopicPartition, OffsetAndMetadata> offsets) {
+  public Map<TopicPartition, OffsetAndMetadata> custom_flush(Map<TopicPartition, OffsetAndMetadata> offsets) {
     if (upsertDelete) {
       throw new ConnectException("This connector cannot perform upsert/delete on older versions of "
           + "the Connect framework; please upgrade to version 0.10.2.0 or later");
     }
 
     // Return immediately here since the executor will already be shutdown
-    if (stopped) {
-      // Still have to check for errors in order to prevent offsets being committed for records that
-      // we've failed to write
-      executor.maybeThrowEncounteredError();
-      return;
+    if (stopped.get()) {
+      return null;
     }
 
     try {
@@ -162,6 +159,7 @@ public class BigQuerySinkTask extends SinkTask {
     }
 
     topicPartitionManager.resumeAll();
+    return offsets;
   }
 
   @Override
@@ -172,8 +170,7 @@ public class BigQuerySinkTask extends SinkTask {
       return result;
     }
 
-    flush(offsets);
-    return offsets;
+    return custom_flush(offsets);
   }
 
   private PartitionedTableId getRecordTable(SinkRecord record) {
@@ -437,7 +434,7 @@ public class BigQuerySinkTask extends SinkTask {
   @Override
   public void start(Map<String, String> properties) {
     logger.trace("task.start()");
-    stopped = false;
+    stopped.set(false);
     config = new BigQuerySinkTaskConfig(properties);
 
     upsertDelete = config.getBoolean(BigQuerySinkConfig.UPSERT_ENABLED_CONFIG)
@@ -529,7 +526,7 @@ public class BigQuerySinkTask extends SinkTask {
         });
       }
     } finally {
-      stopped = true;
+      stopped.set(true);
     }
 
     logger.trace("task.stop()");
