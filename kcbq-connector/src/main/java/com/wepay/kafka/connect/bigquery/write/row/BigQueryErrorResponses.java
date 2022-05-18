@@ -19,6 +19,7 @@
 
 package com.wepay.kafka.connect.bigquery.write.row;
 
+import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryError;
 import com.google.cloud.bigquery.BigQueryException;
 
@@ -114,7 +115,7 @@ public class BigQueryErrorResponses {
 
   public static boolean isMissingRequiredFieldError(BigQueryError error) {
     return INVALID_REASON.equals(reason(error))
-        && message(error).startsWith("Missing required field: ");
+        && message(error).startsWith("Missing required field");
   }
 
   public static boolean isStoppedError(BigQueryError error) {
