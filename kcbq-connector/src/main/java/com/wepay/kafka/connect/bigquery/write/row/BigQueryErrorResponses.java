@@ -19,7 +19,6 @@
 
 package com.wepay.kafka.connect.bigquery.write.row;
 
-import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryError;
 import com.google.cloud.bigquery.BigQueryException;
 
