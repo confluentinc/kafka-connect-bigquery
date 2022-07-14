@@ -21,7 +21,7 @@ pipeline {
             }
             post {
                 always {
-                    junit 'target/surefire-reports/*.xml'
+                    junit 'kcbq-connector/target/surefire-reports/*.xml'
                 }
             }
         }
