@@ -172,6 +172,17 @@ public class BigQuerySinkTask extends SinkTask {
   public Map<TopicPartition, OffsetAndMetadata> preCommit(Map<TopicPartition, OffsetAndMetadata> offsets) {
     if (upsertDelete) {
       Map<TopicPartition, OffsetAndMetadata> result = mergeBatches.latestOffsets();
+
+      // check that there was no transformation of the topic name. If there was a transformation,
+      // this could lead to never register offsets and confuse users without an explicit warning
+      if (result.size() > 0 && !offsets.containsKey(result.keySet().iterator().next())) {
+        throw new ConnectException("BQ Sink: trying to register an new offset for topic that doesn't exist. " +
+                "Trying to register following topics: `" + result.keySet().toString() + "`, " +
+                "Existing topics: `" + offsets.keySet().toString() + "`. " +
+                "This could be caused by using RegexRouter, or a version of KafkaConnect " +
+                "that doesn't support InternalSinkRecord, or others.");
+      }
+
       checkQueueSize();
       return result;
     }
