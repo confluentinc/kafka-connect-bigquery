@@ -20,6 +20,7 @@
 package com.wepay.kafka.connect.bigquery;
 
 import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.QueryJobConfiguration;
@@ -27,10 +28,13 @@ import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.TableId;
 import com.google.common.annotations.VisibleForTesting;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
+import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
 import com.wepay.kafka.connect.bigquery.write.batch.KCBQThreadPoolExecutor;
 import com.wepay.kafka.connect.bigquery.write.batch.MergeBatches;
+import com.wepay.kafka.connect.bigquery.write.row.BigQueryErrorResponses;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,7 +139,25 @@ public class MergeQueries {
           batchNumber, intTable(intermediateTable));
       String mergeFlushQuery = mergeFlushQuery(intermediateTable, destinationTable, batchNumber);
       logger.trace(mergeFlushQuery);
-      bigQuery.query(QueryJobConfiguration.of(mergeFlushQuery));
+
+      int attempt = 0;
+      boolean success = false;
+      while (!success) {
+        try {
+          bigQuery.query(QueryJobConfiguration.of(mergeFlushQuery));
+          success = true;
+        } catch (BigQueryException e) {
+          if (BigQueryErrorResponses.isCouldNotSerializeAccessError(e)) {
+            attempt++;
+            if (attempt == 60) {
+              throw new BigQueryConnectException("After retrying running 60 times, it still failed", e);
+            }
+            Thread.sleep(10000);
+          } else {
+            throw e;
+          }
+        }
+      }
       logger.trace("Merge from {} to {} completed",
           intTable(intermediateTable), destTable(destinationTable));
 
