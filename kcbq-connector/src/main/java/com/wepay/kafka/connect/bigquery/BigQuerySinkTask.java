@@ -65,6 +65,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -176,8 +177,12 @@ public class BigQuerySinkTask extends SinkTask {
       // check that there was no transformation of the topic name. If there was a transformation,
       // this could lead to never register offsets and confuse users without an explicit warning
       if (result.size() > 0 && !offsets.containsKey(result.keySet().iterator().next())) {
+        HashSet<TopicPartition> missing = new HashSet<>(result.keySet());
+        missing.removeAll(offsets.keySet());
+
         throw new ConnectException("BQ Sink: trying to register an new offset for topic that doesn't exist. " +
-                "Trying to register following topics: `" + result.keySet().toString() + "`, " +
+                "These topics are missing (" + missing.size() + "/" + result.keySet().size() + "): " +
+                "`" + missing.toString() + "`, " +
                 "Existing topics: `" + offsets.keySet().toString() + "`. " +
                 "This could be caused by using RegexRouter, or a version of KafkaConnect " +
                 "that doesn't support InternalSinkRecord, or others.");
