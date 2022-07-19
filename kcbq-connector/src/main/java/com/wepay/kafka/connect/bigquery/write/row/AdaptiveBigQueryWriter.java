@@ -110,11 +110,9 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
         if (rows.size() == 1) {
           throw new ConnectException("One single row exceeded the Request Max Size for table `" + tableId + "`", exception);
         }
-
         Map<Boolean, SortedMap<SinkRecord, InsertAllRequest.RowToInsert>> collect = splitRowsInTwo(rows);
-
-        logger.warn("Request to `" + tableId + "` was too large (more than 10MB), sending two requests " +
-                "with `" + rows.size() + "`");
+        logger.warn("Request to `" + tableId + "` was too large (more than 10MB) with `" + rows.size() + "`, " +
+                "sending two requests with half of rows");
         this.performWriteRequest(tableId, collect.get(false));
         this.performWriteRequest(tableId, collect.get(true));
       } else {
