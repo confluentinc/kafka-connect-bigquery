@@ -77,6 +77,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.intTable;
 
@@ -176,16 +177,19 @@ public class BigQuerySinkTask extends SinkTask {
 
       // check that there was no transformation of the topic name. If there was a transformation,
       // this could lead to never register offsets and confuse users without an explicit warning
-      if (result.size() > 0 && !offsets.containsKey(result.keySet().iterator().next())) {
-        HashSet<TopicPartition> missing = new HashSet<>(result.keySet());
-        missing.removeAll(offsets.keySet());
-
-        throw new ConnectException("BQ Sink: trying to register an new offset for topic that doesn't exist. " +
-                "These topics are missing (" + missing.size() + "/" + result.keySet().size() + "): " +
-                "`" + missing.toString() + "`, " +
-                "Existing topics: `" + offsets.keySet().toString() + "`. " +
-                "This could be caused by using RegexRouter, or a version of KafkaConnect " +
-                "that doesn't support InternalSinkRecord, or others.");
+      if (result.size() > 0) {
+        Set<String> topicListExisting = offsets.keySet().stream().map(TopicPartition::topic).collect(Collectors.toSet());
+        Set<String> missingTopicList = result.keySet().stream().map(TopicPartition::topic)
+                .filter(s -> !topicListExisting.contains(s)).collect(Collectors.toSet());
+        if (!missingTopicList.isEmpty()) {
+          logger.warn("BQ Sink: trying to register an new offset for topic that doesn't exist. " +
+                  "These topics are missing (" + missingTopicList.size() + "/" + result.keySet().size() + "): " +
+                  "`" + missingTopicList + "`, " +
+                  "Existing topics: `" + topicListExisting + "`. " +
+                  "If this is a consistent problem and offset don't get registered, " +
+                  "it could be caused by using RegexRouter, or a version of KafkaConnect " +
+                  "that doesn't support InternalSinkRecord, or others. Ignore and continue");
+        }
       }
 
       checkQueueSize();
