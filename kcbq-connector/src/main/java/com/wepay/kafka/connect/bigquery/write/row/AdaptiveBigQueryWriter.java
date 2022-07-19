@@ -103,6 +103,8 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
       } else if (BigQueryErrorResponses.isTableMissingSchemaError(exception)) {
         attemptSchemaUpdate(tableId, new ArrayList<>(rows.keySet()));
       } else {
+        // TODO it'd be ideal throwing a wrapped checked exception for "request too large exception" instead
+        //  of having the upstream figuring it out
         throw exception;
       }
     }
@@ -125,6 +127,8 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
             // no-op, we want to keep retrying the insert
             logger.debug("insertion failed", exception);
           } else {
+            // TODO it'd be ideal throwing a wrapped checked exception for "request too large exception" instead
+            //  of having the upstream figuring it out
             throw exception;
           }
         }
