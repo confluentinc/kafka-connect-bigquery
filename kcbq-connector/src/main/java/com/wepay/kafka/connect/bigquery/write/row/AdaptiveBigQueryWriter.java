@@ -31,7 +31,7 @@ import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 
 import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
 import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
-
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +41,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * A {@link BigQueryWriter} capable of updating BigQuery table schemas and creating non-existed tables automatically.
@@ -102,6 +105,18 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
         attemptTableCreate(tableId.getBaseTableId(), new ArrayList<>(rows.keySet()));
       } else if (BigQueryErrorResponses.isTableMissingSchemaError(exception)) {
         attemptSchemaUpdate(tableId, new ArrayList<>(rows.keySet()));
+      } else if (BigQueryErrorResponses.isRequestTooLargeError(exception)) {
+        // Split the request into two, and retry
+        if (rows.size() == 1) {
+          throw new ConnectException("One single row exceeded the Request Max Size for table `" + tableId + "`", exception);
+        }
+
+        Map<Boolean, SortedMap<SinkRecord, InsertAllRequest.RowToInsert>> collect = splitRowsInTwo(rows);
+
+        logger.warn("Request to `" + tableId + "` was too large (more than 10MB), sending two requests " +
+                "with `" + rows.size() + "`");
+        this.performWriteRequest(tableId, collect.get(false));
+        this.performWriteRequest(tableId, collect.get(true));
       } else {
         throw exception;
       }
@@ -145,6 +160,25 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
     }
     logger.debug("table insertion completed successfully");
     return new HashMap<>();
+  }
+
+  private Map<Boolean, SortedMap<SinkRecord, InsertAllRequest.RowToInsert>> splitRowsInTwo(SortedMap<SinkRecord,
+          InsertAllRequest.RowToInsert> rows) {
+    AtomicInteger counter = new AtomicInteger(0);
+    return rows.entrySet()
+            .stream()
+            .collect(Collectors.partitioningBy(
+                    e -> counter.getAndIncrement() < rows.size() / 2, // this splits the map into 2 parts
+                    Collectors.toMap(
+                            Map.Entry::getKey,
+                            Map.Entry::getValue,
+                            (u, v) -> {
+                              throw new IllegalStateException(String.format("Duplicate key %s", u));
+                            },
+                            // keeping the same comparator as the original class
+                            () -> new TreeMap<>(rows.comparator())
+                    )
+            ));
   }
 
   protected void attemptSchemaUpdate(PartitionedTableId tableId, List<SinkRecord> records) {
