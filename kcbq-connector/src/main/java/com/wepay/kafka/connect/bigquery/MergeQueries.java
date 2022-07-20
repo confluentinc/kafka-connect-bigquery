@@ -178,7 +178,9 @@ public class MergeQueries {
     logger.trace("Clearing batches from {} on back from {}", batchNumber, intTable(intermediateTable));
     String batchClearQuery = batchClearQuery(intermediateTable, batchNumber);
     logger.trace(batchClearQuery);
-    bigQuery.query(QueryJobConfiguration.of(batchClearQuery));
+    // Run in `batch` priority to reduce the number of concurrent `interactive` queries.
+    // `Interactive` queries count against concurrent BigQuery limits, whereas `batch` queries do not.
+    bigQuery.query(QueryJobConfiguration.newBuilder(batchClearQuery).setPriority(QueryJobConfiguration.Priority.BATCH).build());
   }
 
   @VisibleForTesting
