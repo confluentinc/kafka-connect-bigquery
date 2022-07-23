@@ -30,7 +30,6 @@ import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
 import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,15 +134,32 @@ public class MergeBatches {
     return intermediateToDestinationTables.get(intermediateTable);
   }
 
+  public static class AddToBatchResult{
+    private final int batchNumber;
+    private final long totalBatchSize;
+
+    public AddToBatchResult(int batchNumber, long totalBatchSize){
+      this.batchNumber = batchNumber;
+      this.totalBatchSize = totalBatchSize;
+    }
+
+    public int getBatchNumber() {
+      return batchNumber;
+    }
+
+    public long getBatchSize() {
+      return totalBatchSize;
+    }
+  }
+
   /**
    * Find a batch number for the record, insert that number into the converted value, record the
    * offset for that record, and return the total size of that batch.
    * @param record the record for the batch
    * @param intermediateTable the intermediate table the record will be streamed into
-   * @param convertedRecord the converted record that will be passed to the BigQuery client
    * @return the total number of records in the batch that this record is added to
    */
-  public long addToBatch(SinkRecord record, TableId intermediateTable, Map<String, Object> convertedRecord) {
+  public AddToBatchResult addToBatch(SinkRecord record, TableId intermediateTable) {
     AtomicInteger batchCount = batchNumbers.get(intermediateTable);
     // Synchronize here to ensure that the batch number isn't bumped in the middle of this method.
     // On its own, that wouldn't be such a bad thing, but since a merge flush is supposed to
@@ -154,7 +170,6 @@ public class MergeBatches {
     // is safely counted and tracked there.
     synchronized (batchCount) {
       int batchNumber = batchCount.get();
-      convertedRecord.put(MergeQueries.INTERMEDIATE_TABLE_BATCH_NUMBER_FIELD, batchNumber);
 
       Batch batch = batches.get(intermediateTable).computeIfAbsent(batchNumber, n -> new Batch());
       batch.recordOffsetFor(record);
@@ -162,7 +177,7 @@ public class MergeBatches {
       long pendingBatchSize = batch.increment();
       logger.trace("Added record to batch {} for {}; {} rows are currently pending",
           batchNumber, intTable(intermediateTable), pendingBatchSize);
-      return batch.total();
+      return new AddToBatchResult(batchNumber, batch.total());
     }
   }
 

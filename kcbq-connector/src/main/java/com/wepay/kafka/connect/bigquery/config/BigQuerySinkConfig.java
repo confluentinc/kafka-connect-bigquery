@@ -191,6 +191,17 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final String KAFKA_DATA_FIELD_NAME_DOC = "The name of the field of Kafka Data. " +
           "Default to be null, which means Kafka Data Field will not be included. ";
 
+  public static final String DEBUG_MERGE_DATA_FIELD_NAME_CONFIG =                   "debugMergeDataFieldName";
+  private static final ConfigDef.Type DEBUG_MERGE_DATA_FIELD_NAME_TYPE =            ConfigDef.Type.STRING;
+  public static final String DEBUG_MERGE_DATA_FIELD_NAME_DEFAULT =                  null;
+  private static final ConfigDef.Validator DEBUG_MERGE_DATA_FIELD_NAME_VALIDATOR =  new ConfigDef.NonEmptyString();
+  private static final ConfigDef.Importance DEBUG_MERGE_DATA_FIELD_NAME_IMPORTANCE = ConfigDef.Importance.LOW;
+  private static final String DEBUG_MERGE_DATA_FIELD_NAME_DOC =
+          "This flag is used to debug the merge process of the kcbq. " +
+          "Enabling the feature will create a new struct field " +
+          "including: batchNumber, i (the position it was inserted in the tmp table). " +
+          "CAREFUL: this will permanently change all of your schemas, this feature is likely being used for debug only";
+
   public static final String AVRO_DATA_CACHE_SIZE_CONFIG =                 "avroDataCacheSize";
   private static final ConfigDef.Type AVRO_DATA_CACHE_SIZE_TYPE =          ConfigDef.Type.INT;
   public static final Integer AVRO_DATA_CACHE_SIZE_DEFAULT =               100;
@@ -575,6 +586,13 @@ public class BigQuerySinkConfig extends AbstractConfig {
             KAFKA_DATA_FIELD_NAME_IMPORTANCE,
             KAFKA_DATA_FIELD_NAME_DOC
         ).define(
+            DEBUG_MERGE_DATA_FIELD_NAME_CONFIG,
+            DEBUG_MERGE_DATA_FIELD_NAME_TYPE,
+            DEBUG_MERGE_DATA_FIELD_NAME_DEFAULT,
+            DEBUG_MERGE_DATA_FIELD_NAME_VALIDATOR,
+            DEBUG_MERGE_DATA_FIELD_NAME_IMPORTANCE,
+            DEBUG_MERGE_DATA_FIELD_NAME_DOC
+        ).define(
             AVRO_DATA_CACHE_SIZE_CONFIG,
             AVRO_DATA_CACHE_SIZE_TYPE,
             AVRO_DATA_CACHE_SIZE_DEFAULT,
@@ -911,25 +929,37 @@ public class BigQuerySinkConfig extends AbstractConfig {
   }
 
   /**
-   * If the connector is configured to load Kafka data into BigQuery, this config defines
-   * the name of the kafka data field. A structure is created under the field name to contain
-   * kafka data schema including topic, offset, partition and insertTime.
-   *
-   * @return Field name of Kafka Data to be used in BigQuery
-   */
-  public Optional<String> getKafkaKeyFieldName() {
-    return Optional.ofNullable(getString(KAFKA_KEY_FIELD_NAME_CONFIG));
-  }
-
-  /**
    * If the connector is configured to load Kafka keys into BigQuery, this config defines
    * the name of the kafka key field. A structure is created under the field name to contain
    * a topic's Kafka key schema.
    *
    * @return Field name of Kafka Key to be used in BigQuery
    */
+  public Optional<String> getKafkaKeyFieldName() {
+    return Optional.ofNullable(getString(KAFKA_KEY_FIELD_NAME_CONFIG));
+  }
+
+  /**
+   * If the connector is configured to load Kafka data into BigQuery, this config defines
+   * the name of the kafka data field. A structure is created under the field name to contain
+   * kafka data schema including topic, offset, partition and insertTime.
+   *
+   * @return Field name of Kafka Data to be used in BigQuery
+   */
   public Optional<String> getKafkaDataFieldName() {
     return Optional.ofNullable(getString(KAFKA_DATA_FIELD_NAME_CONFIG));
+  }
+
+  /**
+   * A structure is created under the field name to contain
+   * data used by the kcbq merger to merge the data.
+   *
+   * The field include: batchNumber, i (the position it was inserted in the tmp table)
+   *
+   * @return Field name of Kafka Data to be used in BigQuery
+   */
+  public Optional<String> getDebugMergeDataFieldName() {
+    return Optional.ofNullable(getString(DEBUG_MERGE_DATA_FIELD_NAME_CONFIG));
   }
 
   public boolean isUpsertDeleteEnabled() {

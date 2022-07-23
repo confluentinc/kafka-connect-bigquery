@@ -373,6 +373,8 @@ public class BigQuerySinkTask extends SinkTask {
         config.getSchemaConverter();
     Optional<String> kafkaKeyFieldName = config.getKafkaKeyFieldName();
     Optional<String> kafkaDataFieldName = config.getKafkaDataFieldName();
+    Optional<String> debugMergeDataFieldName = config.getDebugMergeDataFieldName();
+
     Optional<String> timestampPartitionFieldName = config.getTimestampPartitionFieldName();
     Optional<Long> partitionExpiration = config.getPartitionExpirationMs();
     Optional<List<String>> clusteringFieldName = config.getClusteringPartitionFieldNames();
@@ -384,7 +386,7 @@ public class BigQuerySinkTask extends SinkTask {
     return new SchemaManager(schemaRetriever, schemaConverter, getBigQuery(),
                              allowNewBQFields, allowReqFieldRelaxation, allowSchemaUnionization,
                              sanitizeFieldNames,
-                             kafkaKeyFieldName, kafkaDataFieldName,
+                             kafkaKeyFieldName, kafkaDataFieldName, debugMergeDataFieldName,
                              timestampPartitionFieldName, partitionExpiration, clusteringFieldName, timePartitioningType);
   }
 
