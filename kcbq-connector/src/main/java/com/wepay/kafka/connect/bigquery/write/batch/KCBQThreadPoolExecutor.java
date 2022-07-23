@@ -56,7 +56,9 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
           // the following line is irrelevant because the core and max thread counts are the same.
           1, TimeUnit.SECONDS,
           workQueue,
-          new ThreadFactoryBuilder().setNameFormat("bigquery-tpool-%d").build());
+          new ThreadFactoryBuilder().setUncaughtExceptionHandler((t, e) ->
+                          logger.error("BQ Sink: The exception in thread `" + t.getName() + "` went unhandled", e))
+                    .setNameFormat("bigquery-tpool-%d").build());
   }
 
   @Override
