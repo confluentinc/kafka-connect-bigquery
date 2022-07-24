@@ -30,6 +30,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
+import com.wepay.kafka.connect.bigquery.utils.SleepUtils;
 import com.wepay.kafka.connect.bigquery.write.batch.KCBQThreadPoolExecutor;
 import com.wepay.kafka.connect.bigquery.write.batch.MergeBatches;
 import com.wepay.kafka.connect.bigquery.write.row.BigQueryErrorResponses;
@@ -40,6 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -149,10 +151,10 @@ public class MergeQueries {
         } catch (BigQueryException e) {
           if (BigQueryErrorResponses.isCouldNotSerializeAccessError(e)) {
             attempt++;
-            if (attempt == 60) {
-              throw new BigQueryConnectException("After retrying running 60 times, it still failed", e);
+            if (attempt == 30) {
+              throw new BigQueryConnectException("After retrying running 30 times, it still failed", e);
             }
-            Thread.sleep(10000);
+            SleepUtils.waitRandomTime(10000, 20000);
           } else {
             throw e;
           }
