@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright 2020 Confluent, Inc.
  *
  * This software contains code derived from the WePay BigQuery Kafka Connector, Copyright WePay, Inc.
@@ -137,10 +137,12 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
             "Failed to write rows after BQ table creation or schema update within "
                 + RETRY_LIMIT + " attempts for: " + tableId.getBaseTableId());
       }
-      try {
-        Thread.sleep(RETRY_WAIT_TIME);
-      } catch (InterruptedException e) {
-        throw new ExpectedInterruptException("Interrupted while waiting to retry write");
+      if (writeResponse == null || writeResponse.hasErrors()) {
+        try {
+          Thread.sleep(RETRY_WAIT_TIME);
+        } catch (InterruptedException e) {
+          throw new ExpectedInterruptException("Interrupted while waiting to retry write");
+        }
       }
     }
     logger.debug("table insertion completed successfully");

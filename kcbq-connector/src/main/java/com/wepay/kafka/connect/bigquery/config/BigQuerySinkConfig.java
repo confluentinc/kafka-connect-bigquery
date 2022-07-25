@@ -93,6 +93,18 @@ public class BigQuerySinkConfig extends AbstractConfig {
       "The interval, in seconds, in which to attempt to run GCS to BQ load jobs. Only relevant "
       + "if enableBatchLoad is configured.";
 
+  public static final String BQ_STREAMING_MAX_ROWS_PER_REQUEST_CONFIG =                     "bqStreamingMaxRowsPerRequest";
+  private static final ConfigDef.Type BQ_STREAMING_MAX_ROWS_PER_REQUEST_TYPE =              ConfigDef.Type.INT;
+  private static final Integer BQ_STREAMING_MAX_ROWS_PER_REQUEST_DEFAULT =                  50000;
+  private static final ConfigDef.Importance BQ_STREAMING_MAX_ROWS_PER_REQUEST_IMPORTANCE =  ConfigDef.Importance.LOW;
+  private static final String BQ_STREAMING_MAX_ROWS_PER_REQUEST_DOC =
+          "Due to BQ streaming put limitations, the max request size is 10MB. " +
+                  "Hence, considering that in average 1 record takes at least 20 bytes, " +
+                  "if we have big batches (e.g. 500000) we might need to run against BigQuery multiple requests " +
+                  "that would return a `Request Too Large` before finding the right size. " +
+                  "This config allows starting from a lower value altogether and reduce the amount of failed requests. " +
+                  "Only works with simple TableWriter (no GCS)";
+
   public static final String GCS_BUCKET_NAME_CONFIG =                     "gcsBucketName";
   private static final ConfigDef.Type GCS_BUCKET_NAME_TYPE =              ConfigDef.Type.STRING;
   private static final Object GCS_BUCKET_NAME_DEFAULT =                   "";
@@ -529,6 +541,12 @@ public class BigQuerySinkConfig extends AbstractConfig {
             GCS_FOLDER_NAME_DEFAULT,
             GCS_FOLDER_NAME_IMPORTANCE,
             GCS_FOLDER_NAME_DOC
+        ).define(
+            BQ_STREAMING_MAX_ROWS_PER_REQUEST_CONFIG,
+            BQ_STREAMING_MAX_ROWS_PER_REQUEST_TYPE,
+            BQ_STREAMING_MAX_ROWS_PER_REQUEST_DEFAULT,
+            BQ_STREAMING_MAX_ROWS_PER_REQUEST_IMPORTANCE,
+            BQ_STREAMING_MAX_ROWS_PER_REQUEST_DOC
         ).define(
             PROJECT_CONFIG,
             PROJECT_TYPE,
