@@ -1,0 +1,71 @@
+/*
+ * Copyright 2020 Confluent, Inc.
+ *
+ * This software contains code derived from the WePay BigQuery Kafka Connector, Copyright WePay, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package com.wepay.kafka.connect.bigquery.convert;
+
+
+import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.LegacySQLTypeName;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.junit.Test;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+public class MergeFieldBuilderTest {
+
+    public static final String kafkaDataFieldName = "kafkaData";
+
+
+    public static final String MERGE_ITERATION_FIELD_NAME = "indexInBatch";
+    public static final String MERGE_BATCH_NUMBER_FIELD = "batchNumber";
+
+    @Test
+    public void testBuildMergeFieldRecord() {
+
+        int batchNumber = 1;
+        long indexInBatch = 9999;
+
+        Map<String, Object> actualKafkaDataFields = MergeFieldBuilder.buildKafkaDataRecord(batchNumber, indexInBatch);
+
+        assertTrue(actualKafkaDataFields.containsKey(MERGE_ITERATION_FIELD_NAME));
+        assertTrue(actualKafkaDataFields.get(MERGE_ITERATION_FIELD_NAME) instanceof Long);
+
+        assertTrue(actualKafkaDataFields.containsKey(MERGE_BATCH_NUMBER_FIELD));
+        assertTrue(actualKafkaDataFields.get(MERGE_BATCH_NUMBER_FIELD) instanceof Integer);
+
+    }
+
+    @Test
+    public void testBuildKafkaDataField() {
+        Field iteration_id_field = Field.of(MERGE_ITERATION_FIELD_NAME, LegacySQLTypeName.INTEGER);
+        Field batch_number = Field.of(MERGE_BATCH_NUMBER_FIELD, LegacySQLTypeName.INTEGER);
+        Field expectedBigQuerySchema = Field.newBuilder(kafkaDataFieldName,
+                        LegacySQLTypeName.RECORD,
+                        iteration_id_field,
+                        batch_number)
+                .setMode(Field.Mode.NULLABLE)
+                .build();
+        Field actualBigQuerySchema = MergeFieldBuilder.buildMergeField(kafkaDataFieldName);
+        assertEquals(expectedBigQuerySchema, actualBigQuerySchema);
+    }
+}
