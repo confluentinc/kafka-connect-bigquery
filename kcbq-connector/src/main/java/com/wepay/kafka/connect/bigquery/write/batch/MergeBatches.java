@@ -30,6 +30,8 @@ import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
 import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.runtime.InternalSinkRecord;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -341,8 +343,17 @@ public class MergeBatches {
     }
 
     public void recordOffsetFor(SinkRecord record) {
+
+      // if the topic name has been changed to forward the message to a different dataset/table, the Original Record
+      // will contain the original topic, and not the transformed one.
+      // this problem affects only upsertDelete = true. Append-only version registers the offset just fine.
+      String topic = record.topic();
+      if(record instanceof InternalSinkRecord){
+        topic = ((InternalSinkRecord) record).originalRecord().topic();
+      }
+
       offsets.put(
-          new TopicPartition(record.topic(), record.kafkaPartition()),
+          new TopicPartition(topic, record.kafkaPartition()),
           // Use the offset of the record plus one here since that'll be the offset that we'll
           // resume at if/when this record is the last-committed record and then the task is
           // restarted

@@ -42,6 +42,7 @@ public class BigQueryErrorResponses {
 
   private static final String BAD_REQUEST_REASON = "badRequest";
   private static final String INVALID_REASON = "invalid";
+  private static final String INVALID_QUERY_REASON = "invalidQuery";
   private static final String NOT_FOUND_REASON = "notFound";
   private static final String QUOTA_EXCEEDED_REASON = "quotaExceeded";
   private static final String RATE_LIMIT_EXCEEDED_REASON = "rateLimitExceeded";
@@ -111,6 +112,12 @@ public class BigQueryErrorResponses {
   public static boolean isIOError(BigQueryException error) {
     return BigQueryException.UNKNOWN_CODE == error.getCode()
         && error.getCause() instanceof IOException;
+  }
+
+  public static boolean isCouldNotSerializeAccessError(BigQueryException exception) {
+    return BAD_REQUEST_CODE == exception.getCode()
+            && INVALID_QUERY_REASON.equals(exception.getReason())
+            && message(exception.getError()).startsWith("Could not serialize access to");
   }
 
   public static boolean isUnrecognizedFieldError(BigQueryError error) {
