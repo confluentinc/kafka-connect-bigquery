@@ -324,7 +324,7 @@ public class SchemaManagerTest {
     Optional<List<String>> testField = Optional.of(Arrays.asList("column1", "column2"));
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
         mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), Optional.empty(),
-            timestampPartitionFieldName,Optional.empty(), testField, Optional.of(TimePartitioning.Type.DAY));
+            timestampPartitionFieldName, Optional.empty(), testField, Optional.of(TimePartitioning.Type.DAY));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
     when(mockKafkaSchema.doc()).thenReturn(testDoc);
