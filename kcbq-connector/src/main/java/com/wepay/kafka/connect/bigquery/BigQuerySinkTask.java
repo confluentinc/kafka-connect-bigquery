@@ -46,6 +46,7 @@ import com.wepay.kafka.connect.bigquery.write.batch.MergeBatches;
 import com.wepay.kafka.connect.bigquery.write.batch.TableWriter;
 import com.wepay.kafka.connect.bigquery.write.batch.TableWriterBuilder;
 import com.wepay.kafka.connect.bigquery.write.row.AdaptiveBigQueryWriter;
+import com.wepay.kafka.connect.bigquery.write.row.NeoStorageBigQueryWriter;
 import com.wepay.kafka.connect.bigquery.write.row.BigQueryErrorResponses;
 import com.wepay.kafka.connect.bigquery.write.row.BigQueryWriter;
 import com.wepay.kafka.connect.bigquery.write.row.GCSToBQWriter;
@@ -245,6 +246,9 @@ public class BigQuerySinkTask extends SinkTask {
     Map<PartitionedTableId, TableWriterBuilder> tableWriterBuilders = new HashMap<>();
 
     for (SinkRecord record : records) {
+      logger.debug("get a sink record here");
+      logger.debug(record.value().toString());
+
       if (record.value() != null || config.getBoolean(BigQuerySinkConfig.DELETE_ENABLED_CONFIG)) {
         PartitionedTableId table = getRecordTable(record);
         if (!tableWriterBuilders.containsKey(table)) {
@@ -403,11 +407,9 @@ public class BigQuerySinkTask extends SinkTask {
                                             autoCreateTables,
                                             mergeBatches.intermediateToDestinationTables());
     } else if (autoCreateTables || allowNewBigQueryFields || allowRequiredFieldRelaxation) {
-      return new AdaptiveBigQueryWriter(bigQuery,
-                                        getSchemaManager(),
+      return new NeoStorageBigQueryWriter(bigQuery,
                                         retry,
-                                        retryWait,
-                                        autoCreateTables);
+                                        retryWait);
     } else {
       return new SimpleBigQueryWriter(bigQuery, retry, retryWait);
     }
