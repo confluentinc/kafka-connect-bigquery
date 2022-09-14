@@ -229,10 +229,10 @@ public class MergeBatches {
                     "this should happen very rarely when two consecutive calls are run." +
                     " intermediaTable {}, batchNumber {}",
                 intTable(intermediateTable), batchNumber);
-            allBatchesForTable.wait(120_000L);
+            allBatchesForTable.wait(5 * 60_000L);
           } catch (Exception e) {
             try {
-              logger.error("Since all batches should be executed in order, " +
+              logger.error("Since all batches should be executed in order, and already waited a buffer time, " +
                       "this should have not happened. intermediaTable {}, batchNumber {}",
                   intTable(intermediateTable), batchNumber);
               allBatchesForTable.wait();
