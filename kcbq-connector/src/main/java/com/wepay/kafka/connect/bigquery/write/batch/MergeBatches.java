@@ -30,7 +30,6 @@ import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
 import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -195,11 +194,18 @@ public class MergeBatches {
    * @param intermediateTable the table whose batch number should be incremented
    * @return the batch number for the table, pre-increment
    */
-  public int incrementBatch(TableId intermediateTable) {
+  public int getAndIncrementBatch(TableId intermediateTable) {
     AtomicInteger batchCount = batchNumbers.get(intermediateTable);
     // See addToBatch for an explanation of the synchronization here
     synchronized (batchCount) {
       return batchCount.getAndIncrement();
+    }
+  }
+
+  public int getCurrentBatch(TableId intermediateTable) {
+    AtomicInteger batchCount = batchNumbers.get(intermediateTable);
+    synchronized (batchCount) {
+      return batchCount.get();
     }
   }
 
@@ -219,14 +225,25 @@ public class MergeBatches {
             priorBatchNumber, intTable(intermediateTable), batchNumber);
         while (allBatchesForTable.containsKey(priorBatchNumber)) {
           try {
-            allBatchesForTable.wait();
-          } catch (InterruptedException e) {
-            logger.warn("Interrupted while waiting for batch {} to complete for {}",
-                batchNumber, intTable(intermediateTable));
-            throw new ExpectedInterruptException(String.format(
-                "Interrupted while waiting for batch %d to complete for %s",
-                batchNumber, intTable(intermediateTable)
-            ));
+            logger.warn("Since all batches should be executed in order, " +
+                    "this should happen very rarely when two consecutive calls are run." +
+                    " intermediaTable {}, batchNumber {}",
+                intTable(intermediateTable), batchNumber);
+            allBatchesForTable.wait(120_000L);
+          } catch (Exception e) {
+            try {
+              logger.error("Since all batches should be executed in order, " +
+                      "this should have not happened. intermediaTable {}, batchNumber {}",
+                  intTable(intermediateTable), batchNumber);
+              allBatchesForTable.wait();
+            } catch (InterruptedException e2) {
+              logger.warn("Interrupted while waiting for batch {} to complete for {}",
+                  batchNumber, intTable(intermediateTable));
+              throw new ExpectedInterruptException(String.format(
+                  "Interrupted while waiting for batch %d to complete for %s",
+                  batchNumber, intTable(intermediateTable)
+              ));
+            }
           }
         }
       }
