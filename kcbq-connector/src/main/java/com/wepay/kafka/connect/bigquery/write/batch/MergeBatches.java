@@ -202,7 +202,7 @@ public class MergeBatches {
     }
   }
 
-  public int getCurrentBatch(TableId intermediateTable) {
+  public int getCurrentBatchNumber(TableId intermediateTable) {
     AtomicInteger batchCount = batchNumbers.get(intermediateTable);
     synchronized (batchCount) {
       return batchCount.get();

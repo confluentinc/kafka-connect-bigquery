@@ -128,13 +128,13 @@ public class MergeQueries {
       int currentBatchNumber;
       // execute the batches for a given intermediateTable in order once they acquired the thread (to avoid deadlock)
       while ((currentBatchNumber = intermediateTableToMergedFlushCount.get(intermediateTable)
-          .getAndUpdate(operand -> operand < mergeBatches.getCurrentBatch(intermediateTable) ? operand + 1 : operand))
-          < mergeBatches.getCurrentBatch(intermediateTable)) {
+          .getAndUpdate(operand -> operand < mergeBatches.getCurrentBatchNumber(intermediateTable) ? operand + 1 : operand))
+          < mergeBatches.getCurrentBatchNumber(intermediateTable)) {
 
         logger.trace("Triggering merge flush from {} to {} for batch {}, last batch {}", intTable(intermediateTable),
             destTable(destinationTable),
             currentBatchNumber,
-            mergeBatches.getCurrentBatch(intermediateTable));
+            mergeBatches.getCurrentBatchNumber(intermediateTable));
         try {
           mergeFlush(intermediateTable, destinationTable, currentBatchNumber);
         } catch (InterruptedException e) {
