@@ -138,9 +138,15 @@ public class MergeQueries {
         try {
           mergeFlush(intermediateTable, destinationTable, currentBatchNumber);
         } catch (InterruptedException e) {
+          // reverting the update
+          intermediateTableToMergedFlushCount.get(intermediateTable).set(currentBatchNumber);
           throw new ExpectedInterruptException(String.format(
               "Interrupted while performing merge flush of batch %d from %s to %s",
               currentBatchNumber, intTable(intermediateTable), destTable(destinationTable)));
+        } catch (Exception e){
+          logger.error("Exception while performing merge flush of batch %d from %s to %s", e);
+          intermediateTableToMergedFlushCount.get(intermediateTable).set(currentBatchNumber);
+          throw e;
         }
       }
     });
