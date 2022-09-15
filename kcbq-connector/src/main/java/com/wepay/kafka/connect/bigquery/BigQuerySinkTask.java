@@ -65,6 +65,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,6 +77,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.intTable;
 
@@ -172,6 +174,24 @@ public class BigQuerySinkTask extends SinkTask {
   public Map<TopicPartition, OffsetAndMetadata> preCommit(Map<TopicPartition, OffsetAndMetadata> offsets) {
     if (upsertDelete) {
       Map<TopicPartition, OffsetAndMetadata> result = mergeBatches.latestOffsets();
+
+      // check that there was no transformation of the topic name. If there was a transformation,
+      // this could lead to never register offsets and confuse users without an explicit warning
+      if (result.size() > 0) {
+        Set<String> topicListExisting = offsets.keySet().stream().map(TopicPartition::topic).collect(Collectors.toSet());
+        Set<String> missingTopicList = result.keySet().stream().map(TopicPartition::topic)
+                .filter(s -> !topicListExisting.contains(s)).collect(Collectors.toSet());
+        if (!missingTopicList.isEmpty()) {
+          logger.warn("BQ Sink: trying to register an new offset for topic that doesn't exist. " +
+                  "These topics are missing (" + missingTopicList.size() + "/" + result.keySet().size() + "): " +
+                  "`" + missingTopicList + "`, " +
+                  "Existing topics: `" + topicListExisting + "`. " +
+                  "If this is a consistent problem and offset don't get registered, " +
+                  "it could be caused by using RegexRouter, or a version of KafkaConnect " +
+                  "that doesn't support InternalSinkRecord, or others. Ignore and continue");
+        }
+      }
+
       checkQueueSize();
       return result;
     }
@@ -264,7 +284,8 @@ public class BigQuerySinkTask extends SinkTask {
                 recordConverter);
           } else {
             TableWriter.Builder simpleTableWriterBuilder =
-                new TableWriter.Builder(bigQueryWriter, table, recordConverter);
+                new TableWriter.Builder(bigQueryWriter, table, recordConverter,
+                        config.getInt(BigQuerySinkConfig.BQ_STREAMING_MAX_ROWS_PER_REQUEST_CONFIG));
             if (upsertDelete) {
               simpleTableWriterBuilder.onFinish(rows ->
                   mergeBatches.onRowWrites(table.getBaseTableId(), rows));
@@ -373,6 +394,8 @@ public class BigQuerySinkTask extends SinkTask {
         config.getSchemaConverter();
     Optional<String> kafkaKeyFieldName = config.getKafkaKeyFieldName();
     Optional<String> kafkaDataFieldName = config.getKafkaDataFieldName();
+    Optional<String> debugMergeDataFieldName = config.getDebugMergeDataFieldName();
+
     Optional<String> timestampPartitionFieldName = config.getTimestampPartitionFieldName();
     Optional<Long> partitionExpiration = config.getPartitionExpirationMs();
     Optional<List<String>> clusteringFieldName = config.getClusteringPartitionFieldNames();
@@ -384,7 +407,7 @@ public class BigQuerySinkTask extends SinkTask {
     return new SchemaManager(schemaRetriever, schemaConverter, getBigQuery(),
                              allowNewBQFields, allowReqFieldRelaxation, allowSchemaUnionization,
                              sanitizeFieldNames,
-                             kafkaKeyFieldName, kafkaDataFieldName,
+                             kafkaKeyFieldName, kafkaDataFieldName, debugMergeDataFieldName,
                              timestampPartitionFieldName, partitionExpiration, clusteringFieldName, timePartitioningType);
   }
 

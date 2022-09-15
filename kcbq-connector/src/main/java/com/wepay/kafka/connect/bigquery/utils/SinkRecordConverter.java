@@ -25,6 +25,7 @@ import com.wepay.kafka.connect.bigquery.MergeQueries;
 import com.wepay.kafka.connect.bigquery.api.KafkaSchemaRecordType;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.convert.KafkaDataBuilder;
+import com.wepay.kafka.connect.bigquery.convert.MergeFieldBuilder;
 import com.wepay.kafka.connect.bigquery.convert.RecordConverter;
 import com.wepay.kafka.connect.bigquery.write.batch.MergeBatches;
 import org.apache.kafka.common.record.TimestampType;
@@ -35,7 +36,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * A class for converting a {@link SinkRecord SinkRecord} to {@link InsertAllRequest.RowToInsert BigQuery row}
@@ -86,19 +86,29 @@ public class SinkRecordConverter {
             ? null
             : recordConverter.convertRecord(record, KafkaSchemaRecordType.VALUE);
 
-        if (convertedValue != null) {
-            config.getKafkaDataFieldName().ifPresent(
-                fieldName -> convertedValue.put(fieldName, KafkaDataBuilder.buildKafkaDataRecord(record))
-            );
-        }
-
         Map<String, Object> result = new HashMap<>();
-        long totalBatchSize = mergeBatches.addToBatch(record, table, result);
-        if (mergeRecordsThreshold != -1 && totalBatchSize >= mergeRecordsThreshold) {
+        MergeBatches.AddToBatchResult addToBatchResult = mergeBatches.addToBatch(record, table);
+
+        result.put(MergeQueries.INTERMEDIATE_TABLE_BATCH_NUMBER_FIELD, addToBatchResult.getBatchNumber());
+
+        if (mergeRecordsThreshold != -1 && addToBatchResult.getBatchSize() >= mergeRecordsThreshold) {
             logger.debug("Triggering merge flush for table {} since the size of its current batch has "
                     + "exceeded the configured threshold of {}}",
                 table, mergeRecordsThreshold);
             mergeQueries.mergeFlush(table);
+        }
+
+        if (convertedValue != null) {
+            config.getKafkaDataFieldName().ifPresent(
+                    fieldName -> convertedValue.put(fieldName, KafkaDataBuilder.buildKafkaDataRecord(record))
+            );
+            config.getDebugMergeDataFieldName().ifPresent(
+                    fieldName -> convertedValue.put(fieldName,
+                            MergeFieldBuilder.buildKafkaDataRecord(
+                                    addToBatchResult.getBatchNumber(),
+                                    addToBatchResult.getBatchSize()
+                            ))
+            );
         }
 
         Map<String, Object> convertedKey = recordConverter.convertRecord(record, KafkaSchemaRecordType.KEY);
@@ -108,7 +118,7 @@ public class SinkRecordConverter {
 
         result.put(MergeQueries.INTERMEDIATE_TABLE_KEY_FIELD_NAME, convertedKey);
         result.put(MergeQueries.INTERMEDIATE_TABLE_VALUE_FIELD_NAME, convertedValue);
-        result.put(MergeQueries.INTERMEDIATE_TABLE_ITERATION_FIELD_NAME, totalBatchSize);
+        result.put(MergeQueries.INTERMEDIATE_TABLE_ITERATION_FIELD_NAME, addToBatchResult.getBatchSize());
         if (usePartitionDecorator && useMessageTimeDatePartitioning) {
             if (record.timestampType() == TimestampType.NO_TIMESTAMP_TYPE) {
                 throw new ConnectException(
