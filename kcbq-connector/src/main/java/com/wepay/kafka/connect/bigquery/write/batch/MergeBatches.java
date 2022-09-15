@@ -228,7 +228,7 @@ public class MergeBatches {
             logger.error("Since all batches should be executed in order, and already waited a buffer time, " +
                     "this should have not happened. intermediaTable {}, batchNumber {}",
                 intTable(intermediateTable), batchNumber);
-            allBatchesForTable.wait(5 * 60_000L);
+            allBatchesForTable.wait();
           } catch (InterruptedException e) {
             logger.warn("Interrupted while waiting for batch {} to complete for {}",
                 batchNumber, intTable(intermediateTable));
