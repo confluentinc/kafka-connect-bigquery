@@ -225,25 +225,17 @@ public class MergeBatches {
             priorBatchNumber, intTable(intermediateTable), batchNumber);
         while (allBatchesForTable.containsKey(priorBatchNumber)) {
           try {
-            logger.warn("Since all batches should be executed in order, " +
-                    "this should happen very rarely when two consecutive calls are run." +
-                    " intermediaTable {}, batchNumber {}",
+            logger.error("Since all batches should be executed in order, and already waited a buffer time, " +
+                    "this should have not happened. intermediaTable {}, batchNumber {}",
                 intTable(intermediateTable), batchNumber);
             allBatchesForTable.wait(5 * 60_000L);
-          } catch (Exception e) {
-            try {
-              logger.error("Since all batches should be executed in order, and already waited a buffer time, " +
-                      "this should have not happened. intermediaTable {}, batchNumber {}",
-                  intTable(intermediateTable), batchNumber);
-              allBatchesForTable.wait();
-            } catch (InterruptedException e2) {
-              logger.warn("Interrupted while waiting for batch {} to complete for {}",
-                  batchNumber, intTable(intermediateTable));
-              throw new ExpectedInterruptException(String.format(
-                  "Interrupted while waiting for batch %d to complete for %s",
-                  batchNumber, intTable(intermediateTable)
-              ));
-            }
+          } catch (InterruptedException e) {
+            logger.warn("Interrupted while waiting for batch {} to complete for {}",
+                batchNumber, intTable(intermediateTable));
+            throw new ExpectedInterruptException(String.format(
+                "Interrupted while waiting for batch %d to complete for %s",
+                batchNumber, intTable(intermediateTable)
+            ));
           }
         }
       }
