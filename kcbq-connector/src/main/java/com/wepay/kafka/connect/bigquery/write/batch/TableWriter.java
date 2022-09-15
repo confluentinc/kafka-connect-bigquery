@@ -99,9 +99,9 @@ public class TableWriter implements Runnable {
           successCount++;
         } catch (BigQueryException err) {
           logger.warn(
-              "Could not write batch of size {} to BigQuery. "
+              "Could not write batch of size {} to BigQuery table `{}`. "
                   + "Error code: {}, underlying error (if present): {}",
-              currentBatchList.size(), err.getCode(), err.getError(), err);
+              currentBatchList.size(), table, err.getCode(), err.getError(), err);
           if (isBatchSizeError(err)) {
             failureCount++;
             currentBatchSize = getNewBatchSize(currentBatchSize, err);
@@ -118,11 +118,11 @@ public class TableWriter implements Runnable {
     // Common case is 1 successful call and 0 failed calls:
     // Write to info if uncommon case,
     // Write to debug if common case
-    String logMessage = "Wrote {} rows over {} successful calls and {} failed calls.";
+    String logMessage = "Wrote {} rows over {} successful calls and {} failed calls for table {}.";
     if (successCount + failureCount > 1) {
-      logger.info(logMessage, rows.size(), successCount, failureCount);
+      logger.info(logMessage, rows.size(), successCount, failureCount, table);
     } else {
-      logger.debug(logMessage, rows.size(), successCount, failureCount);
+      logger.debug(logMessage, rows.size(), successCount, failureCount, table);
     }
 
     onFinish.accept(rows.values());
