@@ -133,6 +133,7 @@ public class MergeQueries {
 
   private void runNextMergeFlushAsync(TableId intermediateTable, TableId destinationTable) {
     executor.execute(() -> {
+      boolean shouldRunNextMerge = false;
       Lock lock = intermediateTableToMergeFlushLock.computeIfAbsent(intermediateTable, s -> new ReentrantLock());
       try {
         if (lock.tryLock(2, TimeUnit.MINUTES)) {
@@ -149,19 +150,26 @@ public class MergeQueries {
 
             intermediateTableToMergedFlushCount.get(intermediateTable).incrementAndGet();
 
-            runNextMergeFlushAsync(intermediateTable, destinationTable);
+            // if the current batch was lower than the last, we need to try the next
+            shouldRunNextMerge = true;
           }
         }
       } catch (InterruptedException e) {
         logger.error("Timeout while performing merge flush of batch %d from %s to %s. " +
             "It could have been triggered by a lock that couldn't be acquired, retry", e);
         // if it was interrupted by the timeout, we want to retry in
-        runNextMergeFlushAsync(intermediateTable, destinationTable);
+        shouldRunNextMerge = true;
       } catch (Exception e) {
         logger.error("Exception while performing merge flush of batch %d from %s to %s, rethrow", e);
         throw new ConnectException(e);
       } finally {
         lock.unlock();
+      }
+
+      if (shouldRunNextMerge) {
+        // running outside the "try" since the lock is held by the current thread, and run next spins up the next run
+        // in another thread which would cause an IllegalMonitorStateException
+        runNextMergeFlushAsync(intermediateTable, destinationTable);
       }
     });
   }
