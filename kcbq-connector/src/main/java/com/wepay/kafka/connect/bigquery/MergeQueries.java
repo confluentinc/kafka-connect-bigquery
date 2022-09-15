@@ -117,12 +117,12 @@ public class MergeQueries {
     final int batchNumber = mergeBatches.getAndIncrementBatch(intermediateTable);
     final TableId destinationTable = mergeBatches.destinationTableFor(intermediateTable);
 
+    intermediateTableToMergedFlushCount.computeIfAbsent(intermediateTable, s -> new AtomicInteger());
+
     logger.trace("Triggering merge flush from {} to {} for batch {}, last batc {}", intTable(intermediateTable),
         destTable(destinationTable),
         intermediateTableToMergedFlushCount.get(intermediateTable).get(),
         batchNumber);
-
-    intermediateTableToMergedFlushCount.computeIfAbsent(intermediateTable, s -> new AtomicInteger());
 
     executor.execute(() -> {
       int currentBatchNumber;
