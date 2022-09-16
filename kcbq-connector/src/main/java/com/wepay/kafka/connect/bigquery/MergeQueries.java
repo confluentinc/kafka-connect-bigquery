@@ -116,7 +116,7 @@ public class MergeQueries {
   }
 
   public void mergeFlushAll() {
-    logger.debug("Triggering merge flush for all tables");
+    logger.info("Triggering merge flush for all tables");
     mergeBatches.intermediateTables().forEach(this::mergeFlush);
   }
 
@@ -137,7 +137,9 @@ public class MergeQueries {
       Lock lock = intermediateTableToMergeFlushLock.computeIfAbsent(intermediateTable, s -> new ReentrantLock());
       boolean getLock;
       try {
-        getLock = lock.tryLock(2, TimeUnit.MINUTES);
+        // timeout could "tend to 0" since we are putting the task back into the queue. In real use case scenario
+        // most of the threads of the executor (even 80%+) could be waiting on this condition otherwise.
+        getLock = lock.tryLock(10, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         logger.error("Interrupted exception while", e);
         // if it was interrupted by the timeout, we want to retry in
