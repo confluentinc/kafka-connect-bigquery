@@ -173,6 +173,7 @@ public abstract class BigQueryWriter {
     for (Map.Entry<SinkRecord, InsertAllRequest.RowToInsert> row: rows.entrySet()) {
       if (failRowsSet.contains((long)index)) {
         failRows.put(row.getKey(), row.getValue());
+        logger.trace("Failed Record: {}", row);
       }
       index++;
     }

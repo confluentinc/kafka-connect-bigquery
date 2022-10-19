@@ -673,7 +673,8 @@ public class BigQuerySchemaConverterTest {
     Schema connectSchema = new AvroData(100).toConnectSchema(recursiveAvroSchema);
     ConversionConnectException e = assertThrows(ConversionConnectException.class, () ->
         new BigQuerySchemaConverter(true).convertSchema(connectSchema));
-    assertEquals("Kafka Connect schema contains cycle", e.getMessage());
+      assertEquals(String.format("Kafka Connect schema %s contains cycle. The attribute %s is defined recursively.",
+              recursiveAvroSchema.getFullName(), fieldName), e.getMessage());
   }
 
   @Test
@@ -694,6 +695,7 @@ public class BigQuerySchemaConverterTest {
     Schema connectSchema = new AvroData(100).toConnectSchema(recursiveAvroSchema);
     ConversionConnectException e = assertThrows(ConversionConnectException.class, () ->
         new BigQuerySchemaConverter(true).convertSchema(connectSchema));
-    assertEquals("Kafka Connect schema contains cycle", e.getMessage());
+    assertEquals(String.format("Kafka Connect schema %s contains cycle. The attribute %s is defined recursively.",
+            recursiveAvroSchema.getFullName(), fieldName), e.getMessage());
   }
 }
