@@ -1,0 +1,50 @@
+pipeline {
+    parameters {
+        booleanParam(name: 'release', defaultValue: false, description: 'Release Kafka Connect')
+    }
+
+    environment {
+        GOOGLE_APPLICATION_CREDENTIALS = credentials('jenkins-agent-service-account')
+        ARTIFACT_VERSION = readMavenPom().getVersion()
+    }
+
+    agent {
+        dockerfile {
+            label "ubuntu"
+            additionalBuildArgs '--build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g)'
+            args '-v $HOME:/var/maven'
+        }
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                sh 'mvn -Duser.home=/var/maven -B -DskipTests clean package'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'mvn -Duser.home=/var/maven test'
+            }
+            post {
+                always {
+                    junit 'kcbq-connector/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+              expression { params.release }
+            }
+
+            steps {
+                script {
+                    TAG = sh(script: "git log -n 1 --pretty=format:'%h'", returnStdout: true)
+                    sh "mvn -Duser.home=/var/maven deploy:deploy-file -Dfile=kcbq-connector/target/components/packages/wepay-kafka-connect-bigquery-${env.ARTIFACT_VERSION}.zip -Durl=gs://apc-maven-artifacts/releases -DgroupId=apc.kafka -DartifactId=kafka-bq-connector -Dversion=${TAG}"
+                }
+            }
+        }
+    }
+}
