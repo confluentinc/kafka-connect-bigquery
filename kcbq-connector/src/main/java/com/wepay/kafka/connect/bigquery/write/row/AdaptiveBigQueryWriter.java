@@ -26,6 +26,7 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.InsertAllRequest;
 import com.google.cloud.bigquery.InsertAllResponse;
 
+import com.wepay.kafka.connect.bigquery.ErrantRecordsManager;
 import com.wepay.kafka.connect.bigquery.SchemaManager;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 
@@ -68,8 +69,9 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
                                 SchemaManager schemaManager,
                                 int retry,
                                 long retryWait,
+                                ErrantRecordsManager errantRecordsManager,
                                 boolean autoCreateTables) {
-    super(retry, retryWait);
+    super(retry, retryWait, errantRecordsManager);
     this.bigQuery = bigQuery;
     this.schemaManager = schemaManager;
     this.autoCreateTables = autoCreateTables;

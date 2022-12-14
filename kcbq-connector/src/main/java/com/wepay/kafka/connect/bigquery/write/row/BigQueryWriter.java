@@ -23,6 +23,8 @@ import com.google.cloud.bigquery.BigQueryError;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.InsertAllRequest;
 
+import com.wepay.kafka.connect.bigquery.ErrantRecordsManager;
+import com.wepay.kafka.connect.bigquery.ErrantRecordsContext;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
 
@@ -30,13 +32,17 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+
 
 /**
  * A class for writing lists of rows to a BigQuery table.
@@ -49,6 +55,14 @@ public abstract class BigQueryWriter {
 
   private final int retries;
   private final long retryWaitMs;
+
+  private static final String REASON_STOPPED = "stopped";
+
+  public ErrantRecordsManager getErrantRecordManager() {
+    return errantRecordsManager;
+  }
+
+  private final ErrantRecordsManager errantRecordsManager;
   private final Random random;
 
   /**
@@ -57,9 +71,10 @@ public abstract class BigQueryWriter {
    * @param retryWaitMs the amount of time to wait in between reattempting a request if BQ returns
    *                    an internal service error or a service unavailable error.
    */
-  public BigQueryWriter(int retries, long retryWaitMs) {
+  public BigQueryWriter(int retries, long retryWaitMs, ErrantRecordsManager errantRecordsManager) {
     this.retries = retries;
     this.retryWaitMs = retryWaitMs;
+    this.errantRecordsManager = errantRecordsManager;
 
     this.random = new Random();
   }
@@ -94,14 +109,19 @@ public abstract class BigQueryWriter {
    * @param table The BigQuery table to write the rows to.
    * @param rows The rows to write.
    * @throws InterruptedException if interrupted.
+   *
    */
-  public void writeRows(PartitionedTableId table,
-                        SortedMap<SinkRecord, InsertAllRequest.RowToInsert> rows)
+  public ErrantRecordsContext writeRows(PartitionedTableId table,
+                                        SortedMap<SinkRecord, InsertAllRequest.RowToInsert> rows)
       throws BigQueryConnectException, BigQueryException, InterruptedException {
     logger.debug("writing {} row{} to table {}", rows.size(), rows.size() != 1 ? "s" : "", table);
 
     Exception mostRecentException = null;
     Map<Long, List<BigQueryError>> failedRowsMap = null;
+
+    // records that there's no point retrying,
+    // they'll be either in the exception returned or sent to the DLQ
+    Set<SinkRecord> invalidRecords = new HashSet<SinkRecord>();
 
     int retryCount = 0;
     do {
@@ -112,17 +132,36 @@ public abstract class BigQueryWriter {
         failedRowsMap = performWriteRequest(table, rows);
         if (failedRowsMap.isEmpty()) {
           // table insertion completed with no reported errors
-          return;
-        } else if (isPartialFailure(rows, failedRowsMap)) {
-          logger.info("{} rows succeeded, {} rows failed",
-              rows.size() - failedRowsMap.size(), failedRowsMap.size());
-          // update insert rows and retry in case of partial failure
-          rows = getFailedRows(rows, failedRowsMap.keySet(), table);
-          mostRecentException = new BigQueryConnectException(table.toString(), failedRowsMap);
+          // we return the invalid records that were accumulated through the retries
+          return new ErrantRecordsContext(invalidRecords, mostRecentException);
+        } else if (hasStoppedRecords(rows, failedRowsMap) || isPartialFailure(rows, failedRowsMap)) {
+          if (this.errantRecordsManager.isEnabled()) {
+            // save and extract the invalid rows from the failedRowsMap, put into invalidRecords,
+            // which will be returned with an exception
+            // leave the "stopped" ones (they have to be retried)
+            failedRowsMap = filterFailedRowsMap(rows, failedRowsMap, invalidRecords);
+            mostRecentException = new BigQueryConnectException(table.toString(), failedRowsMap);
+          } else {
+            // update insert rows and retry in case of partial failure
+            rows = getFailedRows(rows, failedRowsMap.keySet(), table);
+            mostRecentException = new BigQueryConnectException(table.toString(), failedRowsMap);
+          }
+
           retryCount++;
         } else {
+          logger.info("all rows ({}) failed", failedRowsMap.size());
+
+          BigQueryConnectException e = new BigQueryConnectException(table.toString(), failedRowsMap);
+
+          // we don't accumulate the failed rows at this point as we'll exit with this final exception
+          filterFailedRowsMap(rows, failedRowsMap, invalidRecords);
+          // but we filter the rows going to the DLQ
+          if (this.errantRecordsManager.isEnabled() && this.errantRecordsManager.hasExceptionsToSendToDLQ(e)) {
+            return new ErrantRecordsContext(invalidRecords, e);
+          }
+
           // throw an exception in case of complete failure
-          throw new BigQueryConnectException(table.toString(), failedRowsMap);
+          throw e;
         }
       } catch (BigQueryException err) {
         mostRecentException = err;
@@ -146,6 +185,45 @@ public abstract class BigQueryWriter {
     throw new BigQueryConnectException(
         String.format("Exceeded configured %d attempts for write request", retries),
         mostRecentException);
+  }
+
+  private Map<Long, List<BigQueryError>> filterFailedRowsMap(SortedMap<SinkRecord, InsertAllRequest.RowToInsert> rows,
+                                                             Map<Long, List<BigQueryError>> failedRowsMap, Set<SinkRecord> partialFailureInvalidRecords) {
+    // save and extract the invalid rows from the failedRowsMap, put into partialFailureInvalidRecords,
+    // which will be returned with an exception
+    // leave the "stopped" ones (they have to be retried)
+
+    Map<Long, List<BigQueryError>> newFailedRowsMap = new HashMap<>();
+    ArrayList<SinkRecord> rowsToRemove = new ArrayList<>();
+
+    long i = 0;
+
+    for (SinkRecord invalidRecord : rows.keySet()) {
+      String failureReason = failedRowsMap.get(i).get(0).getReason();
+      if (!failureReason.equals(REASON_STOPPED) && (this.errantRecordsManager.errorToSendToDLQ(failureReason))) {
+        partialFailureInvalidRecords.add(invalidRecord);
+        // remove from rows
+        rowsToRemove.add(invalidRecord);
+        // add to the fresh failedRowsMap (to be used to construct the most recent exception)
+        newFailedRowsMap.put(i, failedRowsMap.get(i));
+      }
+      i++;
+    }
+
+    // remove invalid rows
+    for (SinkRecord r : rowsToRemove) { rows.remove(r);}
+
+    return newFailedRowsMap;
+  }
+
+  private boolean hasStoppedRecords(SortedMap<SinkRecord, InsertAllRequest.RowToInsert> rows,
+                                    Map<Long, List<BigQueryError>> failedRowsMap) {
+    for (List<BigQueryError> errors : failedRowsMap.values()) {
+      if (errors.get(0).getReason().equals(REASON_STOPPED)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

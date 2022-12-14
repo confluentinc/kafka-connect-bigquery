@@ -51,13 +51,12 @@ import com.wepay.kafka.connect.bigquery.write.row.BigQueryWriter;
 import com.wepay.kafka.connect.bigquery.write.row.GCSToBQWriter;
 import com.wepay.kafka.connect.bigquery.write.row.SimpleBigQueryWriter;
 import com.wepay.kafka.connect.bigquery.write.row.UpsertDeleteBigQueryWriter;
-import java.io.IOException;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -65,14 +64,9 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.TOPIC2TABLE_MAP_CONFIG;
 import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.intTable;
 
 /**
@@ -256,6 +250,7 @@ public class BigQuerySinkTask extends SinkTask {
 
     for (SinkRecord record : records) {
       if (record.value() != null || config.getBoolean(BigQuerySinkConfig.DELETE_ENABLED_CONFIG)) {
+
         PartitionedTableId table = getRecordTable(record);
         if (!tableWriterBuilders.containsKey(table)) {
           TableWriterBuilder tableWriterBuilder;
@@ -274,10 +269,10 @@ public class BigQuerySinkTask extends SinkTask {
                 recordConverter);
           } else {
             TableWriter.Builder simpleTableWriterBuilder =
-                new TableWriter.Builder(bigQueryWriter, table, recordConverter);
+                    new TableWriter.Builder(bigQueryWriter, table, recordConverter);
             if (upsertDelete) {
               simpleTableWriterBuilder.onFinish(rows ->
-                  mergeBatches.onRowWrites(table.getBaseTableId(), rows));
+                      mergeBatches.onRowWrites(table.getBaseTableId(), rows));
             }
             tableWriterBuilder = simpleTableWriterBuilder;
           }
@@ -398,18 +393,20 @@ public class BigQuerySinkTask extends SinkTask {
                              timestampPartitionFieldName, partitionExpiration, clusteringFieldName, timePartitioningType);
   }
 
-  private BigQueryWriter getBigQueryWriter() {
+  private BigQueryWriter getBigQueryWriter(ErrantRecordsManager errantRecordsManager) {
     boolean autoCreateTables = config.getBoolean(BigQuerySinkConfig.TABLE_CREATE_CONFIG);
     boolean allowNewBigQueryFields = config.getBoolean(BigQuerySinkConfig.ALLOW_NEW_BIGQUERY_FIELDS_CONFIG);
     boolean allowRequiredFieldRelaxation = config.getBoolean(BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG);
     int retry = config.getInt(BigQuerySinkConfig.BIGQUERY_RETRY_CONFIG);
     long retryWait = config.getLong(BigQuerySinkConfig.BIGQUERY_RETRY_WAIT_CONFIG);
+
     BigQuery bigQuery = getBigQuery();
     if (upsertDelete) {
       return new UpsertDeleteBigQueryWriter(bigQuery,
                                             getSchemaManager(),
                                             retry,
                                             retryWait,
+                                            errantRecordsManager,
                                             autoCreateTables,
                                             mergeBatches.intermediateToDestinationTables());
     } else if (autoCreateTables || allowNewBigQueryFields || allowRequiredFieldRelaxation) {
@@ -417,9 +414,10 @@ public class BigQuerySinkTask extends SinkTask {
                                         getSchemaManager(),
                                         retry,
                                         retryWait,
+                                        errantRecordsManager,
                                         autoCreateTables);
     } else {
-      return new SimpleBigQueryWriter(bigQuery, retry, retryWait);
+      return new SimpleBigQueryWriter(bigQuery, retry, retryWait, errantRecordsManager);
     }
   }
 
@@ -482,8 +480,17 @@ public class BigQuerySinkTask extends SinkTask {
       mergeBatches = new MergeBatches(intermediateTableSuffix);
     }
 
+    ErrantRecordReporter reporter = null;
+
+    try {
+      reporter = context.errantRecordReporter(); // may be null if DLQ not enabled
+    } catch (NoClassDefFoundError | NullPointerException e) {
+      // Will occur in Connect runtimes earlier than 2.6
+    }
+    ErrantRecordsManager errantRecordsManager = new ErrantRecordsManager(config, reporter);
+
     cache = getCache();
-    bigQueryWriter = getBigQueryWriter();
+    bigQueryWriter = getBigQueryWriter(errantRecordsManager);
     gcsToBQWriter = getGcsWriter();
     executor = new KCBQThreadPoolExecutor(config, new LinkedBlockingQueue<>());
     topicPartitionManager = new TopicPartitionManager();
@@ -503,6 +510,7 @@ public class BigQuerySinkTask extends SinkTask {
 
     recordConverter = getConverter(config);
     topic2TableMap = config.getTopic2TableMap().orElse(null);
+
   }
 
   private void startGCSToBQLoadTask() {

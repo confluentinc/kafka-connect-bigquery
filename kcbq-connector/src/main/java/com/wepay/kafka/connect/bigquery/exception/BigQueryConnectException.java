@@ -22,15 +22,19 @@ package com.wepay.kafka.connect.bigquery.exception;
 import com.google.cloud.bigquery.BigQueryError;
 
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.sink.SinkRecord;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Class for exceptions that occur while interacting with BigQuery, such as login failures, schema
  * update failures, and table insertion failures.
  */
 public class BigQueryConnectException extends ConnectException {
+  // private Set<SinkRecord> recordsForDLQ = null;
+
   public BigQueryConnectException(String msg) {
     super(msg);
   }
@@ -46,6 +50,14 @@ public class BigQueryConnectException extends ConnectException {
   public BigQueryConnectException(String tableInfo, Map<Long, List<BigQueryError>> errors) {
     super(formatInsertAllErrors(tableInfo, errors));
   }
+
+/*
+  public BigQueryConnectException(String tableInfo, Map<Long, List<BigQueryError>> errors,
+                                  Set<SinkRecord> recordsForDLQ) {
+    super(formatInsertAllErrors(tableInfo, errors));
+    this.recordsForDLQ = recordsForDLQ;
+  }
+*/
 
   private static String formatInsertAllErrors(String tableInfo, Map<Long, List<BigQueryError>> errorsMap) {
     StringBuilder messageBuilder = new StringBuilder();
@@ -69,4 +81,8 @@ public class BigQueryConnectException extends ConnectException {
     return getCause() != null ?
         super.toString() + "\nCaused by: " + getCause().getLocalizedMessage() : super.toString();
   }
+
+/*  public Set<SinkRecord> getRecordsForDLQ() {
+    return recordsForDLQ;
+  }*/
 }

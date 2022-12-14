@@ -239,8 +239,8 @@ public class BigQueryWriterTest {
     BigQueryError insertError = new BigQueryError("reason", "location", "message");
 
     Map<Long, List<BigQueryError>> insertErrorMap = new HashMap<>();
+    insertErrorMap.put(0L, Collections.singletonList(insertError));
     insertErrorMap.put(1L, Collections.singletonList(insertError));
-    insertErrorMap.put(2L, Collections.singletonList(insertError));
 
     InsertAllResponse insertAllResponseWithError = mock(InsertAllResponse.class);
     when(insertAllResponseWithError.hasErrors()).thenReturn(true);
