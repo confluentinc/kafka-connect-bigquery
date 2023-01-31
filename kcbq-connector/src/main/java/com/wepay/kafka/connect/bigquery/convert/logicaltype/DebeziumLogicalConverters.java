@@ -21,6 +21,7 @@ package com.wepay.kafka.connect.bigquery.convert.logicaltype;
 
 import com.google.cloud.bigquery.LegacySQLTypeName;
 
+import io.debezium.data.Json;
 import io.debezium.time.Date;
 import io.debezium.time.MicroTime;
 import io.debezium.time.MicroTimestamp;
@@ -48,6 +49,7 @@ public class DebeziumLogicalConverters {
     LogicalConverterRegistry.register(Time.SCHEMA_NAME, new TimeConverter());
     LogicalConverterRegistry.register(ZonedTimestamp.SCHEMA_NAME, new ZonedTimestampConverter());
     LogicalConverterRegistry.register(Timestamp.SCHEMA_NAME, new TimestampConverter());
+    LogicalConverterRegistry.register(Json.LOGICAL_NAME, new JsonConverter());
   }
 
   private static final int MICROS_IN_SEC = 1000000;
@@ -200,6 +202,25 @@ public class DebeziumLogicalConverters {
               .append(DateTimeFormatter.ISO_TIME)
               .toFormatter();
       return bqZonedTimestampFormat.format(parsedTime);
+    }
+  }
+
+  /**
+   * Class for converting Debezium JSON data types to BigQuery JSON data types.
+   */
+  public static class JsonConverter extends LogicalTypeConverter {
+    /**
+     * Create a new ZoneTimestampConverter.
+     */
+    public JsonConverter() {
+      super(Json.LOGICAL_NAME,
+              Schema.Type.STRING,
+              LegacySQLTypeName.JSON);
+    }
+
+    @Override
+    public String convert(Object kafkaConnectObject) {
+      return (String) kafkaConnectObject;
     }
   }
 }
