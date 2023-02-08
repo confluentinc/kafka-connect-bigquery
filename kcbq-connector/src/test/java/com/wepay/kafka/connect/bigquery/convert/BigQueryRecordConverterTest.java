@@ -24,6 +24,7 @@ import static org.junit.Assert.assertEquals;
 import com.wepay.kafka.connect.bigquery.api.KafkaSchemaRecordType;
 import com.wepay.kafka.connect.bigquery.exception.ConversionConnectException;
 
+import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -33,6 +34,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import java.util.ArrayList;
@@ -734,6 +736,28 @@ public class BigQueryRecordConverterTest {
             new BigQueryRecordConverter(SHOULD_CONVERT_DOUBLE).convertRecord(kafkaConnectRecord, KafkaSchemaRecordType.VALUE);
     assertEquals(convertedMap.get("f1"), Base64.getEncoder().encodeToString(helloWorld));
     assertEquals(((Map)(convertedMap.get("f3"))).get("f4"), Base64.getEncoder().encodeToString(helloWorld));
+  }
+
+  @Test
+  public void testDecimalConvertNumeric() {
+    final String fieldName = Decimal.LOGICAL_NAME;
+    final BigDecimal fieldValue = BigDecimal.valueOf(10.1);
+
+    Map<String, Object> bigQueryExpectedRecord = new HashMap<>();
+    bigQueryExpectedRecord.put(fieldName, fieldValue);
+
+    Schema kafkaConnectSchema = SchemaBuilder
+            .struct()
+            .field(fieldName, Decimal.schema(fieldValue.scale()).schema())
+            .build();
+
+    Struct kafkaConnectStruct = new Struct(kafkaConnectSchema);
+    kafkaConnectStruct.put(fieldName, fieldValue);
+    SinkRecord kafkaConnectRecord = spoofSinkRecord(kafkaConnectSchema, kafkaConnectStruct, true);
+
+    Map<String, Object> bigQueryTestRecord =
+            new BigQueryRecordConverter(SHOULD_CONVERT_DOUBLE).convertRecord(kafkaConnectRecord, KafkaSchemaRecordType.KEY);
+    assertEquals(bigQueryExpectedRecord, bigQueryTestRecord);
   }
 
   private static SinkRecord spoofSinkRecord(Schema schema, Object struct, boolean isKey) {
