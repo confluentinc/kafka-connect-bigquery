@@ -208,11 +208,11 @@ public class DebeziumLogicalConverters {
   }
 
   /**
-   * Class for converting Debezium time logical types to BigQuery times.
+   * Class for converting Debezium variable scale decimal logical types to BigQuery numeric.
    */
   public static class VariableScaleDecimalConverter extends LogicalTypeConverter {
     /**
-     * Create a new TimeConverter.
+     * Create a new VariableScaleDecimalConverter.
      */
     public VariableScaleDecimalConverter() {
       super(VariableScaleDecimal.LOGICAL_NAME,
