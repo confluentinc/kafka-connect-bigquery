@@ -27,9 +27,12 @@ import io.debezium.time.MicroTimestamp;
 import io.debezium.time.Time;
 import io.debezium.time.Timestamp;
 import io.debezium.time.ZonedTimestamp;
+import io.debezium.data.VariableScaleDecimal;
 
 import org.apache.kafka.connect.data.Schema;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.text.SimpleDateFormat;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
@@ -48,6 +51,7 @@ public class DebeziumLogicalConverters {
     LogicalConverterRegistry.register(Time.SCHEMA_NAME, new TimeConverter());
     LogicalConverterRegistry.register(ZonedTimestamp.SCHEMA_NAME, new ZonedTimestampConverter());
     LogicalConverterRegistry.register(Timestamp.SCHEMA_NAME, new TimestampConverter());
+    LogicalConverterRegistry.register(VariableScaleDecimal.LOGICAL_NAME, new VariableScaleDecimalConverter());
   }
 
   private static final int MICROS_IN_SEC = 1000000;
@@ -200,6 +204,27 @@ public class DebeziumLogicalConverters {
               .append(DateTimeFormatter.ISO_TIME)
               .toFormatter();
       return bqZonedTimestampFormat.format(parsedTime);
+    }
+  }
+
+  /**
+   * Class for converting Debezium time logical types to BigQuery times.
+   */
+  public static class VariableScaleDecimalConverter extends LogicalTypeConverter {
+    /**
+     * Create a new TimeConverter.
+     */
+    public VariableScaleDecimalConverter() {
+      super(VariableScaleDecimal.LOGICAL_NAME,
+              Schema.Type.BYTES,
+              LegacySQLTypeName.NUMERIC);
+    }
+
+    @Override
+    public BigDecimal convert(Object kafkaConnectObject) {
+      int scale = 0;
+      byte[] valueInBytes = (byte[]) kafkaConnectObject;
+      return new BigDecimal(new BigInteger(valueInBytes), scale);
     }
   }
 }
