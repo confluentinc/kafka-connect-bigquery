@@ -210,7 +210,7 @@ public class DebeziumLogicalConverters {
    */
   public static class JsonConverter extends LogicalTypeConverter {
     /**
-     * Create a new ZoneTimestampConverter.
+     * Create a new JsonConverter.
      */
     public JsonConverter() {
       super(Json.LOGICAL_NAME,
