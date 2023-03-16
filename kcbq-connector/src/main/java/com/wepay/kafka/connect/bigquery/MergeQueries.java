@@ -156,7 +156,7 @@ public class MergeQueries {
           if (BigQueryErrorResponses.isCouldNotSerializeAccessError(e)) {
             attempt++;
             if (attempt == 30) {
-              throw new BigQueryConnectException("After retrying running 30 times, it still failed", e);
+              throw new BigQueryConnectException("After retrying running " + attempt + " times, it still failed", e);
             }
             SleepUtils.waitRandomTime(10000, 20000);
           } else {
