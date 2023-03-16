@@ -156,7 +156,8 @@ public class MergeQueries {
           if (BigQueryErrorResponses.isCouldNotSerializeAccessError(e)) {
             attempt++;
             if (attempt == 30) {
-              throw new BigQueryConnectException("After retrying running " + attempt + " times, it still failed", e);
+              throw new BigQueryConnectException("Failed to merge rows to destination table `" + destinationTable + "` within " + attempt 
+                                                  + "  attempts due to BQ write serialization error.", e);
             }
             SleepUtils.waitRandomTime(10000, 20000);
           } else {
