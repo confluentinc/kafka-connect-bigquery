@@ -35,7 +35,7 @@
     <properties>
         <java.version>8</java.version>
 
-        <confluent.version>6.0.10</confluent.version>
+        <confluent.version>6.2.1</confluent.version>
         <debezium.version>0.6.2</debezium.version>
         <google.auth.version>0.21.1</google.auth.version>
         <google.cloud.version>2.10.9</google.cloud.version>

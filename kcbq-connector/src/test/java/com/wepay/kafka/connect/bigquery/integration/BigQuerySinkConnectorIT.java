@@ -162,7 +162,7 @@ public class BigQuerySinkConnectorIT {
 
   // Share a single embedded Connect and Schema Registry cluster for all test cases to keep the runtime down
   private static BaseConnectorIT testBase;
-  private static RestApp schemaRegistry;
+  private static EmbeddedSchemaRegistry schemaRegistry;
   private static String schemaRegistryUrl;
 
   private final String testCase;
@@ -188,18 +188,11 @@ public class BigQuerySinkConnectorIT {
     testBase = new BaseConnectorIT() {};
     testBase.startConnect();
 
-    schemaRegistry = new RestApp(
-        ClusterTestHarness.choosePort(),
-        null,
-        testBase.connect.kafka().bootstrapServers(),
-        SchemaRegistryConfig.DEFAULT_KAFKASTORE_TOPIC,
-        CompatibilityLevel.BACKWARD.name,
-        true,
-        null);
+    schemaRegistry = new EmbeddedSchemaRegistry(testBase.connect.kafka().bootstrapServers());
 
     schemaRegistry.start();
 
-    schemaRegistryUrl = schemaRegistry.restClient.getBaseUrls().current();
+    schemaRegistryUrl = schemaRegistry.schemaRegistryUrl();
 
     BucketClearer.clearBucket(
       testBase.keyFile(),
@@ -230,7 +223,7 @@ public class BigQuerySinkConnectorIT {
   @AfterClass
   public static void globalCleanup() {
     if (schemaRegistry != null) {
-      Utils.closeQuietly(schemaRegistry::stop, "embedded Schema Registry instance");
+     schemaRegistry.stop();
     }
     testBase.stopConnect();
   }
