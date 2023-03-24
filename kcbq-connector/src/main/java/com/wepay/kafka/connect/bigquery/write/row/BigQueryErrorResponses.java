@@ -114,7 +114,13 @@ public class BigQueryErrorResponses {
     return BigQueryException.UNKNOWN_CODE == error.getCode()
         && error.getCause() instanceof IOException;
   }
-<<<<<<< HEAD
+
+  public static boolean isCouldNotSerializeAccessError(BigQueryException exception) {
+    return BAD_REQUEST_CODE == exception.getCode()
+            && INVALID_QUERY_REASON.equals(exception.getReason())
+            && message(exception.getError()).startsWith("Could not serialize access to");
+  }
+
   /**
    * Returns whether the error code and the description string match to authentication errors.
    * See also <a href="https://cloud.google.com/bigquery/docs/error-messages#autherrors">here</a>.
@@ -126,12 +132,6 @@ public class BigQueryErrorResponses {
              err.contains("unauthorized_client") || err.contains("unsupported_grant_type")))
             ||
             err.contains(String.valueOf(AUTHENTICATION_ERROR_CODE));
-  }
-
-  public static boolean isCouldNotSerializeAccessError(BigQueryException exception) {
-    return BAD_REQUEST_CODE == exception.getCode()
-            && INVALID_QUERY_REASON.equals(exception.getReason())
-            && message(exception.getError()).startsWith("Could not serialize access to");
   }
 
   public static boolean isUnrecognizedFieldError(BigQueryError error) {
