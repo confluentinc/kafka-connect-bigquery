@@ -1,5 +1,7 @@
-package com.wepay.kafka.connect.bigquery.integration;
+package com.wepay.kafka.connect.bigquery.integration.utils;
 
+import io.confluent.kafka.schemaregistry.CompatibilityLevel;
+import io.confluent.kafka.schemaregistry.RestApp;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -22,38 +24,34 @@ import io.confluent.kafka.schemaregistry.rest.SchemaRegistryConfig;
 import io.confluent.kafka.schemaregistry.rest.SchemaRegistryRestApplication;
 import org.apache.kafka.connect.storage.Converter;
 
+import static io.confluent.kafka.schemaregistry.ClusterTestHarness.KAFKASTORE_TOPIC;
 import static java.util.Objects.requireNonNull;
 
-public class EmbeddedSchemaRegistry {
+public class SchemaRegistryTestUtils {
 
     protected String bootstrapServers;
 
-    private Server registryServer;
     private String schemaRegistryUrl;
 
-    public EmbeddedSchemaRegistry(String bootstrapServers) {
+    private RestApp restApp;
+    public SchemaRegistryTestUtils(String bootstrapServers) {
         this.bootstrapServers = requireNonNull(bootstrapServers);
     }
 
     public void start() throws Exception {
-        Properties props = new Properties();
-        props.setProperty(SchemaRegistryConfig.KAFKASTORE_BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.setProperty(SchemaRegistryConfig.LISTENERS_CONFIG,
-                "http://0.0.0.0:" + findAvailableOpenPort());
+        int port = findAvailableOpenPort();
+        restApp = new RestApp(port, null, this.bootstrapServers,
+                KAFKASTORE_TOPIC, CompatibilityLevel.NONE.name, true, new Properties());
+        restApp.start();
 
-        SchemaRegistryRestApplication schemaRegistry = new SchemaRegistryRestApplication(
-                new SchemaRegistryConfig(props));
-        registryServer = schemaRegistry.createServer();
-        registryServer.start();
-
-        TestUtils.waitForCondition(() -> registryServer.isRunning(), 10000L,
+        TestUtils.waitForCondition(() -> restApp.restServer.isRunning(), 10000L,
                 "Schema Registry start timed out.");
 
-        schemaRegistryUrl = registryServer.getURI().toString();
+        schemaRegistryUrl = restApp.restServer.getURI().toString();
     }
 
-    public void stop() {
-        Utils.closeQuietly(registryServer::stop, "embedded Schema Registry cluster");
+    public void stop() throws Exception {
+        restApp.stop();
     }
 
     public String schemaRegistryUrl() {
@@ -74,7 +72,7 @@ public class EmbeddedSchemaRegistry {
     }
 
 
-    protected void produceRecords(
+    public void produceRecords(
             Converter converter,
             List<SchemaAndValue> recordsList,
             String topic
@@ -93,7 +91,7 @@ public class EmbeddedSchemaRegistry {
         }
     }
 
-    protected void produceRecordsWithKey(
+    public void produceRecordsWithKey(
             Converter keyConverter,
             Converter valueConverter,
             List<List<SchemaAndValue>> recordsList,

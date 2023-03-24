@@ -6,6 +6,7 @@ import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.wepay.kafka.connect.bigquery.integration.utils.BigQueryTestUtils;
+import com.wepay.kafka.connect.bigquery.integration.utils.SchemaRegistryTestUtils;
 import io.confluent.connect.avro.AvroConverter;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -40,7 +41,7 @@ public class BigQueryErrantRecordHandlerIT {
 
   private BigQuery bigQuery;
 
-  private static EmbeddedSchemaRegistry schemaRegistry;
+  private static SchemaRegistryTestUtils schemaRegistry;
 
   private static String schemaRegistryUrl;
   private BaseConnectorIT testBase;
@@ -53,7 +54,7 @@ public class BigQueryErrantRecordHandlerIT {
     testBase.startConnect();
     bigQuery = testBase.newBigQuery();
 
-    schemaRegistry = new EmbeddedSchemaRegistry(testBase.connect.kafka().bootstrapServers());
+    schemaRegistry = new SchemaRegistryTestUtils(testBase.connect.kafka().bootstrapServers());
     schemaRegistry.start();
     schemaRegistryUrl = schemaRegistry.schemaRegistryUrl();
 
@@ -66,7 +67,7 @@ public class BigQueryErrantRecordHandlerIT {
   }
 
   @After
-  public void close() {
+  public void close() throws Exception {
     bigQuery = null;
     testBase.stopConnect();
     if (schemaRegistry != null) {

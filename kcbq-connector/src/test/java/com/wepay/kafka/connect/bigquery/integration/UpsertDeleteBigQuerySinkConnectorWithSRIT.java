@@ -21,30 +21,26 @@ package com.wepay.kafka.connect.bigquery.integration;
 
 import com.google.cloud.bigquery.BigQuery;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
+import com.wepay.kafka.connect.bigquery.integration.utils.SchemaRegistryTestUtils;
 import com.wepay.kafka.connect.bigquery.integration.utils.TableClearer;
 import com.wepay.kafka.connect.bigquery.retrieve.IdentitySchemaRetriever;
 import io.confluent.connect.avro.AvroConverter;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.json.JsonConverterConfig;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.SinkConnectorConfig;
 import org.apache.kafka.connect.storage.Converter;
 import org.apache.kafka.test.IntegrationTest;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -65,7 +61,7 @@ public class UpsertDeleteBigQuerySinkConnectorWithSRIT {
 
   private BigQuery bigQuery;
 
-  private static EmbeddedSchemaRegistry schemaRegistry;
+  private static SchemaRegistryTestUtils schemaRegistry;
 
   private static String schemaRegistryUrl;
   private BaseConnectorIT testBase;
@@ -82,7 +78,7 @@ public class UpsertDeleteBigQuerySinkConnectorWithSRIT {
     testBase.startConnect();
     bigQuery = testBase.newBigQuery();
 
-    schemaRegistry = new EmbeddedSchemaRegistry(testBase.connect.kafka().bootstrapServers());
+    schemaRegistry = new SchemaRegistryTestUtils(testBase.connect.kafka().bootstrapServers());
     schemaRegistry.start();
     schemaRegistryUrl = schemaRegistry.schemaRegistryUrl();
 
@@ -99,7 +95,7 @@ public class UpsertDeleteBigQuerySinkConnectorWithSRIT {
   }
 
   @After
-  public void close() {
+  public void close() throws Exception {
     bigQuery = null;
     testBase.stopConnect();
     if (schemaRegistry != null) {
