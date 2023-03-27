@@ -33,7 +33,7 @@ import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHE
 import static org.apache.kafka.connect.runtime.ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG;
 
-public class BigQueryErrantRecordHandlerIT {
+public class BigQueryErrantRecordHandlerIT extends BaseConnectorIT {
 
   private static final Logger logger = LoggerFactory.getLogger(BigQueryErrantRecordHandlerIT.class);
   private static final String CONNECTOR_NAME = "kcbq-sink-connector";
@@ -44,17 +44,15 @@ public class BigQueryErrantRecordHandlerIT {
   private static SchemaRegistryTestUtils schemaRegistry;
 
   private static String schemaRegistryUrl;
-  private BaseConnectorIT testBase;
   private Converter converter;
 
   private org.apache.kafka.connect.data.Schema valueSchema;
   @Before
   public void setup() throws Exception {
-    testBase = new BaseConnectorIT() {};
-    testBase.startConnect();
-    bigQuery = testBase.newBigQuery();
+    startConnect();
+    bigQuery = newBigQuery();
 
-    schemaRegistry = new SchemaRegistryTestUtils(testBase.connect.kafka().bootstrapServers());
+    schemaRegistry = new SchemaRegistryTestUtils(connect.kafka().bootstrapServers());
     schemaRegistry.start();
     schemaRegistryUrl = schemaRegistry.schemaRegistryUrl();
 
@@ -69,7 +67,7 @@ public class BigQueryErrantRecordHandlerIT {
   @After
   public void close() throws Exception {
     bigQuery = null;
-    testBase.stopConnect();
+    stopConnect();
     if (schemaRegistry != null) {
       schemaRegistry.stop();
     }
@@ -84,10 +82,10 @@ public class BigQueryErrantRecordHandlerIT {
     Map<String, String> props = connectorAvroProps(topic, dlqTopic);
 
     // start a sink connector
-    testBase.connect.configureConnector(CONNECTOR_NAME, props);
+    connect.configureConnector(CONNECTOR_NAME, props);
 
     // wait for tasks to spin up
-    testBase.waitForConnectorToStart(CONNECTOR_NAME, 1);
+    waitForConnectorToStart(CONNECTOR_NAME, 1);
 
     // Instantiate the converters we'll use to send records to the connector
     converter = new AvroConverter();
@@ -105,17 +103,17 @@ public class BigQueryErrantRecordHandlerIT {
 
   @Test
   public void testRecordsSentToDlqOnInvalidReason() throws InterruptedException {
-    final String topic = testBase.suffixedTableOrTopic("test-dlq-feature");
+    final String topic = suffixedTableOrTopic("test-dlq-feature");
     final String dlqTopic = "dlq_topic";
 
     createTopicAndTable(topic);
     Map<String, String> props = connectorProps(topic, dlqTopic);
 
     // start a sink connector
-    testBase.connect.configureConnector(CONNECTOR_NAME, props);
+    connect.configureConnector(CONNECTOR_NAME, props);
 
     // wait for tasks to spin up
-    testBase.waitForConnectorToStart(CONNECTOR_NAME, 1);
+    waitForConnectorToStart(CONNECTOR_NAME, 1);
 
     // Instantiate the converters we'll use to send records to the connector
     Converter keyConverter = converter(true);
@@ -126,7 +124,7 @@ public class BigQueryErrantRecordHandlerIT {
       String kafkaKey = key(keyConverter, topic, i);
       String kafkaValue = value(valueConverter, topic, i);
       logger.debug("Sending message with key '{}' and value '{}' to topic '{}'", kafkaKey, kafkaValue, topic);
-      testBase.connect.kafka().produce(topic, kafkaKey, kafkaValue);
+      connect.kafka().produce(topic, kafkaKey, kafkaValue);
     }
 
     // Check records show up in dlq topic
@@ -136,10 +134,10 @@ public class BigQueryErrantRecordHandlerIT {
 
   @Test
   public void testRecordsSentToDlqOnRecordConversionError() throws InterruptedException {
-    final String topic = testBase.suffixedTableOrTopic("test-dlq-feature");
+    final String topic = suffixedTableOrTopic("test-dlq-feature");
     final String dlqTopic = "dlq_topic";
     // Make sure each task gets to read from at least one partition
-    testBase.connect.kafka().createTopic(topic, 1);
+    connect.kafka().createTopic(topic, 1);
 
     Map<String, String> props = connectorProps(topic, dlqTopic);
     props.put(KEY_CONVERTER_CLASS_CONFIG, StringConverter.class.getName());
@@ -147,21 +145,21 @@ public class BigQueryErrantRecordHandlerIT {
     props.put("value.converter.schemas.enable", "false");
 
     // start a sink connector
-    testBase.connect.configureConnector(CONNECTOR_NAME, props);
+    connect.configureConnector(CONNECTOR_NAME, props);
 
     // wait for tasks to spin up
-    testBase.waitForConnectorToStart(CONNECTOR_NAME, 1);
+    waitForConnectorToStart(CONNECTOR_NAME, 1);
 
     // Send Invalid records to Kafka
     for (int i = 0; i < NUM_RECORDS_PRODUCED; i++) {
       String kafkaKey = "key-" + i;
       String kafkaValue = "\"f1\":1";
       logger.debug("Sending message with key '{}' and value '{}' to topic '{}'", kafkaKey, kafkaValue, topic);
-      testBase.connect.kafka().produce(topic, kafkaKey, kafkaValue);
+      connect.kafka().produce(topic, kafkaKey, kafkaValue);
     }
 
     // Check records show up in dlq topic
-    ConsumerRecords<byte[], byte[]> records = testBase.connect.kafka().consume(
+    ConsumerRecords<byte[], byte[]> records = connect.kafka().consume(
         (int) NUM_RECORDS_PRODUCED,
         Duration.ofSeconds(120).toMillis(), dlqTopic);
 
@@ -169,7 +167,7 @@ public class BigQueryErrantRecordHandlerIT {
   }
 
   private Map<String, String> connectorProps(String topicName, String dlqTopicName) {
-    Map<String, String> result = testBase.baseConnectorProps(1);
+    Map<String, String> result = baseConnectorProps(1);
     result.put(SinkConnectorConfig.TOPICS_CONFIG, topicName);
 
     // use the JSON converter with schemas enabled
@@ -187,7 +185,7 @@ public class BigQueryErrantRecordHandlerIT {
   }
 
   private Map<String, String> connectorAvroProps(String topicName, String dlqTopicName) {
-    Map<String, String> result = testBase.baseConnectorProps(1);
+    Map<String, String> result = baseConnectorProps(1);
     result.put(SinkConnectorConfig.TOPICS_CONFIG, topicName);
 
     // use the Avro converter with schemas enabled
@@ -252,9 +250,9 @@ public class BigQueryErrantRecordHandlerIT {
 
 
   private void createTopicAndTable(String topic) {
-    testBase.connect.kafka().createTopic(topic);
+    connect.kafka().createTopic(topic);
 
-    final String table = testBase.sanitizedTable(topic);
+    final String table = sanitizedTable(topic);
     // Create table schema
     Schema schema = Schema.of(
             Field.of("f1", StandardSQLTypeName.STRING),
@@ -264,7 +262,7 @@ public class BigQueryErrantRecordHandlerIT {
 
     // Try to create BigQuery table
     try {
-      BigQueryTestUtils.createPartitionedTable(bigQuery, testBase.dataset(), table, schema);
+      BigQueryTestUtils.createPartitionedTable(bigQuery, dataset(), table, schema);
     } catch (BigQueryException ex) {
       if (!ex.getError().getReason().equalsIgnoreCase("duplicate"))
         throw new ConnectException("Failed to create table: ", ex);
@@ -273,7 +271,7 @@ public class BigQueryErrantRecordHandlerIT {
     }
   }
   private void verify(String dlqTopic) {
-    ConsumerRecords<byte[], byte[]> records = testBase.connect.kafka().consume(
+    ConsumerRecords<byte[], byte[]> records = connect.kafka().consume(
             (int) NUM_RECORDS_PRODUCED,
             Duration.ofSeconds(120).toMillis(), dlqTopic);
 
