@@ -22,7 +22,6 @@ package com.wepay.kafka.connect.bigquery;
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.storage.Storage;
@@ -43,7 +42,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Objects;
 
-import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.*;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.CONNECTOR_RUNTIME_PROVIDER_CONFIG;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.CONNECTOR_RUNTIME_PROVIDER_DEFAULT;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.CONNECTOR_RUNTIME_PROVIDER_TYPES;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.PROJECT_CONFIG;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.USE_STORAGE_WRITE_API_CONFIG;
 
 public abstract class GcpClientBuilder<Client> {
 
@@ -62,7 +65,7 @@ public abstract class GcpClientBuilder<Client> {
   private boolean useStorageWriteApi = false;
 
   // Scope list taken from : https://developers.google.com/identity/protocols/oauth2/scopes#bigquery
-  private Collection<String> scopes = Lists.newArrayList(
+  private static final Collection<String> scopes = Lists.newArrayList(
           "https://www.googleapis.com/auth/bigquery",
           "https://www.googleapis.com/auth/bigquery.insertdata",
           "https://www.googleapis.com/auth/cloud-platform",

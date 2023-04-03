@@ -25,7 +25,7 @@ public class BigQueryWriteSettingsBuilder extends GcpClientBuilder<BigQueryWrite
         if (credentials != null) {
             builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials));
         } else {
-            logger.info("Attempting to access GCS without authentication");
+            logger.warn("Attempting to access GCS without authentication");
         }
         try {
             return builder.build();
