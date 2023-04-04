@@ -9,7 +9,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Random;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Base class which handles data ingestion to bigquery tables using different kind of streams
