@@ -1,6 +1,9 @@
 package com.wepay.kafka.connect.bigquery.write.storageApi;
 
-import com.google.cloud.bigquery.storage.v1.*;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
+import com.google.cloud.bigquery.storage.v1.TableName;
+import com.google.cloud.bigquery.storage.v1.Exceptions;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,18 +17,14 @@ import java.util.*;
 public abstract class StorageWriteApiBase {
     Logger logger = LoggerFactory.getLogger(StorageWriteApiBase.class);
     private BigQueryWriteClient writeClient;
-
     protected final int retry;
-
     protected final long retryWait;
-
     private final boolean autoCreateTables;
-
     private final Random random;
-
     private final BigQueryWriteSettings writeSettings;
+
     /**
-     * @param retry         How many retries to make in the event of a 500/503 error.
+     * @param retry         How many retries to make in the event of a retriable error.
      * @param retryWait     How long to wait in between retries.
      * @param writeSettings Write Settings for stream which carry authentication and other header information
      */
@@ -41,12 +40,10 @@ public abstract class StorageWriteApiBase {
             logger.error("Failed to create Big Query Storage Write API write client due to {}", e.getMessage());
             throw new BigQueryStorageWriteApiConnectException("Failed to create Big Query Storage Write API write client", e);
         }
-
     }
 
     /**
      * Handles required initialization steps and goes to append records to table
-     *
      * @param tableName  The table to write data to
      * @param rows       The records to write
      * @param streamName The stream to use to write table to table.
@@ -90,11 +87,9 @@ public abstract class StorageWriteApiBase {
 
     /**
      * Wait at least {@link #retryWait}, with up to an additional 1 second of random jitter.
-     *
      * @throws InterruptedException if interrupted.
      */
     protected void waitRandomTime() throws InterruptedException {
-        // wait
         Thread.sleep(retryWait + random.nextInt(1000));
     }
 

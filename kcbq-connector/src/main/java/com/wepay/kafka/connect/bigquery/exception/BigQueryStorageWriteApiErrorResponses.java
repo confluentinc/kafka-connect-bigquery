@@ -11,16 +11,11 @@ import java.util.Arrays;
  */
 public class BigQueryStorageWriteApiErrorResponses {
 
-
     private static final int INVALID_ARGUMENT_CODE = 3;
     private static final String PERMISSION_DENIED = "PERMISSION_DENIED";
-
     private static final String NOT_EXIST = "(or it may not exist)";
-
     private static final String NOT_FOUND = "Not found: table";
-
     private static final String TABLE_IS_DELETED = "Table is deleted";
-
     private static final String[] retriableCodes = {Code.INTERNAL.name(), Code.ABORTED.name(), Code.CANCELLED.name()};
 
     /**

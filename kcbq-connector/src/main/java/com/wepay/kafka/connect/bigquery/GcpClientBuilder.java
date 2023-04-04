@@ -22,7 +22,6 @@ package com.wepay.kafka.connect.bigquery;
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.storage.Storage;
@@ -62,7 +61,6 @@ public abstract class GcpClientBuilder<Client> {
   private String project = null;
   private KeySource keySource = null;
   private String key = null;
-
 
   private boolean useStorageWriteApi = false;
 

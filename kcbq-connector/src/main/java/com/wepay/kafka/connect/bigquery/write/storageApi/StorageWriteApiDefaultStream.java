@@ -1,7 +1,10 @@
 package com.wepay.kafka.connect.bigquery.write.storageApi;
 
 import com.google.api.core.ApiFuture;
-import com.google.cloud.bigquery.storage.v1.*;
+import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
+import com.google.cloud.bigquery.storage.v1.TableName;
+import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.rpc.Status;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
@@ -11,8 +14,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.List;
+
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * An extension of {@link StorageWriteApiBase} which uses default streams to write data following at least once semantic
@@ -27,7 +32,6 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
 
     /**
      * Open a default stream on table if not already present
-     *
      * @param tableName The tablename on which stream has to be opened
      * @return JSONStreamWriter which would be used to write data to bigquery table
      */
@@ -68,13 +72,11 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                             "Exceeded %s attempts to create Default stream writer on table %s ",
                             (retry + additionalRetriesForTableCreation), tableName
                     ), mostRecentException);
-
         });
     }
 
     /**
      * Calls AppendRows and handles exception if the ingestion fails
-     *
      * @param tableName  The table to write data to
      * @param rows       The records to write
      * @param streamName The stream to use to write table to table. This will be DEFAULT always.
@@ -99,8 +101,8 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 logger.trace("Sending records to Storage API writer...");
                 ApiFuture<AppendRowsResponse> response = writer.append(jsonArr);
                 AppendRowsResponse writeResult = response.get();
-
                 logger.trace("Received response from Storage API writer...");
+
                 if (writeResult.hasUpdatedSchema()) {
                     logger.warn("Sent records schema does not match with table schema, will attempt to update schema");
                     //TODO: Update schema attempt Once
@@ -153,5 +155,4 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 String.format("Exceeded %s attempts to write to table %s ", (retry + additionalRetriesForTableCreation), tableName),
                 mostRecentException);
     }
-
 }
