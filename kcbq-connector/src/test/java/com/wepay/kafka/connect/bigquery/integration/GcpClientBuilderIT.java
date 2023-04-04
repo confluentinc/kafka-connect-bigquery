@@ -1,6 +1,10 @@
 package com.wepay.kafka.connect.bigquery.integration;
 
-import com.google.cloud.bigquery.*;
+import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.TableInfo;
+import com.google.cloud.bigquery.StandardTableDefinition;
+import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
@@ -10,7 +14,6 @@ import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.utils.TableNameUtils;
 import com.wepay.kafka.connect.bigquery.write.storageApi.BigQueryWriteSettingsBuilder;
 import org.apache.kafka.test.IntegrationTest;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
