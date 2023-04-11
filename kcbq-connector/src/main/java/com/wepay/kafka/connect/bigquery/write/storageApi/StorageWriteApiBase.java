@@ -95,7 +95,8 @@ public abstract class StorageWriteApiBase {
         if (exception instanceof Exceptions.AppendSerializtionError) {
             return ((Exceptions.AppendSerializtionError) exception).getRowIndexToErrorMessage();
         } else {
-            throw new BigQueryStorageWriteApiConnectException("Exception is not an instance of Exceptions.AppendSerializtionError");
+            throw new BigQueryStorageWriteApiConnectException(
+                    "Exception is not an instance of Exceptions.AppendSerializtionError", exception);
         }
     }
 

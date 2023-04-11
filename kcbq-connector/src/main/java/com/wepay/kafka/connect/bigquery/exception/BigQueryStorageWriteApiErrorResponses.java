@@ -38,7 +38,7 @@ public class BigQueryStorageWriteApiErrorResponses {
         return Arrays.stream(retriableCodes).anyMatch(errorMessage::contains);
     }
 
-    public static boolean isMalformedRequest(int gRpcErrorCode) {
+    public static boolean isMalformedErrorCode(int gRpcErrorCode) {
         return gRpcErrorCode == INVALID_ARGUMENT_CODE;
     }
 
@@ -49,7 +49,7 @@ public class BigQueryStorageWriteApiErrorResponses {
      */
     public static boolean isMalformedRequest(Exception exception) {
         return exception instanceof Exceptions.AppendSerializtionError
-                && isMalformedRequest(((Exceptions.AppendSerializtionError) exception)
+                && isMalformedErrorCode(((Exceptions.AppendSerializtionError) exception)
                 .getStatus().getCode().value());
     }
 }

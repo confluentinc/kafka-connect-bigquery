@@ -110,7 +110,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 } else if (writeResult.hasError()) {
                     Status errorStatus = writeResult.getError();
                     String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, errorStatus.getMessage());
-                    if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(errorStatus.getCode())) {
+                    if (BigQueryStorageWriteApiErrorResponses.isMalformedErrorCode(errorStatus.getCode())) {
                         // Fail on data error
                         throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), writeResult.getRowErrorsList());
                         //TODO: DLQ handling
