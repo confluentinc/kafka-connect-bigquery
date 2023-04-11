@@ -25,6 +25,8 @@ public abstract class StorageWriteApiBase {
     private final Random random;
     private final BigQueryWriteSettings writeSettings;
 
+    static final int ADDITIONAL_RETRIES_TABLE_CREATE_UPDATE = 30;
+
     /**
      * @param retry         How many retries to make in the event of a retriable error.
      * @param retryWait     How long to wait in between retries.
@@ -47,11 +49,12 @@ public abstract class StorageWriteApiBase {
     /**
      * Handles required initialization steps and goes to append records to table
      * @param tableName  The table to write data to
-     * @param rows       The records to write
+     * @param rows       List of records in <{@link org.apache.kafka.connect.sink.SinkRecord}, {@link org.json.JSONObject}>
+     *                   format. JSONObjects would be sent to api. SinkRecords are requireed for DLQ routing
      * @param streamName The stream to use to write table to table.
      */
     public void initializeAndWriteRecords(TableName tableName, List<Object[]> rows, String streamName) {
-        // TODO: Streams are created on table. So table must be present. We will add a check here and attempt to create table and cache it
+        verifyRows(rows);
         appendRows(tableName, rows, streamName);
     }
 
@@ -72,6 +75,15 @@ public abstract class StorageWriteApiBase {
             this.writeClient = BigQueryWriteClient.create(writeSettings);
         }
         return this.writeClient;
+    }
+
+    private void verifyRows(List<Object[]> rows) {
+        rows.forEach(row -> {
+            if (row == null || (row.length != 2)) {
+                throw new BigQueryStorageWriteApiConnectException(String.format(
+                        "Row verification failed for {}. Expected row with exactly 2 items", row.toString()));
+            }
+        });
     }
 
     /**

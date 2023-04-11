@@ -55,7 +55,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                         logger.info("Attempting to create table {} ...", tableName);
                         tableCreationAttempted = true;
                         // Table takes time to be available for after creation
-                        additionalRetriesForTableCreation = 30;
+                        additionalRetriesForTableCreation = ADDITIONAL_RETRIES_TABLE_CREATE_UPDATE;
                         //TODO: Attempt to create table
                         logger.info("Table created {} ...", tableName);
                     } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(e.getMessage()) && !tableCreationAttempted) {
@@ -78,7 +78,8 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
     /**
      * Calls AppendRows and handles exception if the ingestion fails
      * @param tableName  The table to write data to
-     * @param rows       The records to write
+     * @param rows       List of records in <{@link org.apache.kafka.connect.sink.SinkRecord}, {@link org.json.JSONObject}>
+     *                   format. JSONObjects would be sent to api. SinkRecords are requireed for DLQ routing
      * @param streamName The stream to use to write table to table. This will be DEFAULT always.
      */
     @Override
@@ -118,7 +119,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                         logger.error(errorMessage);
                         throw new BigQueryStorageWriteApiConnectException(errorMessage);
                     }
-                    logger.warn(errorMessage + "Retrying...");
+                    logger.warn(errorMessage + " Retry attempt " + attempt);
                     mostRecentException = new BigQueryStorageWriteApiConnectException(errorMessage);
                     attempt++;
                 } else {
@@ -138,7 +139,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                     logger.info("Attempting to create table {} ...", tableName);
                     tableCreationAttempted = true;
                     // Table takes time to be available for after creation
-                    additionalRetriesForTableCreation = 30;
+                    additionalRetriesForTableCreation = ADDITIONAL_RETRIES_TABLE_CREATE_UPDATE;
                     //TODO: Attempt to create table
                     logger.info("Table created {} ...", tableName);
                 } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(message) && !tableCreationAttempted) {
@@ -146,7 +147,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                     logger.error(errorMessage);
                     throw new BigQueryStorageWriteApiConnectException(errorMessage, e);
                 }
-                logger.warn(errorMessage + " Retrying...");
+                logger.warn(errorMessage + "Retry attempt " + attempt);
                 mostRecentException = e;
                 attempt++;
             }
