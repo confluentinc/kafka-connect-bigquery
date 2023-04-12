@@ -109,15 +109,6 @@ public class StorageWriteApiWriter implements Runnable {
             return new JSONObject(result);
         }
 
-        private String updateAndGetStream() {
-            Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
-            records.forEach(record -> {
-                SinkRecord sr = (SinkRecord) record[0];
-                offsets.put(new TopicPartition(sr.topic(), sr.kafkaPartition()), new OffsetAndMetadata(sr.kafkaOffset() + 1));
-            });
-            return batchModeHandler.updateOffsetsOnStream(tableName.toString(), offsets);
-        }
-
         /**
          * @return Builds Storage write API writer which would do actual data ingestion using streams
          */
@@ -125,7 +116,7 @@ public class StorageWriteApiWriter implements Runnable {
         public Runnable build() {
             String streamName = null;
             if (streamWriter instanceof StorageWriteApiBatchApplicationStream) {
-                streamName = updateAndGetStream();
+                streamName = batchModeHandler.updateOffsetsOnStream(tableName.toString(), records);
             }
             return new StorageWriteApiWriter(tableName, streamWriter, records, streamName);
         }

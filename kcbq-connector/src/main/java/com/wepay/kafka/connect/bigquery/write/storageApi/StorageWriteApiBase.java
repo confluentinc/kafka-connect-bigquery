@@ -14,10 +14,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Random;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 /**
  * Base class which handles data ingestion to bigquery tables using different kind of streams
@@ -162,5 +161,48 @@ public abstract class StorageWriteApiBase {
             throw new BigQueryStorageWriteApiConnectException(
                     "Failed to update table schema for: " + tableId, exception);
         }
+    }
+
+
+    /**
+     * @param rows Rows of <SinkRecord, JSONObject > format
+     * @return Returns list of all SinkRecords
+     */
+    protected List<SinkRecord> getSinkRecords(List<Object[]> rows) {
+        return rows.stream()
+                .map(row -> (SinkRecord) row[0])
+                .collect(Collectors.toList());
+    }
+
+
+    /**
+     * Sends errant records to configured DLQ and returns remaining
+     * @param input           List of <SinkRecord, JSONObject> input data
+     * @param indexToErrorMap Map of record index to error received from api call
+     * @param exception       locally built exception to be sent to DLQ topic
+     * @return Returns list of good <Sink, JSONObject> filtered from input which needs to be retried. Append row does
+     * not write partially even if there is a single failure, good data has to be retried
+     */
+    protected List<Object[]> sendBadRecordsToDlqAndFilterGood(
+            List<Object[]> input,
+            Map<Integer, String> indexToErrorMap,
+            Exception exception) {
+        List<Object[]> filteredRecords = new ArrayList<>();
+        Set<SinkRecord> recordsToDLQ = new TreeSet<>(Comparator.comparing(SinkRecord::kafkaPartition)
+                .thenComparing(SinkRecord::kafkaOffset));
+
+        for (int i = 0; i < input.size(); i++) {
+            if (indexToErrorMap.containsKey(i)) {
+                recordsToDLQ.add((SinkRecord) input.get(i)[0]);
+            } else {
+                filteredRecords.add(input.get(i));
+            }
+        }
+
+        if (getErrantRecordHandler().getErrantRecordReporter() != null) {
+            getErrantRecordHandler().sendRecordsToDLQ(recordsToDLQ, exception);
+        }
+
+        return filteredRecords;
     }
 }

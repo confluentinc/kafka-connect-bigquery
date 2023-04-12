@@ -1,6 +1,11 @@
 package com.wepay.kafka.connect.bigquery.exception;
 
+
+import com.google.cloud.bigquery.storage.v1.Exceptions;
+import com.google.cloud.bigquery.storage.v1.StorageError;
 import com.google.rpc.Code;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -11,6 +16,7 @@ import java.util.Collection;
  */
 public class BigQueryStorageWriteApiErrorResponses {
 
+    private static final Logger logger = LoggerFactory.getLogger(BigQueryStorageWriteApiErrorResponses.class);
     private static final String PERMISSION_DENIED = "PERMISSION_DENIED";
 
     private static final String NOT_EXIST = "(or it may not exist)";
@@ -20,6 +26,19 @@ public class BigQueryStorageWriteApiErrorResponses {
     private static final String TABLE_IS_DELETED = "Table is deleted";
 
     private static final String[] retriableCodes = {Code.INTERNAL.name(), Code.ABORTED.name(), Code.CANCELLED.name()};
+
+    /*
+     Below list is taken from :
+     https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1#storageerrorcode
+     */
+    private static final String [] nonRetriableStreamFailureCodes = {
+            StorageError.StorageErrorCode.STREAM_FINALIZED.name(),
+            StorageError.StorageErrorCode.STREAM_NOT_FOUND.name(),
+            StorageError.StorageErrorCode.INVALID_STREAM_STATE.name(),
+            StorageError.StorageErrorCode.INVALID_STREAM_TYPE.name(),
+            StorageError.StorageErrorCode.STORAGE_ERROR_CODE_UNSPECIFIED.name(),
+            StorageError.StorageErrorCode.STREAM_ALREADY_COMMITTED.name(),
+    };
 
     private static final String UNKNOWN_FIELD = "JSONObject has fields unknown to BigQuery";
 
@@ -78,5 +97,18 @@ public class BigQueryStorageWriteApiErrorResponses {
      */
     public static boolean isStreamClosed(String errorMessage) {
         return errorMessage.contains(STREAM_CLOSED);
+    }
+
+    /**
+     * Tells if the storage error code belong to the list of non retriable storage error code.
+     * @param storageException Exception received from Batch mode data ingestion
+     * @return Retruns true if the exception is non-retriable
+     */
+    public static boolean isNonRetriableStorageErrorCode(Exceptions.StorageException storageException) {
+        String errorCode = storageException.getStatus().getCode().name();
+
+        logger.trace("Storage exception occurred with errorCode {} and errors {} ", errorCode, storageException.getErrors().toString());
+
+        return Arrays.asList(nonRetriableStreamFailureCodes).contains(errorCode);
     }
 }

@@ -71,16 +71,6 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
     }
 
     /**
-     * @param rows Rows of <SinkRecord, JSONObject > format
-     * @return Returns list of all SinkRecords
-     */
-    private List<SinkRecord> getSinkRecords(List<Object[]> rows) {
-        return rows.stream()
-                .map(row -> (SinkRecord) row[0])
-                .collect(Collectors.toList());
-    }
-
-    /**
      * Open a default stream on table if not already present
      * @param table The table on which stream has to be opened
      * @param rows  The input rows (would be sent while table creation to identify schema)
@@ -275,38 +265,6 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
         throw new BigQueryStorageWriteApiConnectException(
                 String.format("Exceeded %s attempts to write to table %s ", (retry + additionalRetries), tableName),
                 mostRecentException);
-    }
-
-
-    /**
-     * Sends errant records to configured DLQ and returns remaining
-     * @param input           List of <SinkRecord, JSONObject> input data
-     * @param indexToErrorMap Map of record index to error received from api call
-     * @param exception       locally built exception to be sent to DLQ topic
-     * @return Returns list of good <Sink, JSONObject> filtered from input which needs to be retried. Append row does
-     * not write partially even if there is a single failure, good data has to be retried
-     */
-    private List<Object[]> sendBadRecordsToDlqAndFilterGood(
-            List<Object[]> input,
-            Map<Integer, String> indexToErrorMap,
-            Exception exception) {
-        List<Object[]> filteredRecords = new ArrayList<>();
-        Set<SinkRecord> recordsToDLQ = new TreeSet<>(Comparator.comparing(SinkRecord::kafkaPartition)
-                .thenComparing(SinkRecord::kafkaOffset));
-
-        for (int i = 0; i < input.size(); i++) {
-            if (indexToErrorMap.containsKey(i)) {
-                recordsToDLQ.add((SinkRecord) input.get(i)[0]);
-            } else {
-                filteredRecords.add(input.get(i));
-            }
-        }
-
-        if (getErrantRecordHandler().getErrantRecordReporter() != null) {
-            getErrantRecordHandler().sendRecordsToDLQ(recordsToDLQ, exception);
-        }
-
-        return filteredRecords;
     }
 
     /**

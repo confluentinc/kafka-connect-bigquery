@@ -56,4 +56,16 @@ public class BigQueryStorageWriteApiConnectException extends ConnectException {
         }
         return builder.toString();
     }
+
+    public static class NonRetriableStorageException extends ConnectException {
+        public NonRetriableStorageException(Throwable t) {
+            super(t);
+        }
+    }
+
+    public static class RetriableStorageException extends ConnectException {
+        public RetriableStorageException(Throwable t) {
+            super(t);
+        }
+    }
 }
