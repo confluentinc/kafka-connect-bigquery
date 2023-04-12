@@ -31,30 +31,32 @@ import java.util.concurrent.ExecutionException;
 
 public class StorageWriteApiDefaultStreamTest {
 
-    TableName mockedTableName = TableName.of("dummyProject", "dummyDataset", "dummyTable");
-    JsonStreamWriter mockedStreamWriter = mock(JsonStreamWriter.class);
-    SinkRecord mockedSinkRecord = mock(SinkRecord.class);
-    ApiFuture<AppendRowsResponse> mockedResponse = mock(ApiFuture.class);
-    List<Object[]> testRows = Collections.singletonList(new Object[]{mockedSinkRecord, new JSONObject()});
-    StorageWriteApiDefaultStream defaultStream = mock(StorageWriteApiDefaultStream.class, CALLS_REAL_METHODS);
-    private final String nonRetriableExpectedException  = "Failed to write rows on table "
+    private final TableName mockedTableName = TableName.of("dummyProject", "dummyDataset", "dummyTable");
+    private final JsonStreamWriter mockedStreamWriter = mock(JsonStreamWriter.class);
+    private final SinkRecord mockedSinkRecord = mock(SinkRecord.class);
+    private final ApiFuture<AppendRowsResponse> mockedResponse = mock(ApiFuture.class);
+    private final List<Object[]> testRows = Collections.singletonList(new Object[]{mockedSinkRecord, new JSONObject()});
+    private final StorageWriteApiDefaultStream defaultStream = mock(StorageWriteApiDefaultStream.class, CALLS_REAL_METHODS);
+    private final String nonRetriableExpectedException = "Failed to write rows on table "
             + mockedTableName.toString()
             + " due to I am non-retriable error";
     private final String retriableExpectedException = "Exceeded 0 attempts to write to table "
             + mockedTableName.toString() + " ";
     private final String malformedrequestExpectedException = "Insertion failed at table dummyTable for following rows:" +
             " \n [row index 18] (Failure reason : f0 field is unknown) ";
+
     @Before
     public void setUp() throws Exception {
         doReturn(mockedStreamWriter).when(defaultStream).getDefaultStream(ArgumentMatchers.any());
         when(mockedStreamWriter.append(ArgumentMatchers.any())).thenReturn(mockedResponse);
         doNothing().when(defaultStream).waitRandomTime();
     }
+
     @Test
     public void testDefaultStreamNoExceptions() throws Exception {
         AppendRowsResponse successResponse = AppendRowsResponse.newBuilder()
                 .setAppendResult(AppendRowsResponse.AppendResult.newBuilder().getDefaultInstanceForType()).build();
-        
+
         when(mockedResponse.get()).thenReturn(successResponse);
 
         defaultStream.appendRows(mockedTableName, testRows, null);
