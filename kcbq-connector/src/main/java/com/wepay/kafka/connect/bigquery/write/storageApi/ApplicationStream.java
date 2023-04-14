@@ -56,6 +56,7 @@ public class ApplicationStream {
         this.maxCallsCount = new AtomicInteger();
         this.completedCallsCount = new AtomicInteger();
         generateStream();
+        currentState = StreamState.CREATED;
     }
 
     public Map<TopicPartition, OffsetAndMetadata> getOffsetInformation() {
@@ -66,7 +67,6 @@ public class ApplicationStream {
         this.stream = client.createWriteStream(
                 tableName, WriteStream.newBuilder().setType(WriteStream.Type.PENDING).build());
         this.jsonWriter = JsonStreamWriter.newBuilder(stream.getName(), client).build();
-        currentState = StreamState.CREATED;
     }
 
     public void closeStream() {
@@ -130,6 +130,12 @@ public class ApplicationStream {
     }
 
     public JsonStreamWriter writer() {
+        if (this.jsonWriter.isClosed()) {
+            logger.debug("JSON Stream Writer is closed. Attempting to recreate stream and writer");
+            synchronized (this) {
+                resetStream();
+            }
+        }
         return this.jsonWriter;
     }
 
@@ -170,12 +176,11 @@ public class ApplicationStream {
             BatchCommitWriteStreamsResponse commitResponse = client.batchCommitWriteStreams(commitRequest);
             // If the response does not have a commit time, it means the commit operation failed.
             if (!commitResponse.hasCommitTime()) {
-                // TODO:: prepare a formatted error message for below list as part of exception handling
-                for (StorageError err : commitResponse.getStreamErrorsList()) {
-                    logger.error(err.getErrorMessage());
-                }
-                //TODO:Exception Handling
-                throw new RuntimeException("Error committing the streams");
+                // We are always sending 1 stream so at max should have just 1 error
+                StorageError storageError = commitResponse.getStreamErrors(0);
+                throw new BigQueryStorageWriteApiConnectException(
+                        String.format("Failed to commit stream %s due to %s", getStreamName(), storageError));
+
             }
             logger.debug(
                     "Appended and committed records successfully for stream {} at {}",
@@ -221,12 +226,24 @@ public class ApplicationStream {
         return currentState == StreamState.INACTIVE;
     }
 
-    public StreamState getCurrentState() {
-        return this.currentState;
+    private void resetStream() {
+        if (this.jsonWriter.isClosed()) {
+            logger.trace("Recreating stream on table {}", tableName);
+            try {
+                generateStream();
+                logger.trace("Stream recreated successfully on table {}", tableName);
+            } catch (Exception exception) {
+                throw new BigQueryStorageWriteApiConnectException(
+                        String.format(
+                                "Stream Writer recreation attempt failed on stream %s due to %s",
+                                getStreamName(),
+                                exception.getMessage())
+                );
+            }
+        } else {
+            logger.trace("Not attempting stream recreation on table {} as Json writer is not closed!", tableName);
+        }
+
     }
 
-//    @VisibleForTesting
-//    void setCurrentState(StreamState testState) {
-//        currentState =
-//    }
 }

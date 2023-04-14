@@ -4,6 +4,8 @@ package com.wepay.kafka.connect.bigquery.exception;
 import com.google.cloud.bigquery.storage.v1.Exceptions;
 import com.google.cloud.bigquery.storage.v1.StorageError;
 import com.google.rpc.Code;
+import io.grpc.StatusException;
+import io.grpc.StatusRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +33,7 @@ public class BigQueryStorageWriteApiErrorResponses {
      Below list is taken from :
      https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1#storageerrorcode
      */
-    private static final String [] nonRetriableStreamFailureCodes = {
+    private static final String[] nonRetriableStreamFailureCodes = {
             StorageError.StorageErrorCode.STREAM_FINALIZED.name(),
             StorageError.StorageErrorCode.STREAM_NOT_FOUND.name(),
             StorageError.StorageErrorCode.INVALID_STREAM_STATE.name(),
@@ -48,11 +50,13 @@ public class BigQueryStorageWriteApiErrorResponses {
 
     /**
      * Expected BigQuery Table does not exist
+     *
      * @param errorMessage Message from the received exception
      * @return Returns true if message contains table missing substrings
      */
     public static boolean isTableMissing(String errorMessage) {
         return (errorMessage.contains(PERMISSION_DENIED) && errorMessage.contains(NOT_EXIST))
+                || (errorMessage.contains(StorageError.StorageErrorCode.TABLE_NOT_FOUND.name()))
                 || errorMessage.contains(NOT_FOUND)
                 || errorMessage.contains(Code.NOT_FOUND.name())
                 || errorMessage.contains(TABLE_IS_DELETED);
@@ -60,6 +64,7 @@ public class BigQueryStorageWriteApiErrorResponses {
 
     /**
      * The list of retriable code is taken write api sample codes and gRpc code page
+     *
      * @param errorMessage Message from the received exception
      * @return Retruns true if the exception is retriable
      */
@@ -73,6 +78,7 @@ public class BigQueryStorageWriteApiErrorResponses {
 
     /**
      * Indicates user input is incorrect
+     *
      * @param errorMessage Exception message received on append call
      * @return Returns if the exception is due to bad input
      */
@@ -82,6 +88,7 @@ public class BigQueryStorageWriteApiErrorResponses {
 
     /**
      * Tells if the exception is caused by an invalid schema in request
+     *
      * @param messages List of Row error messages
      * @return Returns true if any of the messages matches invalid schema substrings
      */
@@ -91,7 +98,18 @@ public class BigQueryStorageWriteApiErrorResponses {
     }
 
     /**
+     * Tells if the exception is caused by an invalid schema in request
+     *
+     * @param message Storage schema mismatch error message
+     * @return Returns true if any of the messages matches invalid schema substrings
+     */
+    public static boolean hasInvalidSchema(String message) {
+        return message.contains(StorageError.StorageErrorCode.SCHEMA_MISMATCH_EXTRA_FIELDS.name());
+    }
+
+    /**
      * Tells if the exception is caused by auto-close of JSON stream
+     *
      * @param errorMessage Exception message received on append call
      * @return Returns true is message contains StreamClosed exception
      */
@@ -100,15 +118,27 @@ public class BigQueryStorageWriteApiErrorResponses {
     }
 
     /**
-     * Tells if the storage error code belong to the list of non retriable storage error code.
-     * @param storageException Exception received from Batch mode data ingestion
+     * Tells if the exception is of storage exception type and  error code belong to the list of non retriable
+     * storage error code.
+     *
+     * @param exception Exception received from Batch mode data ingestion
      * @return Retruns true if the exception is non-retriable
      */
-    public static boolean isNonRetriableStorageErrorCode(Exceptions.StorageException storageException) {
+    public static boolean isNonRetriableStorageError(Exception exception) {
+        Exceptions.StorageException storageException = null;
+        Throwable t = exception.getCause();
+        if (t instanceof StatusRuntimeException || t instanceof StatusException) {
+            storageException = Exceptions.toStorageException(exception);
+        }
+        if (storageException == null) {
+            // it is not a storage exception. We will consider it something unknown and thus non-retriable
+            return true;
+        }
         String errorCode = storageException.getStatus().getCode().name();
 
         logger.trace("Storage exception occurred with errorCode {} and errors {} ", errorCode, storageException.getErrors().toString());
 
         return Arrays.asList(nonRetriableStreamFailureCodes).contains(errorCode);
     }
+
 }

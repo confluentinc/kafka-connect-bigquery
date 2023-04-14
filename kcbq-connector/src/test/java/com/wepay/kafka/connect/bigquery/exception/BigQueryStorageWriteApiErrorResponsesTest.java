@@ -107,6 +107,14 @@ public class BigQueryStorageWriteApiErrorResponsesTest {
     }
 
     @Test
+    public void testHasInvalidStorageSchema() {
+        String storageError = "Failed to write records due to SCHEMA_MISMATCH_EXTRA_FIELDS";
+        boolean result = BigQueryStorageWriteApiErrorResponses.hasInvalidSchema(storageError);
+        assertTrue(result);
+    }
+
+
+    @Test
     public void testHasNoInvalidSchema() {
         Collection<String> errors = new ArrayList<>();
         errors.add("JSONObject has malformed field with length 5, specified length 3");
@@ -119,6 +127,25 @@ public class BigQueryStorageWriteApiErrorResponsesTest {
     public void testStreamClosed() {
         String message = "ExceutionException$StreamWriterClosedException due to FAILED PRE_CONDITION";
         boolean result = BigQueryStorageWriteApiErrorResponses.isStreamClosed(message);
+        assertTrue(result);
+    }
+
+    @Test
+    public void testIsNonRetriableStorageError() {
+        Exception exception = new Exception(
+                io.grpc.Status.fromThrowable(new Throwable())
+                        .withDescription("STREAM_FINALIZED")
+                        .asRuntimeException()
+        );
+
+        boolean result = BigQueryStorageWriteApiErrorResponses.isNonRetriableStorageError(exception);
+        assertTrue(result);
+    }
+
+    @Test
+    public void testIsNonStorageError() {
+        Exception exception = new Exception("I am not a storage error");
+        boolean result = BigQueryStorageWriteApiErrorResponses.isNonRetriableStorageError(exception);
         assertTrue(result);
     }
 }

@@ -5,7 +5,6 @@ import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
-import com.google.cloud.bigquery.storage.v1.RowError;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.rpc.Status;
@@ -14,22 +13,13 @@ import com.wepay.kafka.connect.bigquery.SchemaManager;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiErrorResponses;
 import com.wepay.kafka.connect.bigquery.utils.TableNameUtils;
-import org.apache.kafka.connect.sink.SinkRecord;
 import org.json.JSONArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.TreeSet;
 import java.util.List;
-import java.util.Set;
-import java.util.Map;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Collectors;
 
 /**
  * An extension of {@link StorageWriteApiBase} which uses default streams to write data following at least once semantic
@@ -57,11 +47,12 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
     /**
      * Either gets called when shutting down the task or when we receive exception that the stream
      * is actually closed on Google side. This will close and remove the stream from our cache.
+     *
      * @param tableName The table name for which stream has to be removed.
      */
     private void closeAndDelete(String tableName) {
         logger.debug("Closing stream on table {}", tableName);
-        if(tableToStream.containsKey(tableName)) {
+        if (tableToStream.containsKey(tableName)) {
             synchronized (tableToStream) {
                 tableToStream.get(tableName).close();
                 tableToStream.remove(tableName);
@@ -72,6 +63,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
 
     /**
      * Open a default stream on table if not already present
+     *
      * @param table The table on which stream has to be opened
      * @param rows  The input rows (would be sent while table creation to identify schema)
      * @return JSONStreamWriter which would be used to write data to bigquery table
@@ -267,16 +259,4 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 mostRecentException);
     }
 
-    /**
-     * Converts Row Error to Map
-     * @param rowErrors List of row errors
-     * @return Returns Map with key as Row index and value as the Row Error Message
-     */
-    private Map<Integer, String> convertToMap(List<RowError> rowErrors) {
-        Map<Integer, String> errorMap = new HashMap<>();
-
-        rowErrors.forEach(rowError -> errorMap.put((int) rowError.getIndex(), rowError.getMessage()));
-
-        return errorMap;
-    }
 }
