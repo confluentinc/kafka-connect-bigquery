@@ -8,32 +8,48 @@ import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.Exceptions;
 
 import com.google.rpc.Status;
+import com.wepay.kafka.connect.bigquery.ErrantRecordHandler;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import io.grpc.StatusRuntimeException;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.json.JSONObject;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.times;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 public class StorageWriteApiDefaultStreamTest {
 
     private final TableName mockedTableName = TableName.of("dummyProject", "dummyDataset", "dummyTable");
     private final JsonStreamWriter mockedStreamWriter = mock(JsonStreamWriter.class);
-    private final SinkRecord mockedSinkRecord = mock(SinkRecord.class);
+    private final SinkRecord mockedSinkRecord = new SinkRecord(
+            "abc",
+            0,
+            Schema.BOOLEAN_SCHEMA,
+            null,
+            Schema.BOOLEAN_SCHEMA,
+            null,
+            0);
     private final ApiFuture<AppendRowsResponse> mockedResponse = mock(ApiFuture.class);
     private final List<Object[]> testRows = Collections.singletonList(new Object[]{mockedSinkRecord, new JSONObject()});
     private final StorageWriteApiDefaultStream defaultStream = mock(StorageWriteApiDefaultStream.class, CALLS_REAL_METHODS);
@@ -43,20 +59,45 @@ public class StorageWriteApiDefaultStreamTest {
     private final String retriableExpectedException = "Exceeded 0 attempts to write to table "
             + mockedTableName.toString() + " ";
     private final String malformedrequestExpectedException = "Insertion failed at table dummyTable for following rows:" +
-            " \n [row index 18] (Failure reason : f0 field is unknown) ";
+            " \n [row index 0] (Failure reason : f0 field is unknown) ";
+    ErrantRecordHandler mockedErrantRecordHandler = mock(ErrantRecordHandler.class);
+    ErrantRecordReporter mockedErrantReporter = mock(ErrantRecordReporter.class);
+    AppendRowsResponse malformedError = AppendRowsResponse.newBuilder()
+            .setError(
+                    Status.newBuilder()
+                            .setCode(3)
+                            .setMessage("I am an INVALID_ARGUMENT error")
+                            .build()
+            ).addRowErrors(
+                    RowError.newBuilder()
+                            .setIndex(0)
+                            .setMessage("f0 field is unknown")
+                            .build()
+            ).build();
+    AppendRowsResponse successResponse = AppendRowsResponse.newBuilder()
+            .setAppendResult(AppendRowsResponse.AppendResult.newBuilder().getDefaultInstanceForType()).build();
+    ArgumentCaptor<Set<SinkRecord>> captorRecord = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<Exception> captorException = ArgumentCaptor.forClass(Exception.class);
+    Map<Integer, String> errorMapping = new HashMap<>();
+    Exceptions.AppendSerializtionError appendSerializationException = new Exceptions.AppendSerializtionError(
+            3,
+            "INVALID_ARGUMENT",
+            "DEFAULT",
+            errorMapping);
 
     @Before
     public void setUp() throws Exception {
+        errorMapping.put(0, "f0 field is unknown");
         doReturn(mockedStreamWriter).when(defaultStream).getDefaultStream(ArgumentMatchers.any());
         when(mockedStreamWriter.append(ArgumentMatchers.any())).thenReturn(mockedResponse);
         doNothing().when(defaultStream).waitRandomTime();
+        when(defaultStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
+        when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(mockedErrantReporter);
+        when(defaultStream.getAutoCreateTables()).thenReturn(true);
     }
 
     @Test
     public void testDefaultStreamNoExceptions() throws Exception {
-        AppendRowsResponse successResponse = AppendRowsResponse.newBuilder()
-                .setAppendResult(AppendRowsResponse.AppendResult.newBuilder().getDefaultInstanceForType()).build();
-
         when(mockedResponse.get()).thenReturn(successResponse);
 
         defaultStream.appendRows(mockedTableName, testRows, null);
@@ -91,123 +132,38 @@ public class StorageWriteApiDefaultStreamTest {
 
         verifyException(retriableExpectedException);
     }
-    
+
     @Test
     public void testDefaultStreamMalformedRequestErrorAllToDLQ() throws Exception {
-        JsonStreamWriter mockedStreamWriter = mock(JsonStreamWriter.class);
-        SinkRecord mockedSinkRecord = new SinkRecord(
-                "abc",
-                0,
-                Schema.BOOLEAN_SCHEMA,
-                null,
-                Schema.BOOLEAN_SCHEMA,
-                null,
-                0);
-        ApiFuture<AppendRowsResponse> mockedResponse = mock(ApiFuture.class);
-        AppendRowsResponse malformedError = AppendRowsResponse.newBuilder()
-                .setError(
-                        Status.newBuilder()
-                                .setCode(3)
-                                .setMessage("I am an INVALID_ARGUMENT error")
-                                .build()
-                ).addRowErrors(
-                        RowError.newBuilder()
-                                .setIndex(0)
-                                .setMessage("f0 field name is unknown")
-                                .build()
-                ).build();
-        List<Object[]> testRows = new ArrayList<>();
-        String expectedException = "Insertion failed at table dummyTable for following rows:" +
-                " \n [row index 0] (Failure reason : f0 field name is unknown) ";
-
-        StorageWriteApiDefaultStream defaultStream = mock(StorageWriteApiDefaultStream.class, CALLS_REAL_METHODS);
-        ErrantRecordHandler mockedErrantRecordHandler = mock(ErrantRecordHandler.class);
-        ErrantRecordReporter mockedErrantReporter = mock(ErrantRecordReporter.class);
-
-        doReturn(mockedStreamWriter).when(defaultStream).getDefaultStream(ArgumentMatchers.any());
-        when(mockedStreamWriter.append(ArgumentMatchers.any())).thenReturn(mockedResponse);
         when(mockedResponse.get()).thenReturn(malformedError);
-        when(defaultStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
-        when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(mockedErrantReporter);
-        testRows.add(new Object[]{mockedSinkRecord, new JSONObject()});
 
         defaultStream.appendRows(mockedTableName, testRows, null);
 
-        ArgumentCaptor<Set<SinkRecord>> captorRecord = ArgumentCaptor.forClass(Set.class);
-        ArgumentCaptor<Exception> captorException = ArgumentCaptor.forClass(Exception.class);
-
         verify(mockedErrantRecordHandler, times(1))
                 .sendRecordsToDLQ(captorRecord.capture(), captorException.capture());
-
         Assert.assertTrue(captorRecord.getValue().contains(mockedSinkRecord));
-        Assert.assertEquals(expectedException, captorException.getValue().getMessage());
+        Assert.assertEquals(malformedrequestExpectedException, captorException.getValue().getMessage());
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testDefaultStreamMalformedRequestErrorSomeToDLQ() throws Exception {
-        JsonStreamWriter mockedStreamWriter = mock(JsonStreamWriter.class);
-        SinkRecord mockedSinkRecord = new SinkRecord(
-                "abc",
-                0,
-                Schema.BOOLEAN_SCHEMA,
-                null,
-                Schema.BOOLEAN_SCHEMA,
-                null,
-                0);
-        ApiFuture<AppendRowsResponse> mockedResponse = mock(ApiFuture.class);
-        AppendRowsResponse malformedError = AppendRowsResponse.newBuilder()
-                .setError(
-                        Status.newBuilder()
-                                .setCode(3)
-                                .setMessage("I am an INVALID_ARGUMENT error")
-                                .build()
-                ).addRowErrors(
-                        RowError.newBuilder()
-                                .setIndex(0)
-                                .setMessage("f0 field name is unknown")
-                                .build()
-                ).build();
-        List<Object[]> testRows = new ArrayList<>();
-        AppendRowsResponse successResponse = AppendRowsResponse.newBuilder()
-                .setAppendResult(AppendRowsResponse.AppendResult.newBuilder().getDefaultInstanceForType()).build();
+        List<Object[]> testSomeRowsToDLQ = Arrays.asList(
+                new Object[]{mockedSinkRecord, new JSONObject()},
+                new Object[]{mockedSinkRecord, new JSONObject()});
 
-        StorageWriteApiDefaultStream defaultStream = mock(StorageWriteApiDefaultStream.class, CALLS_REAL_METHODS);
-        ErrantRecordHandler mockedErrantRecordHandler = mock(ErrantRecordHandler.class);
-        ErrantRecordReporter mockedErrantReporter = mock(ErrantRecordReporter.class);
-
-        doReturn(mockedStreamWriter).when(defaultStream).getDefaultStream(ArgumentMatchers.any());
-        when(mockedStreamWriter.append(ArgumentMatchers.any())).thenReturn(mockedResponse);
         when(mockedResponse.get()).thenReturn(malformedError).thenReturn(successResponse);
-        when(defaultStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
-        when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(mockedErrantReporter);
-        testRows.add(new Object[]{mockedSinkRecord, new JSONObject()});
-        testRows.add(new Object[]{mockedSinkRecord, new JSONObject()});
 
-        defaultStream.appendRows(mockedTableName, testRows, null);
-
-        ArgumentCaptor<Set<SinkRecord>> captorRecord = ArgumentCaptor.forClass(Set.class);
+        defaultStream.appendRows(mockedTableName, testSomeRowsToDLQ, null);
 
         verify(mockedErrantRecordHandler, times(1))
                 .sendRecordsToDLQ(captorRecord.capture(), any());
 
-        Assert.assertEquals(1,captorRecord.getValue().size());
+        Assert.assertEquals(1, captorRecord.getValue().size());
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testDefaultStreamMalformedRequestError() throws Exception {
-        AppendRowsResponse malformedError = AppendRowsResponse.newBuilder()
-                .setError(
-                        Status.newBuilder()
-                                .setCode(3)
-                                .setMessage("I am an INVALID_ARGUMENT error")
-                                .build()
-                ).addRowErrors(
-                        RowError.newBuilder()
-                                .setIndex(18)
-                                .setMessage("f0 field is unknown")
-                                .build()
-                ).build();
-
+        when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(null);
         when(mockedResponse.get()).thenReturn(malformedError);
 
         verifyException(malformedrequestExpectedException);
@@ -235,14 +191,8 @@ public class StorageWriteApiDefaultStreamTest {
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testDefaultStreamMalformedRequestException() throws Exception {
-        Map<Integer, String> errorMapping = new HashMap<>();
-        errorMapping.put(18, "f0 field is unknown");
-        Exceptions.AppendSerializtionError exception = new Exceptions.AppendSerializtionError(
-                3,
-                "Bad request",
-                "DEFAULT",
-                errorMapping);
-                when(mockedResponse.get()).thenThrow(exception);
+        when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(null);
+        when(mockedResponse.get()).thenThrow(appendSerializationException);
 
         verifyException(malformedrequestExpectedException);
     }
@@ -250,93 +200,29 @@ public class StorageWriteApiDefaultStreamTest {
 
     @Test
     public void testDefaultStreamMalformedRequestExceptionAllToDLQ() throws Exception {
-        JsonStreamWriter mockedStreamWriter = mock(JsonStreamWriter.class);
-        SinkRecord mockedSinkRecord = new SinkRecord(
-                "abc",
-                0,
-                Schema.BOOLEAN_SCHEMA,
-                null,
-                Schema.BOOLEAN_SCHEMA,
-                null,
-                0);
-        ApiFuture<AppendRowsResponse> mockedResponse = mock(ApiFuture.class);
-        Map<Integer, String> errorMapping = new HashMap<>();
-        errorMapping.put(0, "f0 field is unknown");
-        Exceptions.AppendSerializtionError exception = new Exceptions.AppendSerializtionError(
-                3,
-                "INVALID_ARGUMENT",
-                "DEFAULT",
-                errorMapping);
-        List<Object[]> testRows = new ArrayList<>();
-        String expectedException = "Insertion failed at table dummyTable for following rows:" +
-                " \n [row index 0] (Failure reason : f0 field is unknown) ";
-
-        StorageWriteApiDefaultStream defaultStream = mock(StorageWriteApiDefaultStream.class, CALLS_REAL_METHODS);
-        ErrantRecordHandler mockedErrantRecordHandler = mock(ErrantRecordHandler.class);
-        ErrantRecordReporter mockedErrantReporter = mock(ErrantRecordReporter.class);
-
-        doReturn(mockedStreamWriter).when(defaultStream).getDefaultStream(ArgumentMatchers.any());
-        when(mockedStreamWriter.append(ArgumentMatchers.any())).thenReturn(mockedResponse);
-        when(mockedResponse.get()).thenThrow(exception);
-        when(defaultStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
-        when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(mockedErrantReporter);
-        testRows.add(new Object[]{mockedSinkRecord, new JSONObject()});
+        when(mockedResponse.get()).thenThrow(appendSerializationException);
 
         defaultStream.appendRows(mockedTableName, testRows, null);
-
-        ArgumentCaptor<Set<SinkRecord>> captorRecord = ArgumentCaptor.forClass(Set.class);
-        ArgumentCaptor<Exception> captorException = ArgumentCaptor.forClass(Exception.class);
-
         verify(mockedErrantRecordHandler, times(1))
                 .sendRecordsToDLQ(captorRecord.capture(), captorException.capture());
 
         Assert.assertTrue(captorRecord.getValue().contains(mockedSinkRecord));
-        Assert.assertEquals(expectedException, captorException.getValue().getMessage());
+        Assert.assertEquals(malformedrequestExpectedException, captorException.getValue().getMessage());
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testDefaultStreamMalformedRequestExceptionSomeToDLQ() throws Exception {
-        JsonStreamWriter mockedStreamWriter = mock(JsonStreamWriter.class);
-        SinkRecord mockedSinkRecord = new SinkRecord(
-                "abc",
-                0,
-                Schema.BOOLEAN_SCHEMA,
-                null,
-                Schema.BOOLEAN_SCHEMA,
-                null,
-                0);
-        ApiFuture<AppendRowsResponse> mockedResponse = mock(ApiFuture.class);
-        Map<Integer, String> errorMapping = new HashMap<>();
-        errorMapping.put(0, "f0 field is unknown");
-        Exceptions.AppendSerializtionError exception = new Exceptions.AppendSerializtionError(
-                3,
-                "INVALID_ARGUMENT",
-                "DEFAULT",
-                errorMapping);
-        List<Object[]> testRows = new ArrayList<>();
-        AppendRowsResponse successResponse = AppendRowsResponse.newBuilder()
-                .setAppendResult(AppendRowsResponse.AppendResult.newBuilder().getDefaultInstanceForType()).build();
+        List<Object[]> testSomeRowsToDLQ = Arrays.asList(
+                new Object[]{mockedSinkRecord, new JSONObject()},
+                new Object[]{mockedSinkRecord, new JSONObject()});
 
-        StorageWriteApiDefaultStream defaultStream = mock(StorageWriteApiDefaultStream.class, CALLS_REAL_METHODS);
-        ErrantRecordHandler mockedErrantRecordHandler = mock(ErrantRecordHandler.class);
-        ErrantRecordReporter mockedErrantReporter = mock(ErrantRecordReporter.class);
-
-        doReturn(mockedStreamWriter).when(defaultStream).getDefaultStream(ArgumentMatchers.any());
-        when(mockedStreamWriter.append(ArgumentMatchers.any())).thenReturn(mockedResponse);
-        when(mockedResponse.get()).thenThrow(exception).thenReturn(successResponse);
-        when(defaultStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
-        when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(mockedErrantReporter);
-        testRows.add(new Object[]{mockedSinkRecord, new JSONObject()});
-        testRows.add(new Object[]{mockedSinkRecord, new JSONObject()});
-
-        defaultStream.appendRows(mockedTableName, testRows, null);
-
-        ArgumentCaptor<Set<SinkRecord>> captorRecord = ArgumentCaptor.forClass(Set.class);
+        when(mockedResponse.get()).thenThrow(appendSerializationException).thenReturn(successResponse);
+        defaultStream.appendRows(mockedTableName, testSomeRowsToDLQ, null);
 
         verify(mockedErrantRecordHandler, times(1))
                 .sendRecordsToDLQ(captorRecord.capture(), any());
 
-        Assert.assertEquals(1,captorRecord.getValue().size());
+        Assert.assertEquals(1, captorRecord.getValue().size());
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
@@ -350,7 +236,6 @@ public class StorageWriteApiDefaultStreamTest {
                 + mockedTableName.toString() + " ";
 
         when(mockedResponse.get()).thenThrow(exception);
-        when(defaultStream.getAutoCreateTables()).thenReturn(true);
 
         verifyException(expectedException);
     }

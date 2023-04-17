@@ -4,16 +4,22 @@ import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.Exceptions;
+import com.google.cloud.bigquery.storage.v1.RowError;
 import com.wepay.kafka.connect.bigquery.ErrantRecordHandler;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-
 import java.util.Random;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.Comparator;
 
 /**
  * Base class which handles data ingestion to bigquery tables using different kind of streams
@@ -45,7 +51,6 @@ public abstract class StorageWriteApiBase {
         this.random = new Random();
         this.writeSettings = writeSettings;
         this.errantRecordHandler = errantRecordHandler;
-
         try {
             this.writeClient = getWriteClient();
         } catch (IOException e) {
@@ -125,6 +130,49 @@ public abstract class StorageWriteApiBase {
 
     protected ErrantRecordHandler getErrantRecordHandler() {
         return this.errantRecordHandler;
+    }
 
+    /**
+     * Sends errant records to configured DLQ and returns remaining
+     * @param input List of <SinkRecord, JSONObject> input data
+     * @param indexToErrorMap Map of record index to error received from api call
+     * @param exception locally built exception to be sent to DLQ topic
+     * @return Returns list of good <Sink, JSONObject> filtered from input which needs to be retried. Append row does
+     * not write partially even if there is a single failure, good data has to be retried
+     */
+    protected List<Object[]> sendBadRecordsToDlqAndFilterGood(
+            List<Object[]> input,
+            Map<Integer, String> indexToErrorMap,
+            Exception exception) {
+        List<Object[]> filteredRecords = new ArrayList<>();
+        Set<SinkRecord> recordsToDLQ = new TreeSet<>(Comparator.comparing(SinkRecord::kafkaPartition)
+                .thenComparing(SinkRecord::kafkaOffset));
+
+        for (int i = 0; i < input.size(); i++) {
+            if (indexToErrorMap.containsKey(i)) {
+                recordsToDLQ.add((SinkRecord) input.get(i)[0]);
+            } else {
+                filteredRecords.add(input.get(i));
+            }
+        }
+
+        if (getErrantRecordHandler().getErrantRecordReporter() != null) {
+            getErrantRecordHandler().sendRecordsToDLQ(recordsToDLQ, exception);
+        }
+
+        return filteredRecords;
+    }
+
+    /**
+     * Converts Row Error to Map
+     * @param rowErrors List of row errors
+     * @return Returns Map with key as Row index and value as the Row Error Message
+     */
+    protected Map<Integer, String> convertToMap(List<RowError> rowErrors) {
+        Map<Integer, String> errorMap = new HashMap<>();
+
+        rowErrors.forEach(rowError -> errorMap.put((int) rowError.getIndex(), rowError.getMessage()));
+
+        return errorMap;
     }
 }

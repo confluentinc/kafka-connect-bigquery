@@ -14,8 +14,6 @@ import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.utils.TableNameUtils;
 import com.wepay.kafka.connect.bigquery.write.storageApi.BigQueryWriteSettingsBuilder;
 import org.apache.kafka.test.IntegrationTest;
-import org.junit.After;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
