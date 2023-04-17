@@ -198,7 +198,7 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
      * @return
      */
     @VisibleForTesting
-    ApplicationStream createApplicationStream(String tableName, List<Object[]> rows) {
+    public ApplicationStream createApplicationStream(String tableName, List<Object[]> rows) {
         try {
             return new ApplicationStream(tableName, getWriteClient());
         } catch (Exception e) {
