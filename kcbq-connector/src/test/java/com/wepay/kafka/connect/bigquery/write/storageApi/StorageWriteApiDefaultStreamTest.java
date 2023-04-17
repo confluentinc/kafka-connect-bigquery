@@ -21,7 +21,6 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
@@ -52,6 +51,9 @@ public class StorageWriteApiDefaultStreamTest {
             0);
     private final ApiFuture<AppendRowsResponse> mockedResponse = mock(ApiFuture.class);
     private final List<Object[]> testRows = Collections.singletonList(new Object[]{mockedSinkRecord, new JSONObject()});
+    private final List<Object[]> testMultiRows = Arrays.asList(
+            new Object[]{mockedSinkRecord, new JSONObject()},
+            new Object[]{mockedSinkRecord, new JSONObject()});
     private final StorageWriteApiDefaultStream defaultStream = mock(StorageWriteApiDefaultStream.class, CALLS_REAL_METHODS);
     private final String nonRetriableExpectedException = "Failed to write rows on table "
             + mockedTableName.toString()
@@ -76,8 +78,6 @@ public class StorageWriteApiDefaultStreamTest {
             ).build();
     AppendRowsResponse successResponse = AppendRowsResponse.newBuilder()
             .setAppendResult(AppendRowsResponse.AppendResult.newBuilder().getDefaultInstanceForType()).build();
-    ArgumentCaptor<Set<SinkRecord>> captorRecord = ArgumentCaptor.forClass(Set.class);
-    ArgumentCaptor<Exception> captorException = ArgumentCaptor.forClass(Exception.class);
     Map<Integer, String> errorMapping = new HashMap<>();
     Exceptions.AppendSerializtionError appendSerializationException = new Exceptions.AppendSerializtionError(
             3,
@@ -136,29 +136,13 @@ public class StorageWriteApiDefaultStreamTest {
     @Test
     public void testDefaultStreamMalformedRequestErrorAllToDLQ() throws Exception {
         when(mockedResponse.get()).thenReturn(malformedError);
-
-        defaultStream.appendRows(mockedTableName, testRows, null);
-
-        verify(mockedErrantRecordHandler, times(1))
-                .sendRecordsToDLQ(captorRecord.capture(), captorException.capture());
-        Assert.assertTrue(captorRecord.getValue().contains(mockedSinkRecord));
-        Assert.assertEquals(malformedrequestExpectedException, captorException.getValue().getMessage());
+        verifyDLQ(testRows);
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testDefaultStreamMalformedRequestErrorSomeToDLQ() throws Exception {
-        List<Object[]> testSomeRowsToDLQ = Arrays.asList(
-                new Object[]{mockedSinkRecord, new JSONObject()},
-                new Object[]{mockedSinkRecord, new JSONObject()});
-
         when(mockedResponse.get()).thenReturn(malformedError).thenReturn(successResponse);
-
-        defaultStream.appendRows(mockedTableName, testSomeRowsToDLQ, null);
-
-        verify(mockedErrantRecordHandler, times(1))
-                .sendRecordsToDLQ(captorRecord.capture(), any());
-
-        Assert.assertEquals(1, captorRecord.getValue().size());
+        verifyDLQ(testMultiRows);
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
@@ -201,28 +185,13 @@ public class StorageWriteApiDefaultStreamTest {
     @Test
     public void testDefaultStreamMalformedRequestExceptionAllToDLQ() throws Exception {
         when(mockedResponse.get()).thenThrow(appendSerializationException);
-
-        defaultStream.appendRows(mockedTableName, testRows, null);
-        verify(mockedErrantRecordHandler, times(1))
-                .sendRecordsToDLQ(captorRecord.capture(), captorException.capture());
-
-        Assert.assertTrue(captorRecord.getValue().contains(mockedSinkRecord));
-        Assert.assertEquals(malformedrequestExpectedException, captorException.getValue().getMessage());
+        verifyDLQ(testRows);
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testDefaultStreamMalformedRequestExceptionSomeToDLQ() throws Exception {
-        List<Object[]> testSomeRowsToDLQ = Arrays.asList(
-                new Object[]{mockedSinkRecord, new JSONObject()},
-                new Object[]{mockedSinkRecord, new JSONObject()});
-
         when(mockedResponse.get()).thenThrow(appendSerializationException).thenReturn(successResponse);
-        defaultStream.appendRows(mockedTableName, testSomeRowsToDLQ, null);
-
-        verify(mockedErrantRecordHandler, times(1))
-                .sendRecordsToDLQ(captorRecord.capture(), any());
-
-        Assert.assertEquals(1, captorRecord.getValue().size());
+        verifyDLQ(testMultiRows);
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
@@ -247,5 +216,18 @@ public class StorageWriteApiDefaultStreamTest {
             Assert.assertEquals(expectedException, e.getMessage());
             throw e;
         }
+    }
+
+    private void verifyDLQ(List<Object[]> rows) {
+        ArgumentCaptor<Set<SinkRecord>> captorRecord = ArgumentCaptor.forClass(Set.class);
+        ArgumentCaptor<Exception> captorException = ArgumentCaptor.forClass(Exception.class);
+
+        defaultStream.appendRows(mockedTableName, rows, null);
+
+        verify(mockedErrantRecordHandler, times(1))
+                .sendRecordsToDLQ(captorRecord.capture(), captorException.capture());
+        Assert.assertTrue(captorRecord.getValue().contains(mockedSinkRecord));
+        Assert.assertEquals(malformedrequestExpectedException, captorException.getValue().getMessage());
+        Assert.assertEquals(1, captorRecord.getValue().size());
     }
 }
