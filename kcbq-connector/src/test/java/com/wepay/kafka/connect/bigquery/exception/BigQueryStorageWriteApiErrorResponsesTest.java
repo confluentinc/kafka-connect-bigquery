@@ -71,6 +71,7 @@ public class BigQueryStorageWriteApiErrorResponsesTest {
                 "DEFAULT",
                 errors);
         boolean result = BigQueryStorageWriteApiErrorResponses.isMalformedRequest(error.getMessage());
+
         assertTrue(result);
     }
 
@@ -84,6 +85,7 @@ public class BigQueryStorageWriteApiErrorResponsesTest {
                 "DEFAULT",
                 errors);
         boolean result = BigQueryStorageWriteApiErrorResponses.isMalformedRequest(error.getMessage());
+
         assertFalse(result);
     }
 
@@ -92,6 +94,7 @@ public class BigQueryStorageWriteApiErrorResponsesTest {
         String message = "Deadline Exceeded";
         Exception e= new Exception(message);
         boolean result = BigQueryStorageWriteApiErrorResponses.isMalformedRequest(e.getMessage());
+
         assertFalse(result);
     }
 }

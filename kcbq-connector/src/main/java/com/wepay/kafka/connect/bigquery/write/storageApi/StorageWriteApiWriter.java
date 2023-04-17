@@ -101,7 +101,6 @@ public class StorageWriteApiWriter implements Runnable {
             return new JSONObject(result);
         }
 
-
         /**
          * @return Builds Storage write API writer which would do actual data ingestion using streams
          */
