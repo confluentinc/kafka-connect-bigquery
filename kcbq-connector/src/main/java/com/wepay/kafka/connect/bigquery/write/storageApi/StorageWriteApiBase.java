@@ -4,6 +4,7 @@ import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.Exceptions;
+import com.wepay.kafka.connect.bigquery.ErrantRecordHandler;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
