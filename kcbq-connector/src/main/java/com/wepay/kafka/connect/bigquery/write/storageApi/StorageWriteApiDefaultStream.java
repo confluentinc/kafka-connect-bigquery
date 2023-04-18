@@ -3,6 +3,7 @@ package com.wepay.kafka.connect.bigquery.write.storageApi;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
+import com.google.cloud.bigquery.storage.v1.RowError;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.common.annotations.VisibleForTesting;
@@ -18,6 +19,7 @@ import java.io.IOException;
 
 import java.util.List;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -80,6 +82,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
 
     /**
      * Calls AppendRows and handles exception if the ingestion fails
+     *
      * @param tableName  The table to write data to
      * @param rows       List of records in <{@link org.apache.kafka.connect.sink.SinkRecord}, {@link org.json.JSONObject}>
      *                   format. JSONObjects would be sent to api. SinkRecords are requireed for DLQ routing
@@ -116,10 +119,11 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                     Status errorStatus = writeResult.getError();
                     String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, errorStatus.getMessage());
                     if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(errorMessage)) {
-                        mostRecentException = new BigQueryStorageWriteApiConnectException(tableName.getTable(), writeResult.getRowErrorsList());
+                        List<RowError> rowErrors = writeResult.getRowErrorsList();
+                        mostRecentException = new BigQueryStorageWriteApiConnectException(tableName.getTable(), rowErrors);
                         if (getErrantRecordHandler().getErrantRecordReporter() != null) {
                             //Routes to DLQ
-                            List<Object[]> filteredRecords = sendBadRecordsToDlqAndFilterGood(rows, convertToMap(writeResult.getRowErrorsList()), mostRecentException);
+                            List<Object[]> filteredRecords = sendBadRecordsToDlqAndFilterGood(rows, convertToMap(rowErrors), mostRecentException);
                             if (filteredRecords.isEmpty()) {
                                 logger.info("All records have been sent to Dlq.");
                                 return;
@@ -154,10 +158,11 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 String message = e.getMessage();
                 String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, message);
                 if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(message)) {
-                    mostRecentException = new BigQueryStorageWriteApiConnectException(tableName.getTable(), getRowErrorMapping(e));
+                    Map<Integer, String> errorMap = getRowErrorMapping(e);
+                    mostRecentException = new BigQueryStorageWriteApiConnectException(tableName.getTable(), errorMap);
                     if (getErrantRecordHandler().getErrantRecordReporter() != null) {
                         //Routes to DLQ
-                        List<Object[]> filteredRecords = sendBadRecordsToDlqAndFilterGood(rows, getRowErrorMapping(e), mostRecentException);
+                        List<Object[]> filteredRecords = sendBadRecordsToDlqAndFilterGood(rows, errorMap, mostRecentException);
                         if (filteredRecords.isEmpty()) {
                             logger.info("All records have been sent to Dlq.");
                             return;
