@@ -15,11 +15,14 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import java.util.*;
+import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Optional;
 
 public class StorageWriteApiWriterTest {
     Schema keySchema = SchemaBuilder.struct().field("key", Schema.STRING_SCHEMA).build();

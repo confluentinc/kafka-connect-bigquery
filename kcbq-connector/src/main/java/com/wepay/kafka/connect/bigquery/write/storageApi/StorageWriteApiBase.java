@@ -17,29 +17,28 @@ import java.io.IOException;
 import java.util.Random;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 /**
  * Base class which handles data ingestion to bigquery tables using different kind of streams
  */
 public abstract class StorageWriteApiBase {
+
     private final ErrantRecordHandler errantRecordHandler;
     private final SchemaManager schemaManager;
     Logger logger = LoggerFactory.getLogger(StorageWriteApiBase.class);
     private BigQueryWriteClient writeClient;
-
     protected final int retry;
-
     protected final long retryWait;
-
     private final boolean autoCreateTables;
-
     private final Random random;
-
     private final BigQueryWriteSettings writeSettings;
 
+    static final int ADDITIONAL_RETRIES_TABLE_CREATE_UPDATE = 30;
+    static final int ADDITIONAL_RETRIES_WAIT_TABLE_CREATE_UPDATE = 30000; // 30 sec
+
     /**
-     * @param retry               How many retries to make in the event of a 500/503 error.
+     * @param retry               How many retries to make in the event of a retriable error.
      * @param retryWait           How long to wait in between retries.
      * @param writeSettings       Write Settings for stream which carry authentication and other header information
      * @param autoCreateTables    boolean flag set if table should be created automatically
@@ -64,18 +63,28 @@ public abstract class StorageWriteApiBase {
             logger.error("Failed to create Big Query Storage Write API write client due to {}", e.getMessage());
             throw new BigQueryStorageWriteApiConnectException("Failed to create Big Query Storage Write API write client", e);
         }
-
     }
 
     /**
      * Handles required initialization steps and goes to append records to table
      * @param tableName  The table to write data to
-     * @param rows       The records to write
+     * @param rows       List of records in <{@link org.apache.kafka.connect.sink.SinkRecord}, {@link org.json.JSONObject}>
+     *                   format. JSONObjects would be sent to api. SinkRecords are requireed for DLQ routing
      * @param streamName The stream to use to write table to table.
      */
     public void initializeAndWriteRecords(TableName tableName, List<Object[]> rows, String streamName) {
-        // TODO: Streams are created on table. So table must be present. We will add a check here and attempt to create table and cache it
+        verifyRows(rows);
         appendRows(tableName, rows, streamName);
+    }
+
+    abstract public void preShutdown();
+
+    /**
+     * Gets called on task.stop() and should have resource cleanup logic.
+     */
+    public void shutdown() {
+        preShutdown();
+        this.writeClient.close();
     }
 
     /**
@@ -91,10 +100,19 @@ public abstract class StorageWriteApiBase {
      * @throws IOException
      */
     public BigQueryWriteClient getWriteClient() throws IOException {
-        if (this.writeClient == null) {
+        if(this.writeClient == null) {
             this.writeClient = BigQueryWriteClient.create(writeSettings);
         }
         return this.writeClient;
+    }
+
+    private void verifyRows(List<Object[]> rows) {
+        rows.forEach(row -> {
+            if (row == null || (row.length != 2)) {
+                throw new BigQueryStorageWriteApiConnectException(String.format(
+                        "Row verification failed for {}. Expected row with exactly 2 items", row.toString()));
+            }
+        });
     }
 
     /**
@@ -103,13 +121,11 @@ public abstract class StorageWriteApiBase {
      * @return Map of row index to error message detail
      */
     protected Map<Integer, String> getRowErrorMapping(Exception exception) {
-        if (exception instanceof ExecutionException) {
-            exception = (Exceptions.AppendSerializtionError) exception.getCause();
-        }
         if (exception instanceof Exceptions.AppendSerializtionError) {
             return ((Exceptions.AppendSerializtionError) exception).getRowIndexToErrorMessage();
         } else {
-            throw new BigQueryStorageWriteApiConnectException("Exception is not an instance of Exceptions.AppendSerializtionError");
+            throw new BigQueryStorageWriteApiConnectException(
+                    "Exception is not an instance of Exceptions.AppendSerializtionError", exception);
         }
     }
 
@@ -125,11 +141,6 @@ public abstract class StorageWriteApiBase {
 
     protected boolean getAutoCreateTables() {
         return this.autoCreateTables;
-    }
-
-    protected ErrantRecordHandler getErrantRecordHandler() {
-        return this.errantRecordHandler;
-
     }
 
     /**
@@ -158,5 +169,15 @@ public abstract class StorageWriteApiBase {
             throw new BigQueryStorageWriteApiConnectException(
                     "Failed to update table schema for: " + tableId, exception);
         }
+    }
+
+    /**
+     * @param rows Rows of <SinkRecord, JSONObject > format
+     * @return Returns list of all SinkRecords
+     */
+    protected List<SinkRecord> getSinkRecords(List<Object[]> rows) {
+        return rows.stream()
+                .map(row -> (SinkRecord) row[0])
+                .collect(Collectors.toList());
     }
 }
