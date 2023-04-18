@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+
 /**
  * Base class which handles data ingestion to bigquery tables using different kind of streams
  */
@@ -57,6 +58,7 @@ public abstract class StorageWriteApiBase {
         this.writeSettings = writeSettings;
         this.errantRecordHandler = errantRecordHandler;
         this.schemaManager = schemaManager;
+
         try {
             this.writeClient = getWriteClient();
         } catch (IOException e) {

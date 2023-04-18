@@ -21,6 +21,7 @@ public class BigQueryStorageWriteApiErrorResponses {
     private static final String MISSING_REQUIRED_FIELD = "JSONObject does not have the required field";
     private static final String STREAM_CLOSED = "StreamWriterClosedException";
 
+
     /**
      * Expected BigQuery Table does not exist
      * @param errorMessage Message from the received exception

@@ -169,7 +169,6 @@ public class StorageWriteApiDefaultStreamTest {
                 .attemptSchemaUpdate(any(), any());
 
     }
-
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testDefaultStreamNonRetriableException() throws Exception {
         InterruptedException exception = new InterruptedException("I am non-retriable error");

@@ -30,7 +30,6 @@ public class BigQueryWriteSettingsBuilder extends GcpClientBuilder<BigQueryWrite
         } else {
             logger.warn("Attempting to access GCS without authentication");
         }
-
         try {
             return builder.build();
         } catch (IOException e) {
