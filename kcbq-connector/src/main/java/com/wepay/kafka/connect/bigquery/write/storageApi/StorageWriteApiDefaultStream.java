@@ -138,7 +138,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                         } else {
                             // Fail if no DLQ
                             logger.warn("DLQ is not configured!");
-                            throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), writeResult.getRowErrorsList());
+                            throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), rowErrors);
                         }
                     } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(errorStatus.getMessage())) {
                         // Fail on non-retriable error
@@ -177,7 +177,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                     } else {
                         // Fail if no DLQ
                         logger.warn("DLQ is not configured!");
-                        throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), getRowErrorMapping(e));
+                        throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), errorMap);
                     }
                 } else if (BigQueryStorageWriteApiErrorResponses.isTableMissing(message) && !tableCreationAttempted && getAutoCreateTables()) {
                     logger.info("Attempting to create table {} ...", tableName);
