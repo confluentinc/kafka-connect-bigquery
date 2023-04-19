@@ -1,6 +1,10 @@
 package com.wepay.kafka.connect.bigquery.config;
 
-import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.*;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.DELETE_ENABLED_CONFIG;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.ENABLE_BATCH_CONFIG;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.ENABLE_BATCH_MODE_CONFIG;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.UPSERT_ENABLED_CONFIG;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.USE_STORAGE_WRITE_API_CONFIG;
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
@@ -12,6 +16,15 @@ import java.util.Collections;
 import java.util.Optional;
 
 public class StorageWriteApiValidatorTest {
+
+    String upsertNotSupportedError = "Upsert mode is not supported with Storage Write API." +
+            " Either disable Upsert mode or disable Storage Write API";
+    String legacyBatchNotSupportedError = "Legacy Batch mode is not supported with Storage Write API." +
+            " Either disable Legacy Batch mode or disable Storage Write API";
+    String newBatchNotSupportedError = "Storage Write Api Batch load is supported only when useStorageWriteApi is " +
+            "enabled. Either disable batch mode or enable Storage Write API";
+    String deleteNotSupportedError = "Delete mode is not supported with Storage Write API. Either disable Delete mode " +
+            "or disable Storage Write API";
 
     @Test
     public void testNoStorageWriteApiEnabled() {
@@ -44,9 +57,7 @@ public class StorageWriteApiValidatorTest {
         when(config.getList(ENABLE_BATCH_CONFIG)).thenReturn(Collections.emptyList());
 
         assertEquals(
-                Optional.of(
-                        "Upsert mode is not supported with Storage Write API." +
-                                " Either disable Upsert mode or disable Storage Write API"),
+                Optional.of(upsertNotSupportedError),
                 new StorageWriteApiValidator().doValidate(config));
     }
 
@@ -59,10 +70,7 @@ public class StorageWriteApiValidatorTest {
         when(config.getBoolean(DELETE_ENABLED_CONFIG)).thenReturn(true);
         when(config.getList(ENABLE_BATCH_CONFIG)).thenReturn(Collections.emptyList());
 
-        assertEquals(Optional.of(
-                        "Delete mode is not supported with Storage Write API." +
-                                " Either disable Delete mode or disable Storage Write API"),
-                new StorageWriteApiValidator().doValidate(config));
+        assertEquals(Optional.of(deleteNotSupportedError), new StorageWriteApiValidator().doValidate(config));
     }
 
     @Test
@@ -74,10 +82,7 @@ public class StorageWriteApiValidatorTest {
         when(config.getBoolean(DELETE_ENABLED_CONFIG)).thenReturn(false);
         when(config.getList(ENABLE_BATCH_CONFIG)).thenReturn(Collections.singletonList("abc"));
 
-        assertEquals(Optional.of(
-                        "Legacy Batch mode is not supported with Storage Write API." +
-                                " Either disable Legacy Batch mode or disable Storage Write API"),
-                new StorageWriteApiValidator().doValidate(config));
+        assertEquals(Optional.of(legacyBatchNotSupportedError), new StorageWriteApiValidator().doValidate(config));
     }
 
     @Test
@@ -87,9 +92,7 @@ public class StorageWriteApiValidatorTest {
         when(config.getBoolean(USE_STORAGE_WRITE_API_CONFIG)).thenReturn(false);
         when(config.getBoolean(ENABLE_BATCH_MODE_CONFIG)).thenReturn(true);
 
-        assertEquals(Optional.of(
-                        "Storage Write Api Batch load is supported only when useStorageWriteApi is enabled. Either" +
-                                " disable batch mode or enable Storage Write API"),
+        assertEquals(Optional.of(newBatchNotSupportedError),
                 new StorageWriteApiValidator.StorageWriteApiBatchValidator().doValidate(config));
     }
 
@@ -100,7 +103,8 @@ public class StorageWriteApiValidatorTest {
         when(config.getBoolean(USE_STORAGE_WRITE_API_CONFIG)).thenReturn(true);
         when(config.getBoolean(ENABLE_BATCH_MODE_CONFIG)).thenReturn(true);
 
-        assertEquals(Optional.empty(), new StorageWriteApiValidator.StorageWriteApiBatchValidator().doValidate(config));
+        assertEquals(Optional.empty(),
+                new StorageWriteApiValidator.StorageWriteApiBatchValidator().doValidate(config));
     }
 
     @Test
@@ -111,9 +115,7 @@ public class StorageWriteApiValidatorTest {
         when(config.getBoolean(ENABLE_BATCH_MODE_CONFIG)).thenReturn(true);
         when(config.getList(ENABLE_BATCH_CONFIG)).thenReturn(Collections.singletonList("abc"));
 
-        assertEquals(Optional.of(
-                        "Storage Write Api Batch load is supported only when useStorageWriteApi is enabled. Either" +
-                                " disable batch mode or enable Storage Write API"),
+        assertEquals(Optional.of(newBatchNotSupportedError),
                 new StorageWriteApiValidator.StorageWriteApiBatchValidator().doValidate(config));
     }
 
@@ -125,10 +127,7 @@ public class StorageWriteApiValidatorTest {
         when(config.getBoolean(ENABLE_BATCH_MODE_CONFIG)).thenReturn(true);
         when(config.getList(ENABLE_BATCH_CONFIG)).thenReturn(Collections.singletonList("abc"));
 
-        assertEquals(Optional.of(
-                        "Legacy Batch mode is not supported with Storage Write API." +
-                                " Either disable Legacy Batch mode or disable Storage Write API"),
-                new StorageWriteApiValidator().doValidate(config));
+        assertEquals(Optional.of(legacyBatchNotSupportedError), new StorageWriteApiValidator().doValidate(config));
     }
 }
 
