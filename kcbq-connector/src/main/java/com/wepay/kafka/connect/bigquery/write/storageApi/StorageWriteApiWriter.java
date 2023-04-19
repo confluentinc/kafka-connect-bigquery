@@ -27,6 +27,7 @@ public class StorageWriteApiWriter implements Runnable {
     private final StorageWriteApiBase streamWriter;
     private final TableName tableName;
     private final List<Object[]> records;
+
     private final String streamName;
 
     /**
@@ -46,6 +47,10 @@ public class StorageWriteApiWriter implements Runnable {
 
     @Override
     public void run() {
+        if(records.size() == 0) {
+            logger.debug("There are no records, skipping...");
+            return;
+        }
         logger.debug("Putting {} records into {} stream", records.size(), streamName);
         streamWriter.initializeAndWriteRecords(tableName, records, streamName);
     }
@@ -99,6 +104,7 @@ public class StorageWriteApiWriter implements Runnable {
 
             return new JSONObject(result);
         }
+
 
         /**
          * @return Builds Storage write API writer which would do actual data ingestion using streams
