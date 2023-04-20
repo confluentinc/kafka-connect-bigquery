@@ -13,13 +13,13 @@ import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.USE_STO
 
 public class StorageWriteApiValidator extends MultiPropertyValidator<BigQuerySinkConfig> {
 
-    public static String upsertNotSupportedError = "Upsert mode is not supported with Storage Write API." +
+    public static final String upsertNotSupportedError = "Upsert mode is not supported with Storage Write API." +
             " Either disable Upsert mode or disable Storage Write API";
-    public static String legacyBatchNotSupportedError = "Legacy Batch mode is not supported with Storage Write API." +
+    public static final String legacyBatchNotSupportedError = "Legacy Batch mode is not supported with Storage Write API." +
             " Either disable Legacy Batch mode or disable Storage Write API";
-    public static String newBatchNotSupportedError = "Storage Write Api Batch load is supported only when useStorageWriteApi is " +
+    public static final String newBatchNotSupportedError = "Storage Write Api Batch load is supported only when useStorageWriteApi is " +
             "enabled. Either disable batch mode or enable Storage Write API";
-    public static String deleteNotSupportedError = "Delete mode is not supported with Storage Write API. Either disable Delete mode " +
+    public static final String deleteNotSupportedError = "Delete mode is not supported with Storage Write API. Either disable Delete mode " +
             "or disable Storage Write API";
     private static final Collection<String> DEPENDENTS = Collections.unmodifiableCollection(Arrays.asList(
             UPSERT_ENABLED_CONFIG, DELETE_ENABLED_CONFIG, ENABLE_BATCH_CONFIG
