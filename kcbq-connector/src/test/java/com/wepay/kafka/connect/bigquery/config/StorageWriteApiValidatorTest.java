@@ -11,20 +11,14 @@ import org.junit.Test;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-
+import static com.wepay.kafka.connect.bigquery.config.StorageWriteApiValidator.legacyBatchNotSupportedError;
+import static com.wepay.kafka.connect.bigquery.config.StorageWriteApiValidator.upsertNotSupportedError;
+import static com.wepay.kafka.connect.bigquery.config.StorageWriteApiValidator.deleteNotSupportedError;
+import static com.wepay.kafka.connect.bigquery.config.StorageWriteApiValidator.newBatchNotSupportedError;
 import java.util.Collections;
 import java.util.Optional;
 
 public class StorageWriteApiValidatorTest {
-
-    String upsertNotSupportedError = "Upsert mode is not supported with Storage Write API." +
-            " Either disable Upsert mode or disable Storage Write API";
-    String legacyBatchNotSupportedError = "Legacy Batch mode is not supported with Storage Write API." +
-            " Either disable Legacy Batch mode or disable Storage Write API";
-    String newBatchNotSupportedError = "Storage Write Api Batch load is supported only when useStorageWriteApi is " +
-            "enabled. Either disable batch mode or enable Storage Write API";
-    String deleteNotSupportedError = "Delete mode is not supported with Storage Write API. Either disable Delete mode " +
-            "or disable Storage Write API";
 
     @Test
     public void testNoStorageWriteApiEnabled() {

@@ -13,6 +13,14 @@ import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.USE_STO
 
 public class StorageWriteApiValidator extends MultiPropertyValidator<BigQuerySinkConfig> {
 
+    public static String upsertNotSupportedError = "Upsert mode is not supported with Storage Write API." +
+            " Either disable Upsert mode or disable Storage Write API";
+    public static String legacyBatchNotSupportedError = "Legacy Batch mode is not supported with Storage Write API." +
+            " Either disable Legacy Batch mode or disable Storage Write API";
+    public static String newBatchNotSupportedError = "Storage Write Api Batch load is supported only when useStorageWriteApi is " +
+            "enabled. Either disable batch mode or enable Storage Write API";
+    public static String deleteNotSupportedError = "Delete mode is not supported with Storage Write API. Either disable Delete mode " +
+            "or disable Storage Write API";
     private static final Collection<String> DEPENDENTS = Collections.unmodifiableCollection(Arrays.asList(
             UPSERT_ENABLED_CONFIG, DELETE_ENABLED_CONFIG, ENABLE_BATCH_CONFIG
     ));
@@ -34,25 +42,17 @@ public class StorageWriteApiValidator extends MultiPropertyValidator<BigQuerySin
     protected Optional<String> doValidate(BigQuerySinkConfig config) {
         if (!config.getBoolean(USE_STORAGE_WRITE_API_CONFIG)) {
             if (config.getBoolean(ENABLE_BATCH_MODE_CONFIG)) {
-                return Optional.of("Storage Write Api Batch load is supported only when "
-                        + USE_STORAGE_WRITE_API_CONFIG + " is enabled. Either disable batch mode or enable Storage Write" +
-                        " API");
+                return Optional.of(newBatchNotSupportedError);
             }
             //No legacy modes validation needed if not using new api
             return Optional.empty();
         }
         if (config.getBoolean(UPSERT_ENABLED_CONFIG)) {
-            return Optional.of(
-                    "Upsert mode is not supported with Storage Write API." +
-                            " Either disable Upsert mode or disable Storage Write API");
+            return Optional.of(upsertNotSupportedError);
         } else if (config.getBoolean(DELETE_ENABLED_CONFIG)) {
-            return Optional.of(
-                    "Delete mode is not supported with Storage Write API." +
-                            " Either disable Delete mode or disable Storage Write API");
+            return Optional.of(deleteNotSupportedError);
         } else if (!config.getList(ENABLE_BATCH_CONFIG).isEmpty()) {
-            return Optional.of(
-                    "Legacy Batch mode is not supported with Storage Write API." +
-                            " Either disable Legacy Batch mode or disable Storage Write API");
+            return Optional.of(legacyBatchNotSupportedError);
         }
         return Optional.empty();
     }
