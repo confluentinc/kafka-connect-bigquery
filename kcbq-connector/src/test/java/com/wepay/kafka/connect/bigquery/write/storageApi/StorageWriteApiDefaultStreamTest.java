@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 public class StorageWriteApiDefaultStreamTest {
@@ -146,14 +145,6 @@ public class StorageWriteApiDefaultStreamTest {
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
-    public void testDefaultStreamMalformedRequestError() throws Exception {
-        when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(null);
-        when(mockedResponse.get()).thenReturn(malformedError);
-
-        verifyException(malformedrequestExpectedException);
-    }
-
-    @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testDefaultStreamNonRetriableException() throws Exception {
         InterruptedException exception = new InterruptedException("I am non-retriable error");
 
@@ -172,15 +163,6 @@ public class StorageWriteApiDefaultStreamTest {
 
         verifyException(retriableExpectedException);
     }
-
-    @Test(expected = BigQueryStorageWriteApiConnectException.class)
-    public void testDefaultStreamMalformedRequestException() throws Exception {
-        when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(null);
-        when(mockedResponse.get()).thenThrow(appendSerializationException);
-
-        verifyException(malformedrequestExpectedException);
-    }
-
 
     @Test
     public void testDefaultStreamMalformedRequestExceptionAllToDLQ() throws Exception {
@@ -219,15 +201,14 @@ public class StorageWriteApiDefaultStreamTest {
     }
 
     private void verifyDLQ(List<Object[]> rows) {
-        ArgumentCaptor<Set<SinkRecord>> captorRecord = ArgumentCaptor.forClass(Set.class);
-        ArgumentCaptor<Exception> captorException = ArgumentCaptor.forClass(Exception.class);
+        ArgumentCaptor<Map<SinkRecord,Throwable>> captorRecord = ArgumentCaptor.forClass(Map.class);
 
         defaultStream.appendRows(mockedTableName, rows, null);
 
         verify(mockedErrantRecordHandler, times(1))
-                .sendRecordsToDLQ(captorRecord.capture(), captorException.capture());
-        Assert.assertTrue(captorRecord.getValue().contains(mockedSinkRecord));
-        Assert.assertEquals(malformedrequestExpectedException, captorException.getValue().getMessage());
+                .sendRecordsToDLQ(captorRecord.capture());
+        Assert.assertTrue(captorRecord.getValue().containsKey(mockedSinkRecord));
+        Assert.assertTrue(captorRecord.getValue().get(mockedSinkRecord).getMessage().equals("f0 field is unknown"));
         Assert.assertEquals(1, captorRecord.getValue().size());
     }
 }

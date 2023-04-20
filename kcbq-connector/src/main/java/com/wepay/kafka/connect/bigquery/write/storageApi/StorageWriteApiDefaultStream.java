@@ -3,7 +3,6 @@ package com.wepay.kafka.connect.bigquery.write.storageApi;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
-import com.google.cloud.bigquery.storage.v1.RowError;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.common.annotations.VisibleForTesting;
@@ -19,7 +18,6 @@ import java.io.IOException;
 
 import java.util.List;
 
-import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -90,12 +88,8 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
      */
     @Override
     public void appendRows(TableName tableName, List<Object[]> rows, String streamName) {
-        JSONArray jsonArr = new JSONArray();
+        JSONArray jsonArr;
         JsonStreamWriter writer = getDefaultStream(tableName.toString());
-
-        for (Object[] item : rows) {
-            jsonArr.put(item[1]);
-        }
 
         logger.debug("Sending {} records to write Api default stream on {} ...", rows.size(), tableName);
         int attempt = 0;
@@ -106,6 +100,10 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
             try {
                 if (attempt > 0) {
                     waitRandomTime();
+                }
+                jsonArr = new JSONArray();
+                for (Object[] item : rows) {
+                    jsonArr.put(item[1]);
                 }
                 logger.trace("Sending records to Storage API writer...");
                 ApiFuture<AppendRowsResponse> response = writer.append(jsonArr);
@@ -119,26 +117,9 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                     Status errorStatus = writeResult.getError();
                     String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, errorStatus.getMessage());
                     if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(errorMessage)) {
-                        List<RowError> rowErrors = writeResult.getRowErrorsList();
-                        mostRecentException = new BigQueryStorageWriteApiConnectException(tableName.getTable(), rowErrors);
-                        if (getErrantRecordHandler().getErrantRecordReporter() != null) {
-                            //Routes to DLQ
-                            List<Object[]> filteredRecords = sendBadRecordsToDlqAndFilterGood(rows, convertToMap(rowErrors), mostRecentException);
-                            if (filteredRecords.isEmpty()) {
-                                logger.info("All records have been sent to Dlq.");
-                                return;
-                            } else {
-                                rows = filteredRecords;
-                                logger.debug("Sending {} filtered records to bigquery again", rows.size());
-                                jsonArr = new JSONArray();
-                                for (Object[] item : rows) {
-                                    jsonArr.put(item[1]);
-                                }
-                            }
-                        } else {
-                            // Fail if no DLQ
-                            logger.warn("DLQ is not configured!");
-                            throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), rowErrors);
+                        rows = mayBeHandleDlqRoutingAndFilterRecords(rows, convertToMap(writeResult.getRowErrorsList()), tableName.getTable());
+                        if (rows.isEmpty()) {
+                            return;
                         }
                     } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(errorStatus.getMessage())) {
                         // Fail on non-retriable error
@@ -158,26 +139,9 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 String message = e.getMessage();
                 String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, message);
                 if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(message)) {
-                    Map<Integer, String> errorMap = getRowErrorMapping(e);
-                    mostRecentException = new BigQueryStorageWriteApiConnectException(tableName.getTable(), errorMap);
-                    if (getErrantRecordHandler().getErrantRecordReporter() != null) {
-                        //Routes to DLQ
-                        List<Object[]> filteredRecords = sendBadRecordsToDlqAndFilterGood(rows, errorMap, mostRecentException);
-                        if (filteredRecords.isEmpty()) {
-                            logger.info("All records have been sent to Dlq.");
-                            return;
-                        } else {
-                            rows = filteredRecords;
-                            logger.debug("Sending {} filtered records to bigquery again", rows.size());
-                            jsonArr = new JSONArray();
-                            for (Object[] item : rows) {
-                                jsonArr.put(item[1]);
-                            }
-                        }
-                    } else {
-                        // Fail if no DLQ
-                        logger.warn("DLQ is not configured!");
-                        throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), errorMap);
+                    rows = mayBeHandleDlqRoutingAndFilterRecords(rows, getRowErrorMapping(e), tableName.getTable());
+                    if (rows.isEmpty()) {
+                        return;
                     }
                 } else if (BigQueryStorageWriteApiErrorResponses.isTableMissing(message) && !tableCreationAttempted && getAutoCreateTables()) {
                     logger.info("Attempting to create table {} ...", tableName);
@@ -200,6 +164,5 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 String.format("Exceeded %s attempts to write to table %s ", (retry + additionalRetriesForTableCreation), tableName),
                 mostRecentException);
     }
-
 
 }
