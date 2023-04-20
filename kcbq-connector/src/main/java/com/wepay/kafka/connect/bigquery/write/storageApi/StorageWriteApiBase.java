@@ -24,7 +24,7 @@ import java.util.HashMap;
  */
 public abstract class StorageWriteApiBase {
 
-    Logger logger = LoggerFactory.getLogger(StorageWriteApiBase.class);
+    private static final Logger logger = LoggerFactory.getLogger(StorageWriteApiBase.class);
     private final ErrantRecordHandler errantRecordHandler;
     private BigQueryWriteClient writeClient;
     protected final int retry;
