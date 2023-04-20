@@ -10,6 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.rpc.Status;
 import com.wepay.kafka.connect.bigquery.ErrantRecordHandler;
 import com.wepay.kafka.connect.bigquery.SchemaManager;
+
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiErrorResponses;
 import com.wepay.kafka.connect.bigquery.utils.TableNameUtils;
@@ -38,6 +39,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                                         ErrantRecordHandler errantRecordHandler,
                                         SchemaManager schemaManager) {
         super(retry, retryWait, writeSettings, autoCreateTables, errantRecordHandler, schemaManager);
+
     }
 
     @Override
@@ -123,9 +125,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
      */
     @Override
     public void appendRows(TableName tableName, List<Object[]> rows, String streamName) {
-        JSONArray jsonArr = new JSONArray();
-
-        rows.forEach(item -> jsonArr.put(item[1]));
+        JSONArray jsonArr;
 
         logger.debug("Sending {} records to write Api default stream on {} ...", rows.size(), tableName);
         int attempt = 0;
@@ -137,6 +137,10 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
             try {
                 if (attempt > 0) {
                     waitRandomTime(additionalWait);
+                }
+                jsonArr = new JSONArray();
+                for (Object[] item : rows) {
+                    jsonArr.put(item[1]);
                 }
                 logger.trace("Sending records to Storage API writer...");
                 JsonStreamWriter writer = getDefaultStream(tableName, rows);
@@ -158,10 +162,11 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 } else if (writeResult.hasError()) {
                     Status errorStatus = writeResult.getError();
                     String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, errorStatus.getMessage());
-                    if (BigQueryStorageWriteApiErrorResponses.isMalformedErrorCode(errorStatus.getCode())) {
-                        // Fail on data error
-                        throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), writeResult.getRowErrorsList());
-                        //TODO: DLQ handling
+                    if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(errorMessage)) {
+                        rows = mayBeHandleDlqRoutingAndFilterRecords(rows, convertToMap(writeResult.getRowErrorsList()), tableName.getTable());
+                        if (rows.isEmpty()) {
+                            return;
+                        }
                     } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(errorStatus.getMessage())) {
                         // Fail on non-retriable error
                         logger.error(errorMessage);
@@ -192,9 +197,10 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                         logger.info("Schema update completed {} ...", tableName);
                     }
                 } else if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(message)) {
-                    // Fail on data error
-                    throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), getRowErrorMapping(e));
-                    //TODO: DLQ handling
+                    rows = mayBeHandleDlqRoutingAndFilterRecords(rows, getRowErrorMapping(e), tableName.getTable());
+                    if (rows.isEmpty()) {
+                        return;
+                    }
                 } else if (BigQueryStorageWriteApiErrorResponses.isStreamClosed(errorMessage)) {
                     // Streams can get autoclosed if there occurs any issues, we should delete the cached stream
                     // so that a new one gets created on retry.
