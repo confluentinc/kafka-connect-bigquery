@@ -24,6 +24,7 @@ import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doNothing;
@@ -34,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
 public class StorageWriteApiDefaultStreamTest {
@@ -189,6 +191,14 @@ public class StorageWriteApiDefaultStreamTest {
         when(mockedResponse.get()).thenThrow(exception);
 
         verifyException(expectedException);
+    }
+
+    @Test
+    public void testShutdown() {
+        defaultStream.tableToStream = new ConcurrentHashMap<>();
+        defaultStream.tableToStream.put("testTable", mockedStreamWriter);
+        defaultStream.preShutdown();
+        verify(mockedStreamWriter, times(1)).close();
     }
 
     private void verifyException(String expectedException) {
