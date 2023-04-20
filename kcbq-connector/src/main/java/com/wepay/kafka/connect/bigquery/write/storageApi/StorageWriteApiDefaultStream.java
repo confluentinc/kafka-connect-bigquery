@@ -15,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-
 import java.util.List;
 
 import java.util.concurrent.ConcurrentMap;
@@ -55,32 +54,8 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
         }
     }
 
-    @Override
-    public void preShutdown() {
-        logger.info("Closing all writer for default stream on all tables");
-        tableToStream.keySet().forEach(this::closeAndDelete);
-        logger.info("Closed all writer for default stream on all tables");
-    }
-
-    /**
-     * Either gets called when shutting down the task or when we receive exception that the stream
-     * is actually closed on Google side. This will close and remove the stream from our cache.
-     * @param tableName The table name for which stream has to be removed.
-     */
-    private void closeAndDelete(String tableName) {
-        logger.debug("Closing stream on table {}", tableName);
-        if(tableToStream.containsKey(tableName)) {
-            synchronized (tableToStream) {
-                tableToStream.get(tableName).close();
-                tableToStream.remove(tableName);
-            }
-            logger.debug("Closed stream on table {}", tableName);
-        }
-    }
-
     /**
      * Open a default stream on table if not already present
-     *
      * @param tableName The tablename on which stream has to be opened
      * @return JSONStreamWriter which would be used to write data to bigquery table
      */
@@ -126,7 +101,6 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
 
     /**
      * Calls AppendRows and handles exception if the ingestion fails
-     *
      * @param tableName  The table to write data to
      * @param rows       List of records in <{@link org.apache.kafka.connect.sink.SinkRecord}, {@link org.json.JSONObject}>
      *                   format. JSONObjects would be sent to api. SinkRecords are requireed for DLQ routing
@@ -154,8 +128,8 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 logger.trace("Sending records to Storage API writer...");
                 ApiFuture<AppendRowsResponse> response = writer.append(jsonArr);
                 AppendRowsResponse writeResult = response.get();
-
                 logger.trace("Received response from Storage API writer...");
+
                 if (writeResult.hasUpdatedSchema()) {
                     logger.warn("Sent records schema does not match with table schema, will attempt to update schema");
                     //TODO: Update schema attempt Once
@@ -210,5 +184,4 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 String.format("Exceeded %s attempts to write to table %s ", (retry + additionalRetriesForTableCreation), tableName),
                 mostRecentException);
     }
-
 }
