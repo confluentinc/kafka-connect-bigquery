@@ -10,6 +10,7 @@ import com.google.cloud.bigquery.storage.v1.Exceptions;
 import com.google.cloud.bigquery.storage.v1.TableSchema;
 import com.google.rpc.Status;
 import com.wepay.kafka.connect.bigquery.ErrantRecordHandler;
+import com.wepay.kafka.connect.bigquery.SchemaManager;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import io.grpc.StatusRuntimeException;
 import org.apache.kafka.connect.data.Schema;
@@ -94,16 +95,17 @@ public class StorageWriteApiDefaultStreamTest {
                     .fromCode(io.grpc.Status.Code.NOT_FOUND)
                     .withDescription("Not found: table. Table is deleted")
     ));
+    SchemaManager mockedSchemaManager = mock(SchemaManager.class);
 
     @Before
     public void setUp() throws Exception {
         errorMapping.put(0, "f0 field is unknown");
         defaultStream.tableToStream = new ConcurrentHashMap<>();
         defaultStream.tableToStream.put("testTable", mockedStreamWriter);
+        defaultStream.schemaManager = mockedSchemaManager;
         doReturn(mockedStreamWriter).when(defaultStream).getDefaultStream(any(), any());
         when(mockedStreamWriter.append(ArgumentMatchers.any())).thenReturn(mockedResponse);
-        doNothing().when(defaultStream).attemptSchemaUpdate(any());
-        doNothing().when(defaultStream).attemptTableCreation(any());
+        doNothing().when(defaultStream).attemptTableOperation(any(), any());
         when(defaultStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
         when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(mockedErrantReporter);
         when(defaultStream.getAutoCreateTables()).thenReturn(true);
@@ -165,7 +167,7 @@ public class StorageWriteApiDefaultStreamTest {
         defaultStream.appendRows(mockedTableName, testRows, null);
 
         verify(defaultStream, times(1))
-                .attemptSchemaUpdate(any());
+                .attemptTableOperation(any(), any());
 
     }
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
@@ -208,7 +210,7 @@ public class StorageWriteApiDefaultStreamTest {
         when(defaultStream.getAutoCreateTables()).thenReturn(true);
 
         verifyException(expectedException);
-        verify(defaultStream, times(1)).attemptTableCreation(any());
+        verify(defaultStream, times(1)).attemptTableOperation(any(), any());
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
@@ -218,7 +220,7 @@ public class StorageWriteApiDefaultStreamTest {
 
         defaultStream.appendRows(mockedTableName, testRows, null);
         verify(defaultStream, times(1))
-                .attemptSchemaUpdate(any());
+                .attemptTableOperation(any(), any());
 
     }
 

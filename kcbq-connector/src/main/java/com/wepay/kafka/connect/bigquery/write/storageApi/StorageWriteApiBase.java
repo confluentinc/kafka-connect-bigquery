@@ -1,6 +1,7 @@
 package com.wepay.kafka.connect.bigquery.write.storageApi;
 
 import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.TableName;
@@ -29,7 +30,7 @@ public abstract class StorageWriteApiBase {
 
     private static final Logger logger = LoggerFactory.getLogger(StorageWriteApiBase.class);
     private final ErrantRecordHandler errantRecordHandler;
-    private final SchemaManager schemaManager;
+    protected SchemaManager schemaManager;
     private BigQueryWriteClient writeClient;
     protected final int retry;
     protected final long retryWait;
@@ -139,13 +140,14 @@ public abstract class StorageWriteApiBase {
 
     /**
      * Attempts to create table
-     * @param retryHandler Plain java object which handles retries on table creation
+     * @param retryHandler Plain java object which handles retries on table operation
+     * @param tableOperation lambda of the table operation to perform
      */
-    protected void attemptTableCreation(RetryHandler retryHandler) {
+    protected void attemptTableOperation(RetryHandler retryHandler, TableOperation tableOperation) {
         try {
             if (!retryHandler.isTableCreationOrUpdateAttempted()) {
                 retryHandler.setTableCreationOrUpdateAttempted(true);
-                schemaManager.createTable(retryHandler.getTableId(), retryHandler.getRecords());
+                tableOperation.performOperation(retryHandler.getTableId(), retryHandler.getRecords());
                 // Table takes time to be available for after creation
                 retryHandler.setAdditionalRetriesAndWait();
             } else {
@@ -154,26 +156,6 @@ public abstract class StorageWriteApiBase {
         } catch (BigQueryException exception) {
             throw new BigQueryStorageWriteApiConnectException(
                     "Failed to create table " + retryHandler.getTableId(), exception);
-        }
-    }
-
-    /**
-     * Attempts to update table schema
-     * @param retryHandler Plain java object which handles retries on table schema update
-     */
-    protected void attemptSchemaUpdate(RetryHandler retryHandler) {
-        try {
-            if (!retryHandler.isTableCreationOrUpdateAttempted()) {
-                retryHandler.setTableCreationOrUpdateAttempted(true);
-                schemaManager.updateSchema(retryHandler.getTableId(), retryHandler.getRecords());
-                // Table takes time to be available for after creation
-                retryHandler.setAdditionalRetriesAndWait();
-            } else {
-                logger.info("Skipping multiple schema update attempts");
-            }
-        } catch (BigQueryException exception) {
-            throw new BigQueryStorageWriteApiConnectException(
-                    "Failed to update table schema for: " + retryHandler.getTableId(), exception);
         }
     }
 
@@ -248,4 +230,8 @@ public abstract class StorageWriteApiBase {
             throw new BigQueryStorageWriteApiConnectException(tableName, errorMap);
         }
     }
+}
+
+interface TableOperation {
+    void performOperation(TableId tableId, List<SinkRecord> records);
 }

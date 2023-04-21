@@ -1,6 +1,7 @@
 package com.wepay.kafka.connect.bigquery.write.storageApi;
 
 import com.google.api.core.ApiFuture;
+import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.TableName;
@@ -12,6 +13,7 @@ import com.wepay.kafka.connect.bigquery.SchemaManager;
 
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiErrorResponses;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.json.JSONArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,7 +85,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                             e.getMessage());
                     retryHandler.setMostRecentException(new BigQueryStorageWriteApiConnectException(baseErrorMessage, e));
                     if (BigQueryStorageWriteApiErrorResponses.isTableMissing(e.getMessage()) && getAutoCreateTables()) {
-                        attemptTableCreation(retryHandler);
+                        attemptTableOperation(retryHandler, schemaManager::createTable);
                     } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(e.getMessage())) {
                         throw retryHandler.getMostRecentException();
                     }
@@ -126,7 +128,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
 
                 if (writeResult.hasUpdatedSchema()) {
                     logger.warn("Sent records schema does not match with table schema, will attempt to update schema");
-                    attemptSchemaUpdate(retryHandler);
+                    attemptTableOperation(retryHandler, schemaManager::updateSchema);
                 } else if (writeResult.hasError()) {
                     Status errorStatus = writeResult.getError();
                     String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, errorStatus.getMessage());
@@ -156,7 +158,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(message)
                         && BigQueryStorageWriteApiErrorResponses.hasInvalidSchema(getRowErrorMapping(e).values())) {
                     logger.warn("Sent records schema does not match with table schema, will attempt to update schema");
-                    attemptSchemaUpdate(retryHandler);
+                    attemptTableOperation(retryHandler, schemaManager::updateSchema);
                 } else if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(message)) {
                     rows = mayBeHandleDlqRoutingAndFilterRecords(rows, getRowErrorMapping(e), tableName.getTable());
                     if (rows.isEmpty()) {
@@ -167,7 +169,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                     // so that a new one gets created on retry.
                     closeAndDelete(tableName.toString());
                 } else if (BigQueryStorageWriteApiErrorResponses.isTableMissing(message) && getAutoCreateTables()) {
-                    attemptTableCreation(retryHandler);
+                    attemptTableOperation(retryHandler, schemaManager::createTable);
                 } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(message)) {
                     // Fail on non-retriable error
                     throw retryHandler.getMostRecentException();
