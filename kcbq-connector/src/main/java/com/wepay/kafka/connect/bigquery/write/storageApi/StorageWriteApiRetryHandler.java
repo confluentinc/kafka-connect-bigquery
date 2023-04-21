@@ -14,8 +14,8 @@ import java.util.Random;
 /**
  * A POJO to handle retries by the Storage Write Api
  */
-public class RetryHandler {
-    private static final Logger logger = LoggerFactory.getLogger(RetryHandler.class);
+public class StorageWriteApiRetryHandler {
+    private static final Logger logger = LoggerFactory.getLogger(StorageWriteApiRetryHandler.class);
     private boolean tableCreationOrUpdateAttempted;
     private int additionalRetries;
     private int additionalWait;
@@ -29,7 +29,7 @@ public class RetryHandler {
     private int userConfiguredRetry;
     private long userConfiguredRetryWait;
 
-    public RetryHandler(TableName table, List<SinkRecord> records, int retry, long retryWait) {
+    public StorageWriteApiRetryHandler(TableName table, List<SinkRecord> records, int retry, long retryWait) {
         tableCreationOrUpdateAttempted = false;
         additionalRetries = 0;
         additionalWait = 0;

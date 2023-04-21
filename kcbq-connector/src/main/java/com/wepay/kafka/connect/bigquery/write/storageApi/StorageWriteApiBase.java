@@ -143,7 +143,7 @@ public abstract class StorageWriteApiBase {
      * @param retryHandler Plain java object which handles retries on table operation
      * @param tableOperation lambda of the table operation to perform
      */
-    protected void attemptTableOperation(RetryHandler retryHandler, TableOperation tableOperation) {
+    protected void attemptTableOperation(StorageWriteApiRetryHandler retryHandler, TableOperation tableOperation) {
         try {
             if (!retryHandler.isTableCreationOrUpdateAttempted()) {
                 retryHandler.setTableCreationOrUpdateAttempted(true);

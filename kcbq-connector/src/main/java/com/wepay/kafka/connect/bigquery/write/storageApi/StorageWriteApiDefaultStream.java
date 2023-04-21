@@ -1,7 +1,6 @@
 package com.wepay.kafka.connect.bigquery.write.storageApi;
 
 import com.google.api.core.ApiFuture;
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.TableName;
@@ -13,7 +12,6 @@ import com.wepay.kafka.connect.bigquery.SchemaManager;
 
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiErrorResponses;
-import org.apache.kafka.connect.sink.SinkRecord;
 import org.json.JSONArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,7 +72,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
     JsonStreamWriter getDefaultStream(TableName table, List<Object[]> rows) {
         String tableName = table.toString();
         return tableToStream.computeIfAbsent(tableName, t -> {
-            RetryHandler retryHandler = new RetryHandler(table, getSinkRecords(rows), retry, retryWait);
+            StorageWriteApiRetryHandler retryHandler = new StorageWriteApiRetryHandler(table, getSinkRecords(rows), retry, retryWait);
             do {
                 try {
                     return JsonStreamWriter.newBuilder(t, getWriteClient()).build();
@@ -111,7 +109,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
     @Override
     public void appendRows(TableName tableName, List<Object[]> rows, String streamName) {
         JSONArray jsonArr;
-        RetryHandler retryHandler = new RetryHandler(tableName, getSinkRecords(rows), retry, retryWait);
+        StorageWriteApiRetryHandler retryHandler = new StorageWriteApiRetryHandler(tableName, getSinkRecords(rows), retry, retryWait);
         logger.debug("Sending {} records to write Api default stream on {} ...", rows.size(), tableName);
 
         do {
