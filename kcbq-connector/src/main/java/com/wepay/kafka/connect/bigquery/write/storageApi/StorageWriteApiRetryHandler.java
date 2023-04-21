@@ -1,5 +1,6 @@
 package com.wepay.kafka.connect.bigquery.write.storageApi;
 
+import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
@@ -100,4 +101,28 @@ public class StorageWriteApiRetryHandler {
             return false;
         }
     }
+
+    /**
+     * Attempts to create table
+     * @param tableOperation lambda of the table operation to perform
+     */
+    public void attemptTableOperation(TableOperation tableOperation) {
+        try {
+            if (!isTableCreationOrUpdateAttempted()) {
+                setTableCreationOrUpdateAttempted(true);
+                tableOperation.performOperation(getTableId(), getRecords());
+                // Table takes time to be available for after creation
+                setAdditionalRetriesAndWait();
+            } else {
+                logger.info("Skipping multiple table creation attempts");
+            }
+        } catch (BigQueryException exception) {
+            throw new BigQueryStorageWriteApiConnectException(
+                    "Failed to create table " + getTableId(), exception);
+        }
+    }
+}
+
+interface TableOperation {
+    void performOperation(TableId tableId, List<SinkRecord> records);
 }

@@ -1,7 +1,5 @@
 package com.wepay.kafka.connect.bigquery.write.storageApi;
 
-import com.google.cloud.bigquery.BigQueryException;
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.TableName;
@@ -139,27 +137,6 @@ public abstract class StorageWriteApiBase {
     }
 
     /**
-     * Attempts to create table
-     * @param retryHandler Plain java object which handles retries on table operation
-     * @param tableOperation lambda of the table operation to perform
-     */
-    protected void attemptTableOperation(StorageWriteApiRetryHandler retryHandler, TableOperation tableOperation) {
-        try {
-            if (!retryHandler.isTableCreationOrUpdateAttempted()) {
-                retryHandler.setTableCreationOrUpdateAttempted(true);
-                tableOperation.performOperation(retryHandler.getTableId(), retryHandler.getRecords());
-                // Table takes time to be available for after creation
-                retryHandler.setAdditionalRetriesAndWait();
-            } else {
-                logger.info("Skipping multiple table creation attempts");
-            }
-        } catch (BigQueryException exception) {
-            throw new BigQueryStorageWriteApiConnectException(
-                    "Failed to create table " + retryHandler.getTableId(), exception);
-        }
-    }
-
-    /**
      * @param rows Rows of <SinkRecord, JSONObject > format
      * @return Returns list of all SinkRecords
      */
@@ -232,6 +209,3 @@ public abstract class StorageWriteApiBase {
     }
 }
 
-interface TableOperation {
-    void performOperation(TableId tableId, List<SinkRecord> records);
-}

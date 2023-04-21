@@ -105,7 +105,8 @@ public class StorageWriteApiDefaultStreamTest {
         defaultStream.schemaManager = mockedSchemaManager;
         doReturn(mockedStreamWriter).when(defaultStream).getDefaultStream(any(), any());
         when(mockedStreamWriter.append(ArgumentMatchers.any())).thenReturn(mockedResponse);
-        doNothing().when(defaultStream).attemptTableOperation(any(), any());
+        doReturn(true).when(mockedSchemaManager).createTable(any(), any());
+        doNothing().when(mockedSchemaManager).updateSchema(any(), any());
         when(defaultStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
         when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(mockedErrantReporter);
         when(defaultStream.getAutoCreateTables()).thenReturn(true);
@@ -160,14 +161,13 @@ public class StorageWriteApiDefaultStreamTest {
         verifyDLQ(testMultiRows);
     }
 
-    @Test(expected = BigQueryStorageWriteApiConnectException.class)
+    @Test
     public void testHasSchemaUpdates() throws Exception {
-        when(mockedResponse.get()).thenReturn(schemaError);
+        when(mockedResponse.get()).thenReturn(schemaError).thenReturn(successResponse);
 
         defaultStream.appendRows(mockedTableName, testRows, null);
 
-        verify(defaultStream, times(1))
-                .attemptTableOperation(any(), any());
+        verify(mockedSchemaManager, times(1)).updateSchema(any(), any());
 
     }
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
@@ -202,25 +202,21 @@ public class StorageWriteApiDefaultStreamTest {
         verifyDLQ(testMultiRows);
     }
 
-    @Test(expected = BigQueryStorageWriteApiConnectException.class)
+    @Test
     public void testDefaultStreamTableMissingException() throws Exception {
-        String expectedException = "Exceeded 0 attempts to write to table "
-                + mockedTableName.toString() + " ";
-        when(mockedResponse.get()).thenThrow(tableMissingException);
+        when(mockedResponse.get()).thenThrow(tableMissingException).thenReturn(successResponse);
         when(defaultStream.getAutoCreateTables()).thenReturn(true);
-
-        verifyException(expectedException);
-        verify(defaultStream, times(1)).attemptTableOperation(any(), any());
+        defaultStream.appendRows(mockedTableName, testRows, null);
+        verify(mockedSchemaManager, times(1)).createTable(any(), any());
     }
 
-    @Test(expected = BigQueryStorageWriteApiConnectException.class)
+    @Test
     public void testHasSchemaUpdatesException() throws Exception {
         errorMapping.put(0, "JSONObject does not have the required field f1");
-        when(mockedResponse.get()).thenThrow(appendSerializationException);
+        when(mockedResponse.get()).thenThrow(appendSerializationException).thenReturn(successResponse);
 
         defaultStream.appendRows(mockedTableName, testRows, null);
-        verify(defaultStream, times(1))
-                .attemptTableOperation(any(), any());
+        verify(mockedSchemaManager, times(1)).updateSchema(any(), any());
 
     }
 
