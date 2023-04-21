@@ -1,7 +1,6 @@
 package com.wepay.kafka.connect.bigquery.write.storageApi;
 
 import com.google.cloud.bigquery.BigQueryException;
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.TableName;
@@ -152,29 +151,41 @@ public abstract class StorageWriteApiBase {
 
     /**
      * Attempts to create table
-     * @param tableId TableId of the table to be created
-     * @param records List of records to get schema from
+     * @param retryHandler Plain java object which handles retries on table creation
      */
-    protected void attemptTableCreation(TableId tableId, List<SinkRecord> records) {
+    protected void attemptTableCreation(RetryHandler retryHandler) {
         try {
-            schemaManager.createTable(tableId, records);
+            if (!retryHandler.isTableCreationOrUpdateAttempted()) {
+                retryHandler.setTableCreationOrUpdateAttempted(true);
+                schemaManager.createTable(retryHandler.getTableId(), retryHandler.getRecords());
+                // Table takes time to be available for after creation
+                retryHandler.setAdditionalRetriesAndWait();
+            } else {
+                logger.info("Skipping multiple table creation attempts");
+            }
         } catch (BigQueryException exception) {
             throw new BigQueryStorageWriteApiConnectException(
-                    "Failed to create table " + tableId, exception);
+                    "Failed to create table " + retryHandler.getTableId(), exception);
         }
     }
 
     /**
      * Attempts to update table schema
-     * @param tableId TableId of the table where schema is to be updated
-     * @param records List of records to get input schema from
+     * @param retryHandler Plain java object which handles retries on table schema update
      */
-    protected void attemptSchemaUpdate(TableId tableId, List<SinkRecord> records) {
+    protected void attemptSchemaUpdate(RetryHandler retryHandler) {
         try {
-            schemaManager.updateSchema(tableId, records);
+            if (!retryHandler.isTableCreationOrUpdateAttempted()) {
+                retryHandler.setTableCreationOrUpdateAttempted(true);
+                schemaManager.updateSchema(retryHandler.getTableId(), retryHandler.getRecords());
+                // Table takes time to be available for after creation
+                retryHandler.setAdditionalRetriesAndWait();
+            } else {
+                logger.info("Skipping multiple schema update attempts");
+            }
         } catch (BigQueryException exception) {
             throw new BigQueryStorageWriteApiConnectException(
-                    "Failed to update table schema for: " + tableId, exception);
+                    "Failed to update table schema for: " + retryHandler.getTableId(), exception);
         }
     }
 

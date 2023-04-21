@@ -31,15 +31,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.times;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
@@ -102,11 +99,13 @@ public class StorageWriteApiDefaultStreamTest {
     @Before
     public void setUp() throws Exception {
         errorMapping.put(0, "f0 field is unknown");
+        defaultStream.tableToStream = new ConcurrentHashMap<>();
+        defaultStream.tableToStream.put("testTable", mockedStreamWriter);
         doReturn(mockedStreamWriter).when(defaultStream).getDefaultStream(any(), any());
         when(mockedStreamWriter.append(ArgumentMatchers.any())).thenReturn(mockedResponse);
         doNothing().when(defaultStream).waitRandomTime(anyInt());
-        doNothing().when(defaultStream).attemptSchemaUpdate(any(), any());
-        doNothing().when(defaultStream).attemptTableCreation(any(), any());
+        doNothing().when(defaultStream).attemptSchemaUpdate(any());
+        doNothing().when(defaultStream).attemptTableCreation(any());
         when(defaultStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
         when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(mockedErrantReporter);
         when(defaultStream.getAutoCreateTables()).thenReturn(true);
@@ -161,14 +160,14 @@ public class StorageWriteApiDefaultStreamTest {
         verifyDLQ(testMultiRows);
     }
 
-    @Test
+    @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testHasSchemaUpdates() throws Exception {
-        when(mockedResponse.get()).thenReturn(schemaError).thenReturn(successResponse);
+        when(mockedResponse.get()).thenReturn(schemaError);
 
         defaultStream.appendRows(mockedTableName, testRows, null);
 
         verify(defaultStream, times(1))
-                .attemptSchemaUpdate(any(), any());
+                .attemptSchemaUpdate(any());
 
     }
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
@@ -204,24 +203,24 @@ public class StorageWriteApiDefaultStreamTest {
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
-    public void testDefaultStreamTableMissingExceptionEventualFail() throws Exception {
-        String expectedException = "Exceeded 30 attempts to write to table "
+    public void testDefaultStreamTableMissingException() throws Exception {
+        String expectedException = "Exceeded 0 attempts to write to table "
                 + mockedTableName.toString() + " ";
         when(mockedResponse.get()).thenThrow(tableMissingException);
         when(defaultStream.getAutoCreateTables()).thenReturn(true);
 
-
         verifyException(expectedException);
+        verify(defaultStream, times(1)).attemptTableCreation(any());
     }
 
-    @Test
+    @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testHasSchemaUpdatesException() throws Exception {
         errorMapping.put(0, "JSONObject does not have the required field f1");
-        when(mockedResponse.get()).thenThrow(appendSerializationException).thenReturn(successResponse);
+        when(mockedResponse.get()).thenThrow(appendSerializationException);
 
         defaultStream.appendRows(mockedTableName, testRows, null);
         verify(defaultStream, times(1))
-                .attemptSchemaUpdate(any(), any());
+                .attemptSchemaUpdate(any());
 
     }
 
@@ -234,19 +233,6 @@ public class StorageWriteApiDefaultStreamTest {
         defaultStream.appendRows(mockedTableName, testRows, null);
 
         verify(mockedStreamWriter, times(1)).close();
-    }
-
-    @Test
-    public void testDefaultStreamTableMissingExceptionEventualSuccess() throws Exception {
-
-        when(mockedResponse.get()).thenThrow(tableMissingException).thenReturn(successResponse);
-        when(defaultStream.getAutoCreateTables()).thenReturn(true);
-
-        defaultStream.appendRows(mockedTableName, testRows, null);
-
-        verify(defaultStream, times(1))
-                .attemptTableCreation(any(), any());
-
     }
 
     @Test
