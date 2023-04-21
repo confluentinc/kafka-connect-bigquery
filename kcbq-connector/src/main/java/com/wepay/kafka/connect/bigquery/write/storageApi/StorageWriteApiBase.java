@@ -186,6 +186,7 @@ public abstract class StorageWriteApiBase {
         return rows.stream()
                 .map(row -> (SinkRecord) row[0])
                 .collect(Collectors.toList());
+    }
 
     protected ErrantRecordHandler getErrantRecordHandler() {
         return this.errantRecordHandler;
@@ -247,6 +248,5 @@ public abstract class StorageWriteApiBase {
             logger.warn("DLQ is not configured!");
             throw new BigQueryStorageWriteApiConnectException(tableName, errorMap);
         }
-
     }
 }
