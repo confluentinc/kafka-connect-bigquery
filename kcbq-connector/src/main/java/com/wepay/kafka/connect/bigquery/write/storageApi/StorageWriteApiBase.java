@@ -36,8 +36,6 @@ public abstract class StorageWriteApiBase {
     private final boolean autoCreateTables;
     private final Random random;
     private final BigQueryWriteSettings writeSettings;
-    static final int ADDITIONAL_RETRIES_TABLE_CREATE_UPDATE = 30;
-    static final int ADDITIONAL_RETRIES_WAIT_TABLE_CREATE_UPDATE = 30000; // 30 sec
 
     /**
      * @param retry               How many retries to make in the event of a retriable error.
@@ -133,16 +131,6 @@ public abstract class StorageWriteApiBase {
             throw new BigQueryStorageWriteApiConnectException(
                     "Exception is not an instance of Exceptions.AppendSerializtionError", exception);
         }
-    }
-
-    /**
-     * Wait at least {@link #retryWait}, with up to an additional 1 second of random jitter.
-     * @param additionalWait Any additional wait on top of user configured wait.
-     *                      This is used while making updates to bigquery table as changes don't reflect immediately.
-     * @throws InterruptedException if interrupted.
-     */
-    protected void waitRandomTime(int additionalWait) throws InterruptedException {
-        Thread.sleep(retryWait + additionalWait + random.nextInt(1000));
     }
 
     protected boolean getAutoCreateTables() {

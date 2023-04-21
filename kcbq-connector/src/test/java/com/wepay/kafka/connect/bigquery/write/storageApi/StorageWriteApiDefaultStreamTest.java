@@ -23,7 +23,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
@@ -103,7 +102,6 @@ public class StorageWriteApiDefaultStreamTest {
         defaultStream.tableToStream.put("testTable", mockedStreamWriter);
         doReturn(mockedStreamWriter).when(defaultStream).getDefaultStream(any(), any());
         when(mockedStreamWriter.append(ArgumentMatchers.any())).thenReturn(mockedResponse);
-        doNothing().when(defaultStream).waitRandomTime(anyInt());
         doNothing().when(defaultStream).attemptSchemaUpdate(any());
         doNothing().when(defaultStream).attemptTableCreation(any());
         when(defaultStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
