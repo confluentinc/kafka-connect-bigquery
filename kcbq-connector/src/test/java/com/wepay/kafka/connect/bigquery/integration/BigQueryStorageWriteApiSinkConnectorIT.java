@@ -181,7 +181,7 @@ public class BigQueryStorageWriteApiSinkConnectorIT extends BaseConnectorIT {
     }
 
     @Test
-    public void testBaseAvrodWithSchema() throws InterruptedException {
+    public void testBaseWithAvroSchema() throws InterruptedException {
         // create topic in Kafka
         final String topic = suffixedTableOrTopic("storage-api-schema-update-append");
         final String table = sanitizedTable(topic);

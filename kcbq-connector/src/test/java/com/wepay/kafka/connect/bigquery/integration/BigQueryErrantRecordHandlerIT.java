@@ -96,6 +96,7 @@ public class BigQueryErrantRecordHandlerIT extends BaseConnectorIT {
     );
 
     List<SchemaAndValue> records = getRecords();
+    //generating invalid records which leads to INVALID_ARGUMENT error on data ingestion
     schemaRegistry.produceRecords(converter, records, topic);
 
     // Check records show up in dlq topic
