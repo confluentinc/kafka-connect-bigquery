@@ -230,6 +230,7 @@ public class BigQuerySinkTask extends SinkTask {
 
     return new String[]{dataset, tableName};
   }
+
   private PartitionedTableId getStorageApiRecordTable(String topic) {
     return topicToPartitionTableId.computeIfAbsent(topic, topicName -> {
       String project = config.getString(BigQuerySinkConfig.PROJECT_CONFIG);
@@ -238,6 +239,7 @@ public class BigQuerySinkTask extends SinkTask {
     });
 
   }
+
   private PartitionedTableId getRecordTable(SinkRecord record) {
     String[] datasetAndtableName = getDataSetAndTableName(record.topic());
     String dataset = datasetAndtableName[0];
