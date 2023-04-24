@@ -53,7 +53,8 @@ public class GcpClientBuilderIT extends BaseConnectorIT {
                 attempts--;
             }
             if(attempts == 0) {
-                logger.error("Created table is not available");
+                throw new AssertionError(
+                        "Created table is not yet available. Re-run test after a few minutes");
             }
         }
     }
