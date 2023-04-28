@@ -29,6 +29,8 @@ public class StorageWriteApiWriter implements Runnable {
     private final List<Object[]> records;
     private final String streamName;
 
+    public static final String DEFAULT= "default";
+
     /**
      *
      * @param tableName The table to write the records to
@@ -109,7 +111,7 @@ public class StorageWriteApiWriter implements Runnable {
          */
         @Override
         public Runnable build() {
-            return new StorageWriteApiWriter(tableName, streamWriter, records, "default");
+            return new StorageWriteApiWriter(tableName, streamWriter, records, DEFAULT);
         }
     }
 }
