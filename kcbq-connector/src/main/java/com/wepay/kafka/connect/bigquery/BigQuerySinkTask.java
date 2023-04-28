@@ -57,6 +57,7 @@ import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiWriter;
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiApplicationStream;
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiBatchApplicationStream;
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageApiBatchModeHandler;
+
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiBase;
 import com.wepay.kafka.connect.bigquery.write.storageApi.BigQueryWriteSettingsBuilder;
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiDefaultStream;
@@ -113,6 +114,7 @@ public class BigQuerySinkTask extends SinkTask {
   private TopicPartitionManager topicPartitionManager;
   private KCBQThreadPoolExecutor executor;
   private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SEC = 30;
+
   private final BigQuery testBigQuery;
   private final Storage testGcs;
   private final SchemaManager testSchemaManager;
@@ -145,6 +147,7 @@ public class BigQuerySinkTask extends SinkTask {
     testSchemaManager = null;
     testStorageWriteApi = null;
     testStorageApiBatchHandler = null;
+
   }
 
   /**
@@ -159,6 +162,7 @@ public class BigQuerySinkTask extends SinkTask {
   public BigQuerySinkTask(BigQuery testBigQuery, SchemaRetriever schemaRetriever, Storage testGcs,
                           SchemaManager testSchemaManager, Map<TableId, Table> testCache,
                           StorageWriteApiBase testStorageWriteApi, StorageApiBatchModeHandler testStorageApiBatchHandler) {
+
     this.testBigQuery = testBigQuery;
     this.schemaRetriever = schemaRetriever;
     this.testGcs = testGcs;
@@ -207,7 +211,6 @@ public class BigQuerySinkTask extends SinkTask {
     flush(offsets);
     return offsets;
   }
-
 
   private PartitionedTableId getStorageApiRecordTable(String topic) {
     return topicToPartitionTableId.computeIfAbsent(topic, topicName -> {
@@ -527,6 +530,7 @@ public class BigQuerySinkTask extends SinkTask {
 
     useStorageApi = config.getBoolean(BigQuerySinkConfig.USE_STORAGE_WRITE_API_CONFIG);
     useStorageApiBatchMode = useStorageApi && config.getBoolean(BigQuerySinkConfig.ENABLE_BATCH_MODE_CONFIG);
+
     retry = config.getInt(BigQuerySinkConfig.BIGQUERY_RETRY_CONFIG);
     retryWait = config.getLong(BigQuerySinkConfig.BIGQUERY_RETRY_WAIT_CONFIG);
     topicToPartitionTableId = new HashMap<>();
