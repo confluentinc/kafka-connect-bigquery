@@ -109,7 +109,7 @@ public class StorageWriteApiWriter implements Runnable {
          */
         @Override
         public Runnable build() {
-            return new StorageWriteApiWriter(tableName, streamWriter, records, null);
+            return new StorageWriteApiWriter(tableName, streamWriter, records, "default");
         }
     }
 }
