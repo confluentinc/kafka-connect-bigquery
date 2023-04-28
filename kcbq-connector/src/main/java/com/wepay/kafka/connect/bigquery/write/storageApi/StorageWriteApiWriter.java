@@ -28,7 +28,6 @@ public class StorageWriteApiWriter implements Runnable {
     private final TableName tableName;
     private final List<Object[]> records;
     private final String streamName;
-
     public static final String DEFAULT= "default";
 
     /**
