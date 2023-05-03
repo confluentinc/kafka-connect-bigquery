@@ -27,14 +27,15 @@ public class StorageWriteApiWriter implements Runnable {
     private final StorageWriteApiBase streamWriter;
     private final TableName tableName;
     private final List<Object[]> records;
-
     private final String streamName;
+    public static final String DEFAULT= "default";
 
     /**
-     * @param tableName    The table to write the records to
+     *
+     * @param tableName The table to write the records to
      * @param streamWriter The stream writer to use - Default, Batch etc
-     * @param records      The records to write
-     * @param streamName   The stream to use while writing data
+     * @param records The records to write
+     * @param streamName The stream to use while writing data
      */
     public StorageWriteApiWriter(TableName tableName, StorageWriteApiBase streamWriter, List<Object[]> records, String streamName) {
 
@@ -46,6 +47,10 @@ public class StorageWriteApiWriter implements Runnable {
 
     @Override
     public void run() {
+        if(records.size() == 0) {
+            logger.debug("There are no records, skipping...");
+            return;
+        }
         logger.debug("Putting {} records into {} stream", records.size(), streamName);
         streamWriter.initializeAndWriteRecords(tableName, records, streamName);
     }
@@ -69,11 +74,11 @@ public class StorageWriteApiWriter implements Runnable {
             this.recordConverter = storageApiRecordConverter;
             this.config = config;
             this.batchModeHandler = batchModeHandler;
+
         }
 
         /**
          * Captures actual record and corresponding JSONObject converted record
-         *
          * @param sinkRecord The actual records
          */
         @Override
@@ -83,7 +88,6 @@ public class StorageWriteApiWriter implements Runnable {
 
         /**
          * Converts SinkRecord to JSONObject to be sent to BQ Streams
-         *
          * @param record which is to be converted
          * @return converted record as JSONObject
          */
@@ -91,7 +95,7 @@ public class StorageWriteApiWriter implements Runnable {
             Map<String, Object> convertedRecord = recordConverter.convertRecord(record, KafkaSchemaRecordType.VALUE);
 
             config.getKafkaDataFieldName().ifPresent(
-                    fieldName -> convertedRecord.put(fieldName, KafkaDataBuilder.buildKafkaDataRecord(record))
+                    fieldName -> convertedRecord.put(fieldName, KafkaDataBuilder.buildKafkaDataRecordStorageApi(record))
             );
 
             config.getKafkaKeyFieldName().ifPresent(fieldName -> {
@@ -111,7 +115,7 @@ public class StorageWriteApiWriter implements Runnable {
          */
         @Override
         public Runnable build() {
-            String streamName = null;
+            String streamName = DEFAULT;
             if (streamWriter instanceof StorageWriteApiBatchApplicationStream) {
                 streamName = batchModeHandler.updateOffsetsOnStream(tableName.toString(), records);
             }

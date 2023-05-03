@@ -5,11 +5,11 @@ import com.google.cloud.bigquery.storage.v1.JsonStreamWriter;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.rpc.Status;
 import com.wepay.kafka.connect.bigquery.ErrantRecordHandler;
 import com.wepay.kafka.connect.bigquery.SchemaManager;
+
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiErrorResponses;
 import com.wepay.kafka.connect.bigquery.utils.TableNameUtils;
@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
     private static final Logger logger = LoggerFactory.getLogger(StorageWriteApiDefaultStream.class);
-    private static final ConcurrentMap<String, JsonStreamWriter> tableToStream = new ConcurrentHashMap<>();
+    ConcurrentMap<String, JsonStreamWriter> tableToStream = new ConcurrentHashMap<>();
 
     public StorageWriteApiDefaultStream(int retry,
                                         long retryWait,
@@ -35,10 +35,16 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                                         ErrantRecordHandler errantRecordHandler,
                                         SchemaManager schemaManager) {
         super(retry, retryWait, writeSettings, autoCreateTables, errantRecordHandler, schemaManager);
+
     }
 
     @Override
     public void shutdown() {
+
+    }
+
+    @Override
+    public void preShutdown() {
         logger.info("Closing all writer for default stream on all tables");
         tableToStream.keySet().forEach(this::closeAndDelete);
         logger.info("Closed all writer for default stream on all tables");
@@ -47,12 +53,11 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
     /**
      * Either gets called when shutting down the task or when we receive exception that the stream
      * is actually closed on Google side. This will close and remove the stream from our cache.
-     *
      * @param tableName The table name for which stream has to be removed.
      */
     private void closeAndDelete(String tableName) {
         logger.debug("Closing stream on table {}", tableName);
-        if (tableToStream.containsKey(tableName)) {
+        if(tableToStream.containsKey(tableName)) {
             synchronized (tableToStream) {
                 tableToStream.get(tableName).close();
                 tableToStream.remove(tableName);
@@ -69,46 +74,32 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
      * @return JSONStreamWriter which would be used to write data to bigquery table
      */
     @VisibleForTesting
-    public JsonStreamWriter getDefaultStream(TableName table, List<Object[]> rows) {
+    JsonStreamWriter getDefaultStream(TableName table, List<Object[]> rows) {
         String tableName = table.toString();
         return tableToStream.computeIfAbsent(tableName, t -> {
-            boolean tableCreationOrUpdateAttempted = false;
-            int additionalRetries = 0;
-            int additionalWait = 0;
-            Exception mostRecentException;
-            int attempt = 0;
+            StorageWriteApiRetryHandler retryHandler = new StorageWriteApiRetryHandler(table, getSinkRecords(rows), retry, retryWait);
             do {
                 try {
-                    if (attempt > 0) {
-                        waitRandomTime(additionalWait);
-                    }
                     return JsonStreamWriter.newBuilder(t, getWriteClient()).build();
                 } catch (Exception e) {
+                    String baseErrorMessage = String.format(
+                            "Failed to create Default stream writer on table %s due to %s",
+                            tableName,
+                            e.getMessage());
+                    retryHandler.setMostRecentException(new BigQueryStorageWriteApiConnectException(baseErrorMessage, e));
                     if (BigQueryStorageWriteApiErrorResponses.isTableMissing(e.getMessage()) && getAutoCreateTables()) {
-                        if (!tableCreationOrUpdateAttempted) {
-                            logger.info("Attempting to create table {} ...", tableName);
-                            tableCreationOrUpdateAttempted = true;
-                            attemptTableCreation(TableNameUtils.tableId(table), getSinkRecords(rows));
-                            // Table takes time to be available for after creation
-                            additionalWait = 30000; // 30 seconds;
-                            additionalRetries = 30;
-                            logger.info("Table creation completed {} ...", tableName);
-                        }
+                        retryHandler.attemptTableOperation(schemaManager::createTable);
                     } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(e.getMessage())) {
-                        logger.error("Failed to create Default stream writer on table {}", tableName);
-                        throw new BigQueryStorageWriteApiConnectException("Failed to create Default stream writer on table " + tableName, e);
+                        throw retryHandler.getMostRecentException();
                     }
-                    logger.warn("Failed to create Default stream writer on table {} due to {}. Retry attempt {}...", tableName, e.getMessage(), attempt);
-                    mostRecentException = e;
-                    attempt++;
+                    logger.warn(baseErrorMessage + " Retry attempt {}...", retryHandler.getAttempt());
                 }
-            } while (attempt < (retry + additionalRetries));
+            } while (retryHandler.mayBeRetry());
             throw new BigQueryStorageWriteApiConnectException(
                     String.format(
                             "Exceeded %s attempts to create Default stream writer on table %s ",
-                            (retry + additionalRetries), tableName
-                    ), mostRecentException);
-
+                            retryHandler.getAttempt(), tableName),
+                    retryHandler.getMostRecentException());
         });
     }
 
@@ -116,7 +107,8 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
      * Calls AppendRows and handles exception if the ingestion fails
      *
      * @param tableName  The table to write data to
-     * @param rows       The records to write
+     * @param rows       List of records in {@link org.apache.kafka.connect.sink.SinkRecord}, {@link org.json.JSONObject}
+     *                   format. JSONObjects would be sent to api. SinkRecords are requireed for DLQ routing
      * @param streamName The stream to use to write table to table. This will be DEFAULT always.
      */
     @Override
@@ -159,7 +151,7 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 } else if (writeResult.hasError()) {
                     Status errorStatus = writeResult.getError();
                     String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, errorStatus.getMessage());
-                    if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(errorStatus.getCode())) {
+                    if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(String.valueOf(errorStatus.getCode()))) {
                         mostRecentException = new BigQueryStorageWriteApiConnectException(tableName.getTable(), writeResult.getRowErrorsList());
                         if (getErrantRecordHandler().getErrantRecordReporter() != null) {
                             //Routes to DLQ
@@ -258,5 +250,4 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 String.format("Exceeded %s attempts to write to table %s ", (retry + additionalRetries), tableName),
                 mostRecentException);
     }
-
 }

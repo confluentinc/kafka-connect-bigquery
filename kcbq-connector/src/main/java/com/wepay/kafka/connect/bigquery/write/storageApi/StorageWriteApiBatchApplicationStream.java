@@ -67,11 +67,16 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
         tableLocks = new ConcurrentHashMap<>();
     }
 
+    @Override
+    public void shutdown() {
+
+    }
+
     /**
      * Takes care of resource cleanup
      */
     @Override
-    public void shutdown() {
+    public void preShutdown() {
         logger.debug("Shutting down all streams on all tables as due to task shutdown!!!");
         this.streams.values()
                 .stream().flatMap(item -> item.values().stream())
@@ -133,7 +138,7 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
                 } else if (writeResult.hasError()) {
                     Status errorStatus = writeResult.getError();
                     String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, errorStatus.getMessage());
-                    if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(errorStatus.getCode())) {
+                    if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(String.valueOf(errorStatus.getCode()))) {
                         mostRecentException = new BigQueryStorageWriteApiConnectException(
                                 tableName.getTable(), writeResult.getRowErrorsList());
                         if (getErrantRecordHandler().getErrantRecordReporter() != null) {
@@ -286,10 +291,10 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
     @Override
     public boolean mayBeCreateStream(String tableName, List<Object[]> rows) {
         String streamName = this.currentStreams.get(tableName);
-        boolean result = (streamName == null) ||
+        boolean shouldCreateNewStream = (streamName == null) ||
                 (this.streams.get(tableName).get(streamName) != null
                         && this.streams.get(tableName).get(streamName).canBeMovedToNonActive());
-        if (result) {
+        if (shouldCreateNewStream) {
             logger.trace("Attempting to create new stream on table {}", tableName);
             return this.createStream(tableName, streamName, rows);
         }

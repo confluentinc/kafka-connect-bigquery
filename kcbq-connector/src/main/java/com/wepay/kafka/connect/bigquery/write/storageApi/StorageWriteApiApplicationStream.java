@@ -29,12 +29,19 @@ public abstract class StorageWriteApiApplicationStream extends StorageWriteApiBa
         super(retry, retryWait, writeSettings, autoCreateTables, errantRecordHandler, schemaManager);
     }
 
+    public abstract void preShutdown();
+
     public abstract Map<TopicPartition, OffsetAndMetadata> getCommitableOffsets();
 
     public abstract String updateOffsetsOnStream(String tableName, List<Object[]> rows);
 
     public abstract boolean mayBeCreateStream(String tableName, List<Object[]> rows);
 
+    /**
+     * This returns offset information of records
+     * @param records List of {SinkRecord, JSONObject} items
+     * @return Offsets of the SinkRecords in records list
+     */
     protected Map<TopicPartition, OffsetAndMetadata> getOffsetFromRecords(List<Object[]> records) {
         Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
         records.forEach(record -> {

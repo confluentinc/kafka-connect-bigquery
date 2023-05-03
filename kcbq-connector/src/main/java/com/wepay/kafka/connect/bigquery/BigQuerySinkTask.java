@@ -101,6 +101,7 @@ public class BigQuerySinkTask extends SinkTask {
   private GCSToBQWriter gcsToBQWriter;
   private BigQuerySinkTaskConfig config;
   private SinkRecordConverter recordConverter;
+
   private boolean useMessageTimeDatePartitioning;
   private boolean usePartitionDecorator;
   private boolean sanitize;
@@ -108,18 +109,24 @@ public class BigQuerySinkTask extends SinkTask {
   private MergeBatches mergeBatches;
   private MergeQueries mergeQueries;
   private volatile boolean stopped;
+
   private TopicPartitionManager topicPartitionManager;
+
   private KCBQThreadPoolExecutor executor;
   private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SEC = 30;
+
   private final BigQuery testBigQuery;
   private final Storage testGcs;
   private final SchemaManager testSchemaManager;
+
   private final UUID uuid = UUID.randomUUID();
   private ScheduledExecutorService loadExecutor;
+
   private Map<TableId, Table> cache;
   private Map<String, String> topic2TableMap;
   private int remainingRetries;
   private boolean enableRetries;
+
   private ErrantRecordHandler errantRecordHandler;
   private boolean useStorageApi;
   private StorageWriteApiBase storageApiWriter;
@@ -223,6 +230,7 @@ public class BigQuerySinkTask extends SinkTask {
 
     return new String[]{dataset, tableName};
   }
+
   private PartitionedTableId getStorageApiRecordTable(String topic) {
     return topicToPartitionTableId.computeIfAbsent(topic, topicName -> {
       String project = config.getString(BigQuerySinkConfig.PROJECT_CONFIG);
@@ -231,6 +239,7 @@ public class BigQuerySinkTask extends SinkTask {
     });
 
   }
+
   private PartitionedTableId getRecordTable(SinkRecord record) {
     String[] datasetAndtableName = getDataSetAndTableName(record.topic());
     String dataset = datasetAndtableName[0];

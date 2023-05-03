@@ -19,14 +19,11 @@ import java.util.Collection;
 public class BigQueryStorageWriteApiErrorResponses {
 
     private static final Logger logger = LoggerFactory.getLogger(BigQueryStorageWriteApiErrorResponses.class);
+    private static final int INVALID_ARGUMENT_CODE = 3;
     private static final String PERMISSION_DENIED = "PERMISSION_DENIED";
-
     private static final String NOT_EXIST = "(or it may not exist)";
-
     private static final String NOT_FOUND = "Not found: table";
-
     private static final String TABLE_IS_DELETED = "Table is deleted";
-
     private static final String[] retriableCodes = {Code.INTERNAL.name(), Code.ABORTED.name(), Code.CANCELLED.name()};
 
     /*
@@ -43,9 +40,7 @@ public class BigQueryStorageWriteApiErrorResponses {
     };
 
     private static final String UNKNOWN_FIELD = "JSONObject has fields unknown to BigQuery";
-
     private static final String MISSING_REQUIRED_FIELD = "JSONObject does not have the required field";
-
     private static final String STREAM_CLOSED = "StreamWriterClosedException";
 
     /**
@@ -72,8 +67,8 @@ public class BigQueryStorageWriteApiErrorResponses {
         return Arrays.stream(retriableCodes).anyMatch(errorMessage::contains);
     }
 
-    public static boolean isMalformedRequest(int gRpcErrorCode) {
-        return gRpcErrorCode == Code.INVALID_ARGUMENT_VALUE;
+    public static boolean isMalformedErrorCode(int gRpcErrorCode) {
+        return gRpcErrorCode == INVALID_ARGUMENT_CODE;
     }
 
     /**
@@ -84,6 +79,7 @@ public class BigQueryStorageWriteApiErrorResponses {
      */
     public static boolean isMalformedRequest(String errorMessage) {
         return errorMessage.contains(Code.INVALID_ARGUMENT.name());
+
     }
 
     /**
