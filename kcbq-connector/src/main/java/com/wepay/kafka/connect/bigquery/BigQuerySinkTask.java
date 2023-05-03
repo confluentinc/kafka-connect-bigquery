@@ -38,10 +38,7 @@ import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
 import com.wepay.kafka.connect.bigquery.exception.ConversionConnectException;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
-import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
-import com.wepay.kafka.connect.bigquery.utils.SinkRecordConverter;
-import com.wepay.kafka.connect.bigquery.utils.TableNameUtils;
-import com.wepay.kafka.connect.bigquery.utils.Version;
+import com.wepay.kafka.connect.bigquery.utils.*;
 import com.wepay.kafka.connect.bigquery.write.batch.GCSBatchTableWriter;
 import com.wepay.kafka.connect.bigquery.write.batch.KCBQThreadPoolExecutor;
 import com.wepay.kafka.connect.bigquery.write.batch.MergeBatches;
@@ -104,6 +101,7 @@ public class BigQuerySinkTask extends SinkTask {
   private GCSToBQWriter gcsToBQWriter;
   private BigQuerySinkTaskConfig config;
   private SinkRecordConverter recordConverter;
+
   private boolean useMessageTimeDatePartitioning;
   private boolean usePartitionDecorator;
   private boolean sanitize;
@@ -111,19 +109,24 @@ public class BigQuerySinkTask extends SinkTask {
   private MergeBatches mergeBatches;
   private MergeQueries mergeQueries;
   private volatile boolean stopped;
+
   private TopicPartitionManager topicPartitionManager;
+
   private KCBQThreadPoolExecutor executor;
   private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SEC = 30;
 
   private final BigQuery testBigQuery;
   private final Storage testGcs;
   private final SchemaManager testSchemaManager;
+
   private final UUID uuid = UUID.randomUUID();
   private ScheduledExecutorService loadExecutor;
+
   private Map<TableId, Table> cache;
   private Map<String, String> topic2TableMap;
   private int remainingRetries;
   private boolean enableRetries;
+
   private ErrantRecordHandler errantRecordHandler;
   private boolean useStorageApi;
   private boolean useStorageApiBatchMode;
@@ -210,6 +213,35 @@ public class BigQuerySinkTask extends SinkTask {
 
     flush(offsets);
     return offsets;
+  }
+
+  private String[] getDataSetAndTableName(String topic) {
+    String tableName;
+    String dataset = config.getString(BigQuerySinkConfig.DEFAULT_DATASET_CONFIG);
+    if (topic2TableMap != null) {
+      tableName = topic2TableMap.getOrDefault(topic, topic);
+    } else {
+      String[] smtReplacement = topic.split(":");
+
+      if (smtReplacement.length == 2) {
+        dataset = smtReplacement[0];
+        tableName = smtReplacement[1];
+      } else if (smtReplacement.length == 1) {
+        tableName = smtReplacement[0];
+      } else {
+        throw new ConnectException(String.format(
+                "Incorrect regex replacement format in topic name '%s'. "
+                        + "SMT replacement should either produce the <dataset>:<tableName> format "
+                        + "or just the <tableName> format.",
+                topic
+        ));
+      }
+      if (sanitize) {
+        tableName = FieldNameSanitizer.sanitizeName(tableName);
+      }
+    }
+
+    return new String[]{dataset, tableName};
   }
 
   private PartitionedTableId getStorageApiRecordTable(String topic) {

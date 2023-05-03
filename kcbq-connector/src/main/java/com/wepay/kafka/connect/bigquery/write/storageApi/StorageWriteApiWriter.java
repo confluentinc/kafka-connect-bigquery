@@ -62,14 +62,20 @@ public class StorageWriteApiWriter implements Runnable {
         private final BigQuerySinkTaskConfig config;
         private final TableName tableName;
         private final StorageWriteApiBase streamWriter;
+
+        private final StorageApiBatchModeHandler batchModeHandler;
+
         public Builder(StorageWriteApiBase streamWriter,
-                                      TableName tableName,
-                                      RecordConverter<Map<String, Object>> storageApiRecordConverter,
-                                      BigQuerySinkTaskConfig config) {
+                       TableName tableName,
+                       RecordConverter<Map<String, Object>> storageApiRecordConverter,
+                       BigQuerySinkTaskConfig config,
+                       StorageApiBatchModeHandler batchModeHandler) {
             this.streamWriter = streamWriter;
             this.tableName = tableName;
             this.recordConverter = storageApiRecordConverter;
             this.config = config;
+            this.batchModeHandler = batchModeHandler;
+
         }
 
         /**
@@ -90,7 +96,7 @@ public class StorageWriteApiWriter implements Runnable {
             Map<String, Object> convertedRecord = recordConverter.convertRecord(record, KafkaSchemaRecordType.VALUE);
 
             config.getKafkaDataFieldName().ifPresent(
-                    fieldName -> convertedRecord.put(fieldName, KafkaDataBuilder.buildKafkaDataRecord(record))
+                    fieldName -> convertedRecord.put(fieldName, KafkaDataBuilder.buildKafkaDataRecordStorageApi(record))
             );
 
             config.getKafkaKeyFieldName().ifPresent(fieldName -> {
@@ -110,7 +116,11 @@ public class StorageWriteApiWriter implements Runnable {
          */
         @Override
         public Runnable build() {
-            return new StorageWriteApiWriter(tableName, streamWriter, records, DEFAULT);
+            String streamName = DEFAULT;
+            if (streamWriter instanceof StorageWriteApiBatchApplicationStream) {
+                streamName = batchModeHandler.updateOffsetsOnStream(tableName.toString(), records);
+            }
+            return new StorageWriteApiWriter(tableName, streamWriter, records, streamName);
         }
     }
 }
