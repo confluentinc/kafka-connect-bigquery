@@ -32,6 +32,9 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.StorageException;
 
+import com.wepay.kafka.connect.bigquery.metrics.MetricsEventPublisher;
+import com.wepay.kafka.connect.bigquery.metrics.events.*;
+import com.wepay.kafka.connect.bigquery.metrics.jmx.BqSinkConnectorMetricsImpl;
 import com.wepay.kafka.connect.bigquery.write.row.GCSToBQWriter;
 
 import org.slf4j.Logger;
@@ -57,6 +60,7 @@ import java.util.stream.Collectors;
  */
 public class GCSToBQLoadRunnable implements Runnable {
   private static final Logger logger = LoggerFactory.getLogger(GCSToBQLoadRunnable.class);
+  private final MetricsEventPublisher metricsEventPublisher;
 
   private final BigQuery bigQuery;
   private final Bucket bucket;
@@ -81,12 +85,13 @@ public class GCSToBQLoadRunnable implements Runnable {
    * @param bigQuery the {@link BigQuery} instance.
    * @param bucket the the GCS bucket to read from.
    */
-  public GCSToBQLoadRunnable(BigQuery bigQuery, Bucket bucket) {
+  public GCSToBQLoadRunnable(BigQuery bigQuery, Bucket bucket, MetricsEventPublisher metricsEventPublisher) {
     this.bigQuery = bigQuery;
     this.bucket = bucket;
     this.activeJobs = new HashMap<>();
     this.claimedBlobIds = new HashSet<>();
     this.deletableBlobIds = new HashSet<>();
+    this.metricsEventPublisher = metricsEventPublisher;
   }
 
   /**
@@ -106,10 +111,13 @@ public class GCSToBQLoadRunnable implements Runnable {
     Page<Blob> list = bucket.list();
     logger.trace("Finished GCS bucket list");
 
+    long totalBlobsCount = 0;
+
     for (Blob blob : list.iterateAll()) {
       BlobId blobId = blob.getBlobId();
       TableId table = getTableFromBlob(blob);
       logger.debug("Checking blob bucket={}, name={}, table={} ", blob.getBucket(), blob.getName(), table );
+      totalBlobsCount++;
 
       if (table == null || claimedBlobIds.contains(blobId) || deletableBlobIds.contains(blobId)) {
         // don't do anything if:
@@ -135,6 +143,9 @@ public class GCSToBQLoadRunnable implements Runnable {
     }
 
     logger.debug("Got blobs to upload: {}", tableToURIs);
+    metricsEventPublisher.publishMetricEvent(
+            new StorageBlobsStatusEvent(totalBlobsCount, claimedBlobIds.size(), deletableBlobIds.size())
+    );
     return tableToURIs;
   }
 
@@ -256,6 +267,9 @@ public class GCSToBQLoadRunnable implements Runnable {
       } finally {
         logger.info("GCS To BQ job tally: {} successful jobs, {} failed jobs.",
                     successCount, failureCount);
+        metricsEventPublisher.publishMetricEvent(
+                new LoadJobStatusEvent(activeJobs.size(), successCount, failureCount)
+        );
       }
     }
   }
@@ -301,8 +315,14 @@ public class GCSToBQLoadRunnable implements Runnable {
       logger.info("Successfully deleted {} blobs; failed to delete {} blobs",
                   successfulDeletes,
                   failedDeletes);
+      metricsEventPublisher.publishMetricEvent(
+              new StorageBlobDeleteOperationStatusEvent(successfulDeletes, failedDeletes)
+      );
     } catch (StorageException ex) {
       logger.warn("Storage exception while attempting to delete blobs", ex);
+      metricsEventPublisher.publishMetricEvent(
+              new StorageExceptionCountEvent()
+      );
     }
   }
 
@@ -319,8 +339,14 @@ public class GCSToBQLoadRunnable implements Runnable {
       logger.trace("Loading {} new blobs into BQ", tablesToSourceURIs.size());
       triggerBigQueryLoadJobs(tablesToSourceURIs);
       logger.trace("Finished BQ load run");
+      metricsEventPublisher.publishMetricEvent(
+              new BQLoaderRunStatusEvent(true)
+      );
     } catch (Exception e) {
       logger.error("Uncaught error in BQ loader", e);
+      metricsEventPublisher.publishMetricEvent(
+              new BQLoaderRunStatusEvent(false)
+      );
     }
   }
 }

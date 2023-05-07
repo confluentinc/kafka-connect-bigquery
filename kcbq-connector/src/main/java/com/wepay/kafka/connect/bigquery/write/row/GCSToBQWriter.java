@@ -34,6 +34,8 @@ import com.wepay.kafka.connect.bigquery.SchemaManager;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.exception.GCSConnectException;
 
+import com.wepay.kafka.connect.bigquery.metrics.MetricsEventPublisher;
+import com.wepay.kafka.connect.bigquery.metrics.events.StorageExceptionCountEvent;
 import org.apache.kafka.connect.errors.ConnectException;
 
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -54,6 +56,7 @@ import java.util.SortedMap;
  */
 public class GCSToBQWriter {
   private static final Logger logger = LoggerFactory.getLogger(GCSToBQWriter.class);
+  private final MetricsEventPublisher metricsEventPublisher;
 
   private static Gson gson = new Gson();
 
@@ -86,7 +89,8 @@ public class GCSToBQWriter {
                        SchemaManager schemaManager,
                        int retries,
                        long retryWaitMs,
-                       boolean autoCreateTables) {
+                       boolean autoCreateTables,
+                       MetricsEventPublisher metricsEventPublisher) {
     this.storage = storage;
     this.bigQuery = bigQuery;
     this.schemaManager = schemaManager;
@@ -94,6 +98,7 @@ public class GCSToBQWriter {
     this.retries = retries;
     this.retryWaitMs = retryWaitMs;
     this.autoCreateTables = autoCreateTables;
+    this.metricsEventPublisher = metricsEventPublisher;
   }
 
   /**
@@ -135,6 +140,7 @@ public class GCSToBQWriter {
         success = true;
       } catch (StorageException se) {
         logger.warn("Exceptions occurred for table {}, attempting retry", tableId.getTable());
+        this.metricsEventPublisher.publishMetricEvent(new StorageExceptionCountEvent());
       }
       attemptCount++;
     }
