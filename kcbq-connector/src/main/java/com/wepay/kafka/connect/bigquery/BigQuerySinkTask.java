@@ -207,7 +207,7 @@ public class BigQuerySinkTask extends SinkTask {
       return result;
     } else if(useStorageApiBatchMode) {
       Map<TopicPartition, OffsetAndMetadata> result = batchHandler.getCommitableOffsets();
-      logger.info("Commitable Offsets for storage api batch mode : " + result.toString());
+      logger.debug("Commitable Offsets for storage api batch mode : " + result.toString());
       return result;
     }
 
