@@ -62,7 +62,6 @@ public class StorageWriteApiWriter implements Runnable {
         private final BigQuerySinkTaskConfig config;
         private final TableName tableName;
         private final StorageWriteApiBase streamWriter;
-
         private final StorageApiBatchModeHandler batchModeHandler;
 
         public Builder(StorageWriteApiBase streamWriter,
