@@ -17,13 +17,17 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import java.util.*;
+import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Optional;
 
 public class StorageWriteApiWriterTest {
     Schema keySchema = SchemaBuilder.struct().field("key", Schema.STRING_SCHEMA).build();
@@ -48,9 +52,9 @@ public class StorageWriteApiWriterTest {
         expectedKeys.add("name");
         expectedKeys.add("available_name");
         expectedKeys.add("i_am_kafka_key");
+        expectedKeys.add("i_am_kafka_record_detail");
 
-
-        Mockito.when(mockedConfig.getKafkaDataFieldName()).thenReturn(Optional.empty());
+        Mockito.when(mockedConfig.getKafkaDataFieldName()).thenReturn(Optional.of("i_am_kafka_record_detail"));
         Mockito.when(mockedConfig.getKafkaKeyFieldName()).thenReturn(Optional.of("i_am_kafka_key"));
         Mockito.when(mockedConfig.getBoolean(BigQuerySinkConfig.SANITIZE_FIELD_NAME_CONFIG)).thenReturn(true);
 
@@ -62,10 +66,13 @@ public class StorageWriteApiWriterTest {
         assertEquals(1, records.getValue().size());
 
         JSONObject actual = (JSONObject) records.getValue().get(0)[1];
-        assertEquals(expectedKeys, actual.keySet());
+        assertEquals(expectedKeys,actual.keySet());
 
         String actualKafkaKey = actual.get("i_am_kafka_key").toString();
         assertEquals(expectedKafkaKey, actualKafkaKey);
+
+        JSONObject recordDetails = (JSONObject) actual.get("i_am_kafka_record_detail");
+        assertTrue(recordDetails.get("insertTime") instanceof Long);
     }
 
     @Test

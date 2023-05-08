@@ -40,17 +40,17 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
      * Map of <tableName , <StreamName, {@link ApplicationStream}>>
      * Streams should be accessed in the order of entry, so we need LinkedHashMap here
      */
-    private final ConcurrentMap<String, LinkedHashMap<String, ApplicationStream>> streams;
+    protected ConcurrentMap<String, LinkedHashMap<String, ApplicationStream>> streams;
 
     /**
      * Quick lookup for current open stream by tableName
      */
-    private final ConcurrentMap<String, String> currentStreams;
+    protected ConcurrentMap<String, String> currentStreams;
 
     /**
      * Lock on table names to prevent execution of critical section by multiple threads
      */
-    private final ConcurrentMap<String, Object> tableLocks;
+    protected ConcurrentMap<String, Object> tableLocks;
 
     public StorageWriteApiBatchApplicationStream(
             int retry,
@@ -69,7 +69,7 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
      * Takes care of resource cleanup
      */
     @Override
-    public void shutdown() {
+    public void preShutdown() {
         logger.debug("Shutting down all streams on all tables as due to task shutdown!!!");
         this.streams.values()
                 .stream().flatMap(item -> item.values().stream())
@@ -87,17 +87,17 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
      */
     @Override
     public void appendRows(TableName tableName, List<Object[]> rows, String streamName) {
-        JSONArray jsonArray = new JSONArray();
-        rows.forEach(item -> jsonArray.put(item[1]));
+        JSONArray jsonRecords = new JSONArray();
+        rows.forEach(item -> jsonRecords.put(item[1]));
         ApplicationStream applicationStream = this.streams.get(tableName.toString()).get(streamName);
         try {
-            ApiFuture<AppendRowsResponse> response = applicationStream.writer().append(jsonArray);
-            applicationStream.increaseAppendCallCount();
+            ApiFuture<AppendRowsResponse> response = applicationStream.writer().append(jsonRecords);
+            applicationStream.increaseAppendCall();
             AppendRowsResponse writeResult = response.get();
 
             if (writeResult.hasAppendResult()) {
                 logger.trace("Append call completed successfully on stream {}", applicationStream.getStreamName());
-                applicationStream.increaseCompletedCallsCount();
+                applicationStream.increaseCompletedCalls();
                 commitStreamIfEligible(tableName.toString(), applicationStream.getStreamName());
             } else if (writeResult.hasUpdatedSchema()) {
                 //TODO: Schema Update attempt once
@@ -123,19 +123,21 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
                     synchronized (lock(tableName)) {
                         int i = 0;
                         Set<String> deletableStreams = new HashSet<>();
-                        for (ApplicationStream applicationStream : streamDetails.values()) {
+                        for (Map.Entry<String, ApplicationStream> applicationStreamEntry : streamDetails.entrySet()) {
+                            ApplicationStream applicationStream = applicationStreamEntry.getValue();
+                            String streamName = applicationStreamEntry.getKey();
                             if (applicationStream.isInactive()) {
-                                logger.trace("Ignoring inactive stream {} at index {}...", applicationStream.getStreamName(), i);
+                                logger.trace("Ignoring inactive stream {} at index {}...", streamName, i);
                             } else if (applicationStream.isReadyForOffsetCommit()) {
-                                logger.trace("Pulling offsets from committed stream {} at index {} ...", applicationStream.getStreamName(), i);
+                                logger.trace("Pulling offsets from committed stream {} at index {} ...", streamName, i);
                                 offsetsReadyForCommits.putAll(applicationStream.getOffsetInformation());
                                 applicationStream.markInactive();
                             } else {
-                                logger.trace("Ignoring all streams as stream {} at index {} is not yet committed", applicationStream.getStreamName(), i);
+                                logger.trace("Ignoring all streams as stream {} at index {} is not yet committed", streamName, i);
                                 // We move sequentially for offset commit, until current offsets are ready, we cannot commit next.
                                 break;
                             }
-                            deletableStreams.add(applicationStream.getStreamName());
+                            deletableStreams.add(streamName);
                             i++;
                         }
                         deletableStreams.forEach(streamDetails::remove);
@@ -159,10 +161,10 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
     @Override
     public boolean mayBeCreateStream(String tableName, List<Object[]> rows) {
         String streamName = this.currentStreams.get(tableName);
-        boolean result = (streamName == null) ||
+        boolean shouldCreateNewStream = (streamName == null) ||
                 (this.streams.get(tableName).get(streamName) != null
-                        && this.streams.get(tableName).get(streamName).canBeMovedToNonActive());
-        if (result) {
+                        && this.streams.get(tableName).get(streamName).canTransitionToNonActive());
+        if (shouldCreateNewStream) {
             logger.trace("Attempting to create new stream on table {}", tableName);
             return this.createStream(tableName, streamName, rows);
         }
