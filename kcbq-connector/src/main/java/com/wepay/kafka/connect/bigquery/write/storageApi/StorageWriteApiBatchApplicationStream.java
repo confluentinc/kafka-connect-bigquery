@@ -261,7 +261,8 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
      */
     @VisibleForTesting
     ApplicationStream createApplicationStream(String tableName, List<Object[]> rows) {
-        StorageWriteApiRetryHandler retryHandler = new StorageWriteApiRetryHandler(TableName.parse(tableName), getSinkRecords(rows), retry, retryWait);
+        StorageWriteApiRetryHandler retryHandler = new StorageWriteApiRetryHandler(
+                TableName.parse(tableName), rows != null ? getSinkRecords(rows) : null, retry, retryWait);
         do {
             try {
                 return new ApplicationStream(tableName, getWriteClient());
