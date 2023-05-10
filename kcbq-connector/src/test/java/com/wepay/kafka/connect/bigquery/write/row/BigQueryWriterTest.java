@@ -47,6 +47,7 @@ import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageApiBatchModeHandler;
+
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiDefaultStream;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;

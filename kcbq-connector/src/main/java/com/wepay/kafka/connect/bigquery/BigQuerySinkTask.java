@@ -54,6 +54,7 @@ import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiWriter;
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiApplicationStream;
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiBatchApplicationStream;
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageApiBatchModeHandler;
+
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiBase;
 import com.wepay.kafka.connect.bigquery.write.storageApi.BigQueryWriteSettingsBuilder;
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiDefaultStream;
@@ -149,6 +150,7 @@ public class BigQuerySinkTask extends SinkTask {
     testSchemaManager = null;
     testStorageWriteApi = null;
     testStorageApiBatchHandler = null;
+
   }
 
   /**
@@ -213,6 +215,13 @@ public class BigQuerySinkTask extends SinkTask {
     return offsets;
   }
 
+  private String[] getDataSetAndTableName(String topic) {
+    String tableName;
+    String dataset = config.getString(BigQuerySinkConfig.DEFAULT_DATASET_CONFIG);
+    if (topic2TableMap != null) {
+      tableName = topic2TableMap.getOrDefault(topic, topic);
+    } else {
+      String[] smtReplacement = topic.split(":");
 
       if (smtReplacement.length == 2) {
         dataset = smtReplacement[0];
@@ -553,6 +562,7 @@ public class BigQuerySinkTask extends SinkTask {
 
     useStorageApi = config.getBoolean(BigQuerySinkConfig.USE_STORAGE_WRITE_API_CONFIG);
     useStorageApiBatchMode = useStorageApi && config.getBoolean(BigQuerySinkConfig.ENABLE_BATCH_MODE_CONFIG);
+
     retry = config.getInt(BigQuerySinkConfig.BIGQUERY_RETRY_CONFIG);
     retryWait = config.getLong(BigQuerySinkConfig.BIGQUERY_RETRY_WAIT_CONFIG);
     topicToPartitionTableId = new HashMap<>();

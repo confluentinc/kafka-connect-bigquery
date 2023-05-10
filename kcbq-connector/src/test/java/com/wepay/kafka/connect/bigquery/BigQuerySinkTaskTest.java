@@ -91,6 +91,7 @@ public class BigQuerySinkTaskTest {
   private static StorageWriteApiDefaultStream mockedStorageWriteApiDefaultStream = mock(StorageWriteApiDefaultStream.class);
   private static StorageApiBatchModeHandler mockedBatchHandler = mock(StorageApiBatchModeHandler.class);
 
+
   @BeforeClass
   public static void initializePropertiesFactory() {
     propertiesFactory = new SinkTaskPropertiesFactory();
@@ -133,6 +134,7 @@ public class BigQuerySinkTaskTest {
 
     BigQuerySinkTask testTask = new BigQuerySinkTask(
         bigQuery, schemaRetriever, storage, schemaManager, cache, mockedStorageWriteApiDefaultStream, mockedBatchHandler);
+
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
 
@@ -168,6 +170,7 @@ public class BigQuerySinkTaskTest {
 
     BigQuerySinkTask testTask = new BigQuerySinkTask(
         bigQuery, schemaRetriever, storage, schemaManager, cache, mockedStorageWriteApiDefaultStream, mockedBatchHandler);
+
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
 
@@ -251,6 +254,7 @@ public class BigQuerySinkTaskTest {
 
     BigQuerySinkTask testTask = new BigQuerySinkTask(
         bigQuery, schemaRetriever, storage, schemaManager, cache, mockedStorageWriteApiDefaultStream, mockedBatchHandler);
+
     testTask.start(properties);
 
     SinkRecord emptyRecord = spoofSinkRecord(topic, simpleSchema, null);
@@ -750,6 +754,7 @@ public class BigQuerySinkTaskTest {
     SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
     BigQuerySinkTask testTask = new BigQuerySinkTask(
         bigQuery, schemaRetriever, storage, schemaManager, cache, mockedStorageWriteApiDefaultStream, mockedBatchHandler);
+
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);
 
@@ -784,6 +789,7 @@ public class BigQuerySinkTaskTest {
 
     BigQuerySinkTask testTask = new BigQuerySinkTask(
             bigQuery, null, storage, null, tableCache, mockedStorageWriteApiDefaultStream, mockedBatchHandler);
+
     SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
     testTask.initialize(sinkTaskContext);
     testTask.start(properties);

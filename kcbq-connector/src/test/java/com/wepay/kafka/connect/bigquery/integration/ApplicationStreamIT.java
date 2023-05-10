@@ -80,7 +80,7 @@ public class ApplicationStreamIT extends BaseConnectorIT {
     public void testMaxCallCount() throws Exception {
         ApplicationStream applicationStream = new ApplicationStream(tableNameStr, client);
         assertEquals(applicationStream.getCurrentState(), StreamState.CREATED);
-        int maxCount = applicationStream.increaseMaxCallsCount();
+        int maxCount = applicationStream.increaseMaxCalls();
         assertEquals(applicationStream.getCurrentState(), StreamState.APPEND);
         assertEquals(1, maxCount);
         applicationStream.closeStream();
@@ -89,9 +89,9 @@ public class ApplicationStreamIT extends BaseConnectorIT {
     @Test
     public void testCanBeMovedToNonActive() throws Exception {
         ApplicationStream applicationStream = new ApplicationStream(tableNameStr, client);
-        assertFalse(applicationStream.canBeMovedToNonActive());
-        applicationStream.increaseMaxCallsCount();
-        assertTrue(applicationStream.canBeMovedToNonActive());
+        assertFalse(applicationStream.canTransitionToNonActive());
+        applicationStream.increaseMaxCalls();
+        assertTrue(applicationStream.canTransitionToNonActive());
         applicationStream.closeStream();
     }
 
@@ -108,7 +108,7 @@ public class ApplicationStreamIT extends BaseConnectorIT {
     @Test
     public void testStreamFinalised() throws Exception {
         ApplicationStream applicationStream = new ApplicationStream(tableNameStr, client);
-        applicationStream.increaseMaxCallsCount();
+        applicationStream.increaseMaxCalls();
         assertEquals(applicationStream.getCurrentState(), StreamState.APPEND);
         applicationStream.finalise();
         assertEquals(applicationStream.getCurrentState(), StreamState.FINALISED);
@@ -118,7 +118,7 @@ public class ApplicationStreamIT extends BaseConnectorIT {
     @Test
     public void testStreamCommitted() throws Exception {
         ApplicationStream applicationStream = new ApplicationStream(tableNameStr, client);
-        applicationStream.increaseMaxCallsCount();
+        applicationStream.increaseMaxCalls();
         applicationStream.finalise();
         assertEquals(applicationStream.getCurrentState(), StreamState.FINALISED);
         applicationStream.commit();
