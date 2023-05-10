@@ -653,7 +653,8 @@ public class BigQuerySinkTask extends SinkTask {
                 writeSettings,
                 autoCreateTables,
                 errantRecordHandler,
-                getSchemaManager()
+                getSchemaManager(),
+                attemptSchemaUpdate
         );
       }
     }
