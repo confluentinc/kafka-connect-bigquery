@@ -55,8 +55,9 @@ public class BigQueryStorageApiSinkTaskTest {
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
     Map<TableId, Table> cache = new HashMap<>();
+    StorageApiBatchModeHandler storageApiBatchHandler = mock(StorageApiBatchModeHandler.class);
     BigQuerySinkTask testTask = new BigQuerySinkTask(
-            bigQuery, schemaRetriever, storage, schemaManager, cache, mockedStorageWriteApiDefaultStream);
+            bigQuery, schemaRetriever, storage, schemaManager, cache, mockedStorageWriteApiDefaultStream, storageApiBatchHandler);
 
     @Before
     public void setUp() {

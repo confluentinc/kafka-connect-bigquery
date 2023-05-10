@@ -38,10 +38,7 @@ import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
 import com.wepay.kafka.connect.bigquery.exception.ConversionConnectException;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
-import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
-import com.wepay.kafka.connect.bigquery.utils.SinkRecordConverter;
-import com.wepay.kafka.connect.bigquery.utils.TableNameUtils;
-import com.wepay.kafka.connect.bigquery.utils.Version;
+import com.wepay.kafka.connect.bigquery.utils.*;
 import com.wepay.kafka.connect.bigquery.write.batch.GCSBatchTableWriter;
 import com.wepay.kafka.connect.bigquery.write.batch.KCBQThreadPoolExecutor;
 import com.wepay.kafka.connect.bigquery.write.batch.MergeBatches;
@@ -166,6 +163,7 @@ public class BigQuerySinkTask extends SinkTask {
   public BigQuerySinkTask(BigQuery testBigQuery, SchemaRetriever schemaRetriever, Storage testGcs,
                           SchemaManager testSchemaManager, Map<TableId, Table> testCache,
                           StorageWriteApiBase testStorageWriteApi, StorageApiBatchModeHandler testStorageApiBatchHandler) {
+
     this.testBigQuery = testBigQuery;
     this.schemaRetriever = schemaRetriever;
     this.testGcs = testGcs;
@@ -207,7 +205,7 @@ public class BigQuerySinkTask extends SinkTask {
       return result;
     } else if(useStorageApiBatchMode) {
       Map<TopicPartition, OffsetAndMetadata> result = batchHandler.getCommitableOffsets();
-      logger.info("Commitable Offsets for storage api batch mode : " + result.toString());
+      logger.debug("Commitable Offsets for storage api batch mode : " + result.toString());
       return result;
     }
 
@@ -245,7 +243,6 @@ public class BigQuerySinkTask extends SinkTask {
     });
 
   }
-
   private PartitionedTableId getRecordTable(SinkRecord record) {
     String[] datasetAndtableName = TableNameUtils.getDataSetAndTableName(config, record.topic());
     String dataset = datasetAndtableName[0];
