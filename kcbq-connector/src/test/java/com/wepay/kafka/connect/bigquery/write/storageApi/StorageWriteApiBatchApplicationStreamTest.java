@@ -133,6 +133,7 @@ public class StorageWriteApiBatchApplicationStreamTest {
         when(mockedStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
         when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(mockedErrantReporter);
         when(mockedApplicationStream1.areAllExpectedCallsCompleted()).thenReturn(true);
+        when(mockedStream.canAttemptSchemaUpdate()).thenReturn(true);
     }
 
     private void initialiseStreams() {
@@ -274,6 +275,17 @@ public class StorageWriteApiBatchApplicationStreamTest {
 
         verify(mockedSchemaManager, times(1)).updateSchema(any(), any());
         verifyAllStreamCalls();
+    }
+
+    @Test(expected = BigQueryStorageWriteApiConnectException.class)
+    public void testHasSchemaUpdatesNotConfigured() throws Exception {
+        initialiseStreams();
+        when(mockedResponse.get()).thenThrow(schemaException);
+        when(mockedStream.canAttemptSchemaUpdate()).thenReturn(false);
+
+        mockedStream.appendRows(mockedTable1, mockedRows, mockedStreamName1);
+
+        verify(mockedSchemaManager, times(0)).updateSchema(any(), any());
     }
 
     @Test

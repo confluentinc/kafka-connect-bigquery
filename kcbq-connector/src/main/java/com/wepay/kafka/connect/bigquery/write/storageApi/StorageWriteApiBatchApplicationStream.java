@@ -143,9 +143,10 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
                 String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, message);
                 retryHandler.setMostRecentException(new BigQueryStorageWriteApiConnectException(errorMessage, e));
 
-                if ((BigQueryStorageWriteApiErrorResponses.isMalformedRequest(message)
+                if (canAttemptSchemaUpdate()
+                        && ((BigQueryStorageWriteApiErrorResponses.isMalformedRequest(message)
                         && BigQueryStorageWriteApiErrorResponses.hasInvalidSchema(getRowErrorMapping(e).values()))
-                        || BigQueryStorageWriteApiErrorResponses.hasInvalidSchema(Collections.singletonList(errorMessage))) {
+                        || BigQueryStorageWriteApiErrorResponses.hasInvalidSchema(Collections.singletonList(errorMessage)))) {
                     logger.warn("Sent records schema does not match with table schema, will attempt to update schema");
                     retryHandler.attemptTableOperation(schemaManager::updateSchema);
                 } else if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(message)) {
