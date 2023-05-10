@@ -10,13 +10,14 @@ import com.wepay.kafka.connect.bigquery.ErrantRecordHandler;
 import com.wepay.kafka.connect.bigquery.SchemaManager;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiErrorResponses;
-import com.wepay.kafka.connect.bigquery.utils.TableNameUtils;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.json.JSONArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,11 +68,6 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
         tableLocks = new ConcurrentHashMap<>();
     }
 
-    @Override
-    public void shutdown() {
-
-    }
-
     /**
      * Takes care of resource cleanup
      */
@@ -94,31 +90,26 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
      */
     @Override
     public void appendRows(TableName tableName, List<Object[]> rows, String streamName) {
-        JSONArray jsonArr = new JSONArray();
-
-        for (Object[] item : rows) {
-            jsonArr.put(item[1]);
-        }
+        JSONArray jsonRecords;
+        StorageWriteApiRetryHandler retryHandler = new StorageWriteApiRetryHandler(tableName, getSinkRecords(rows), retry, retryWait);
         logger.debug("Sending {} records to write Api Application stream {} ...", rows.size(), streamName);
         ApplicationStream applicationStream = this.streams.get(tableName.toString()).get(streamName);
-        int attempt = 0;
-        Exception mostRecentException = null;
-        boolean tableCreationOrUpdateAttempted = false;
-        int additionalRetries = 0;
-        int additionalWait = 0;
+
         do {
             try {
-                if (attempt > 0) {
-                    waitRandomTime(additionalWait);
-                } else if (attempt == 0) {
+                jsonRecords = new JSONArray();
+                for (Object[] item : rows) {
+                    jsonRecords.put(item[1]);
+                }
+                if (retryHandler.getAttempt() == 0) {
                     // We only consider 1 attempt for 1 batch of requests until it is successful or fails completely
-                    applicationStream.increaseAppendCallCount();
+                    applicationStream.increaseAppendCall();
                 }
 
                 logger.trace("Sending records to Storage API writer for batch load...");
-                ApiFuture<AppendRowsResponse> response = applicationStream.writer().append(jsonArr);
-
+                ApiFuture<AppendRowsResponse> response = applicationStream.writer().append(jsonRecords);
                 AppendRowsResponse writeResult = response.get();
+                logger.trace("Received response from Storage API writer batch...");
 
                 if (writeResult.hasAppendResult()) {
                     logger.trace("Append call completed successfully on stream {}", streamName);
@@ -126,118 +117,55 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
                     return;
                 } else if (writeResult.hasUpdatedSchema()) {
                     logger.warn("Sent records schema does not match with table schema, will attempt to update schema");
-                    if (!tableCreationOrUpdateAttempted) {
-                        logger.info("Attempting to update table schema {} ...", tableName);
-                        tableCreationOrUpdateAttempted = true;
-                        attemptSchemaUpdate(TableNameUtils.tableId(tableName), getSinkRecords(rows));
-                        // Table takes time to be available for after schema update
-                        additionalWait = 30000; // 30 seconds
-                        additionalRetries = 30;
-                        logger.info("Schema update completed {} ...", tableName);
-                    }
+                    retryHandler.attemptTableOperation(schemaManager::updateSchema);
                 } else if (writeResult.hasError()) {
                     Status errorStatus = writeResult.getError();
                     String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, errorStatus.getMessage());
-                    if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(String.valueOf(errorStatus.getCode()))) {
-                        mostRecentException = new BigQueryStorageWriteApiConnectException(
-                                tableName.getTable(), writeResult.getRowErrorsList());
-                        if (getErrantRecordHandler().getErrantRecordReporter() != null) {
-                            //Routes to DLQ
-                            List<Object[]> filteredRecords = sendBadRecordsToDlqAndFilterGood(
-                                    rows, convertToMap(writeResult.getRowErrorsList()), mostRecentException);
-                            if (filteredRecords.isEmpty()) {
-                                logger.info("All records have been sent to Dlq.");
-                                updateSuccessAndTryCommit(applicationStream, tableName, streamName);
-                                return;
-                            } else {
-                                rows = filteredRecords;
-                                logger.debug("Sending {} filtered records to bigquery again", rows.size());
-                                jsonArr = new JSONArray();
-                                for (Object[] item : rows) {
-                                    jsonArr.put(item[1]);
-                                }
-                            }
-                        } else {
-                            // Fail if no DLQ
-                            logger.warn("DLQ is not configured!");
-                            throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), writeResult.getRowErrorsList());
+                    retryHandler.setMostRecentException(new BigQueryStorageWriteApiConnectException(errorMessage));
+                    if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(errorMessage)) {
+                        rows = mayBeHandleDlqRoutingAndFilterRecords(rows, convertToMap(writeResult.getRowErrorsList()), tableName.getTable());
+                        if (rows.isEmpty()) {
+                            updateSuccessAndTryCommit(applicationStream, tableName, streamName);
+                            return;
                         }
                     } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(errorStatus.getMessage())) {
                         // Fail on non-retriable error
                         logger.error(errorMessage);
-                        throw new BigQueryStorageWriteApiConnectException(errorMessage);
+                        throw retryHandler.getMostRecentException();
                     }
-                    logger.warn(errorMessage + "Retry attempt {} ...", attempt);
-                    mostRecentException = new BigQueryStorageWriteApiConnectException(errorMessage);
-                    attempt++;
+                    logger.warn(errorMessage + " Retry attempt " + retryHandler.getAttempt());
                 }
+            } catch (BigQueryStorageWriteApiConnectException exception) {
+                throw exception;
             } catch (Exception e) {
                 String message = e.getMessage();
                 String errorMessage = String.format("Failed to write rows on table %s due to %s", tableName, message);
+                retryHandler.setMostRecentException(new BigQueryStorageWriteApiConnectException(errorMessage, e));
+
                 if ((BigQueryStorageWriteApiErrorResponses.isMalformedRequest(message)
                         && BigQueryStorageWriteApiErrorResponses.hasInvalidSchema(getRowErrorMapping(e).values()))
-                        || BigQueryStorageWriteApiErrorResponses.hasInvalidSchema(errorMessage)) {
+                        || BigQueryStorageWriteApiErrorResponses.hasInvalidSchema(Collections.singletonList(errorMessage))) {
                     logger.warn("Sent records schema does not match with table schema, will attempt to update schema");
-                    if (!tableCreationOrUpdateAttempted) {
-                        logger.info("Attempting to update table schema {} ...", tableName);
-                        tableCreationOrUpdateAttempted = true;
-                        attemptSchemaUpdate(TableNameUtils.tableId(tableName), getSinkRecords(rows));
-                        // Table takes time to be available for after schema update
-                        additionalWait = 30000; // 30 seconds
-                        additionalRetries = 30;
-                        logger.info("Schema update completed {} ...", tableName);
-                    }
+                    retryHandler.attemptTableOperation(schemaManager::updateSchema);
                 } else if (BigQueryStorageWriteApiErrorResponses.isMalformedRequest(message)) {
-                    mostRecentException = new BigQueryStorageWriteApiConnectException(tableName.getTable(), getRowErrorMapping(e));
-                    if (getErrantRecordHandler().getErrantRecordReporter() != null) {
-                        //Routes to DLQ
-                        List<Object[]> filteredRecords = sendBadRecordsToDlqAndFilterGood(rows, getRowErrorMapping(e), mostRecentException);
-                        if (filteredRecords.isEmpty()) {
-                            logger.info("All records have been sent to Dlq.");
-                            // When all records are sent to DLQ, we would consider it a success record commit and
-                            // reduce append call count
-                            updateSuccessAndTryCommit(applicationStream, tableName, streamName);
-                            return;
-                        } else {
-                            rows = filteredRecords;
-                            logger.debug("Sending {} filtered records to bigquery again", rows.size());
-                            jsonArr = new JSONArray();
-                            for (Object[] item : rows) {
-                                jsonArr.put(item[1]);
-                            }
-                        }
-                    } else {
-                        // Fail if no DLQ
-                        logger.warn("DLQ is not configured!");
-                        throw new BigQueryStorageWriteApiConnectException(tableName.getTable(), getRowErrorMapping(e));
+                    rows = mayBeHandleDlqRoutingAndFilterRecords(rows, getRowErrorMapping(e), tableName.getTable());
+                    if (rows.isEmpty()) {
+                        updateSuccessAndTryCommit(applicationStream, tableName, streamName);
+                        return;
                     }
                 } else if (BigQueryStorageWriteApiErrorResponses.isTableMissing(message) && getAutoCreateTables()) {
-                    if (!tableCreationOrUpdateAttempted) {
-                        logger.info("Attempting to create table {} ...", tableName);
-                        tableCreationOrUpdateAttempted = true;
-                        attemptTableCreation(TableNameUtils.tableId(tableName), getSinkRecords(rows));
-                        // Table takes time to be available for after creation
-                        additionalWait = 30000; // 30 seconds
-                        additionalRetries = 30;
-                        logger.info("Table creation completed {} ...", tableName);
-                    }
+                    retryHandler.attemptTableOperation(schemaManager::createTable);
                 } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(message)
                         && BigQueryStorageWriteApiErrorResponses.isNonRetriableStorageError(e)) {
                     // Fail on non-retriable error
-                    logger.error(errorMessage);
-                    throw new BigQueryStorageWriteApiConnectException(errorMessage, e);
+                    throw retryHandler.getMostRecentException();
                 }
-                logger.warn(errorMessage + " Retry attempt {} ...", attempt);
-                mostRecentException = e;
-                attempt++;
+                logger.warn(errorMessage + " Retry attempt " + retryHandler.getAttempt());
             }
-        } while (attempt < (retry + additionalRetries));
-
-        if (mostRecentException != null) {
+        } while (retryHandler.mayBeRetry());
             throw new BigQueryStorageWriteApiConnectException(
-                    String.format("Exceeded %s attempts to write to table %s ", (retry + additionalRetries), tableName),
-                    mostRecentException);
-        }
+                    String.format("Exceeded %s attempts to write to table %s ", retryHandler.getAttempt(), tableName),
+                    retryHandler.getMostRecentException());
     }
 
     /**
@@ -293,7 +221,7 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
         String streamName = this.currentStreams.get(tableName);
         boolean shouldCreateNewStream = (streamName == null) ||
                 (this.streams.get(tableName).get(streamName) != null
-                        && this.streams.get(tableName).get(streamName).canBeMovedToNonActive());
+                        && this.streams.get(tableName).get(streamName).canTransitionToNonActive());
         if (shouldCreateNewStream) {
             logger.trace("Attempting to create new stream on table {}", tableName);
             return this.createStream(tableName, streamName, rows);
@@ -331,49 +259,36 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
      */
     @VisibleForTesting
     ApplicationStream createApplicationStream(String tableName, List<Object[]> rows) {
-        boolean tableCreationOrUpdateAttempted = false;
-        int additionalRetries = 0;
-        int additionalWait = 0;
-        Exception mostRecentException;
-        int attempt = 0;
+        StorageWriteApiRetryHandler retryHandler = new StorageWriteApiRetryHandler(TableName.parse(tableName), getSinkRecords(rows), retry, retryWait);
         do {
             try {
-                if (attempt > 0) {
-                    waitRandomTime(additionalWait);
-                }
                 return new ApplicationStream(tableName, getWriteClient());
             } catch (Exception e) {
+                String baseErrorMessage = String.format(
+                        "Failed to create Application stream writer on table %s due to %s",
+                        tableName,
+                        e.getMessage());
+                retryHandler.setMostRecentException(new BigQueryStorageWriteApiConnectException(baseErrorMessage, e));
                 if (BigQueryStorageWriteApiErrorResponses.isTableMissing(e.getMessage()) && getAutoCreateTables()) {
-                    if (!tableCreationOrUpdateAttempted) {
-                        if (rows == null) {
-                            // We reached here as application stream creation is triggered by the scheduler and the
-                            // table does not exist. We do not have records to define the table schema so table creation
-                            // attempt cannot be made. Now we will rely on StorageWriteApiWriter to create table and
-                            // application stream
-                            return null;
-                        }
-                        logger.info("Attempting to create table {} ...", tableName);
-                        tableCreationOrUpdateAttempted = true;
-                        attemptTableCreation(TableNameUtils.tableId(TableName.parse(tableName)), getSinkRecords(rows));
-                        // Table takes time to be available for after creation
-                        additionalWait = 30000; // 30 seconds;
-                        additionalRetries = 30;
-                        logger.info("Table creation attempt completed {} ...", tableName);
+                    if (rows == null) {
+                        // We reached here as application stream creation is triggered by the scheduler and the
+                        // table does not exist. We do not have records to define the table schema so table creation
+                        // attempt cannot be made. Now we will rely on StorageWriteApiWriter to create table and
+                        // application stream
+                        return null;
                     }
+                    retryHandler.attemptTableOperation(schemaManager::createTable);
                 } else if (!BigQueryStorageWriteApiErrorResponses.isRetriableError(e.getMessage())) {
-                    logger.error("Failed to create Application stream on table {}", tableName);
-                    throw new BigQueryStorageWriteApiConnectException("Failed to create Application stream writer on table " + tableName, e);
+                    throw retryHandler.getMostRecentException();
                 }
-                logger.warn("Failed to create Application stream on table {} due to {}. Retry attempt {}...", tableName, e.getMessage(), attempt);
-                mostRecentException = e;
-                attempt++;
+                logger.warn(baseErrorMessage + " Retry attempt {}...", retryHandler.getAttempt());
             }
-        } while (attempt < (retry + additionalRetries));
+        } while (retryHandler.mayBeRetry());
         throw new BigQueryStorageWriteApiConnectException(
                 String.format(
                         "Exceeded %s attempts to create Application stream on table %s ",
-                        (retry + additionalRetries), tableName
-                ), mostRecentException);
+                        retryHandler.getAttempt(), tableName),
+                retryHandler.getMostRecentException());
     }
 
     /**
@@ -462,7 +377,7 @@ public class StorageWriteApiBatchApplicationStream extends StorageWriteApiApplic
     }
 
     private void updateSuccessAndTryCommit(ApplicationStream applicationStream, TableName tableName, String streamName) {
-        applicationStream.increaseCompletedCallsCount();
+        applicationStream.increaseCompletedCalls();
         commitStreamIfEligible(tableName.toString(), streamName);
     }
 

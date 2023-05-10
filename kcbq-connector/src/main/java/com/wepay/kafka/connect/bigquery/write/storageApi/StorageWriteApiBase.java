@@ -1,13 +1,11 @@
 package com.wepay.kafka.connect.bigquery.write.storageApi;
 
-import com.google.cloud.bigquery.BigQueryException;
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
-import com.google.cloud.bigquery.storage.v1.RowError;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.cloud.bigquery.storage.v1.TableName;
 import com.google.cloud.bigquery.storage.v1.Exceptions;
 import com.wepay.kafka.connect.bigquery.SchemaManager;
+import com.google.cloud.bigquery.storage.v1.RowError;
 import com.wepay.kafka.connect.bigquery.ErrantRecordHandler;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -15,8 +13,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Random;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.HashMap;
 
 /**
  * Base class which handles data ingestion to bigquery tables using different kind of streams
@@ -118,7 +121,7 @@ public abstract class StorageWriteApiBase {
      * @return Map of row index to error message detail
      */
     protected Map<Integer, String> getRowErrorMapping(Exception exception) {
-        if (exception.getCause() instanceof Exceptions.AppendSerializtionError) {
+        if(exception.getCause() instanceof Exceptions.AppendSerializtionError) {
             exception = (Exceptions.AppendSerializtionError) exception.getCause();
         }
         if (exception instanceof Exceptions.AppendSerializtionError) {
@@ -129,49 +132,8 @@ public abstract class StorageWriteApiBase {
         }
     }
 
-    /**
-     * Wait at least {@link #retryWait}, with up to an additional 1 second of random jitter.
-     *
-     * @param additionalWait Any additional wait on top of user configured wait.
-     *                       This is used while making updates to bigquery table as changes don't reflect immediately.
-     * @throws InterruptedException if interrupted.
-     */
-    protected void waitRandomTime(int additionalWait) throws InterruptedException {
-        Thread.sleep(retryWait + additionalWait + random.nextInt(1000));
-    }
-
     protected boolean getAutoCreateTables() {
         return this.autoCreateTables;
-    }
-
-    /**
-     * Attempts to create table
-     *
-     * @param tableId TableId of the table to be created
-     * @param records List of records to get schema from
-     */
-    protected void attemptTableCreation(TableId tableId, List<SinkRecord> records) {
-        try {
-            schemaManager.createTable(tableId, records);
-        } catch (BigQueryException exception) {
-            throw new BigQueryStorageWriteApiConnectException(
-                    "Failed to create table " + tableId, exception);
-        }
-    }
-
-    /**
-     * Attempts to update table schema
-     *
-     * @param tableId TableId of the table where schema is to be updated
-     * @param records List of records to get input schema from
-     */
-    protected void attemptSchemaUpdate(TableId tableId, List<SinkRecord> records) {
-        try {
-            schemaManager.updateSchema(tableId, records);
-        } catch (BigQueryException exception) {
-            throw new BigQueryStorageWriteApiConnectException(
-                    "Failed to update table schema for: " + tableId, exception);
-        }
     }
 
     /**
@@ -195,24 +157,24 @@ public abstract class StorageWriteApiBase {
      * @return Returns list of good Sink, JSONObject filtered from input which needs to be retried. Append row does
      * not write partially even if there is a single failure, good data has to be retried
      */
-    protected List<Object[]> sendBadRecordsToDlqAndFilterGood(
+    protected List<Object[]> sendErrantRecordsToDlqAndFilterValidRecords(
             List<Object[]> input,
-            Map<Integer, String> indexToErrorMap,
-            Exception exception) {
+            Map<Integer, String> indexToErrorMap) {
         List<Object[]> filteredRecords = new ArrayList<>();
-        Set<SinkRecord> recordsToDLQ = new TreeSet<>(Comparator.comparing(SinkRecord::kafkaPartition)
-                .thenComparing(SinkRecord::kafkaOffset));
+        Map<SinkRecord, Throwable> recordsToDlq = new LinkedHashMap<>();
 
         for (int i = 0; i < input.size(); i++) {
             if (indexToErrorMap.containsKey(i)) {
-                recordsToDLQ.add((SinkRecord) input.get(i)[0]);
+                SinkRecord inputRecord = (SinkRecord) input.get(i)[0];
+                Throwable error = new Throwable(indexToErrorMap.get(i));
+                recordsToDlq.put(inputRecord, error);
             } else {
                 filteredRecords.add(input.get(i));
             }
         }
 
         if (getErrantRecordHandler().getErrantRecordReporter() != null) {
-            getErrantRecordHandler().sendRecordsToDLQ(recordsToDLQ, exception);
+            getErrantRecordHandler().sendRecordsToDLQ(recordsToDlq);
         }
 
         return filteredRecords;
@@ -230,4 +192,20 @@ public abstract class StorageWriteApiBase {
 
         return errorMap;
     }
+
+    protected List<Object[]> mayBeHandleDlqRoutingAndFilterRecords(
+            List<Object[]> rows,
+            Map<Integer, String> errorMap,
+            String tableName
+    ) {
+        if (getErrantRecordHandler().getErrantRecordReporter() != null) {
+            //Routes to DLQ
+            return sendErrantRecordsToDlqAndFilterValidRecords(rows, errorMap);
+        } else {
+            // Fail if no DLQ
+            logger.warn("DLQ is not configured!");
+            throw new BigQueryStorageWriteApiConnectException(tableName, errorMap);
+        }
+    }
 }
+

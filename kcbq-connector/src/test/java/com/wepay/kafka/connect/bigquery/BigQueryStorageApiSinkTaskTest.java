@@ -10,6 +10,7 @@ import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
+import com.wepay.kafka.connect.bigquery.write.storageApi.StorageApiBatchModeHandler;
 import com.wepay.kafka.connect.bigquery.write.storageApi.StorageWriteApiDefaultStream;
 
 import org.apache.kafka.common.record.TimestampType;
@@ -54,8 +55,9 @@ public class BigQueryStorageApiSinkTaskTest {
     SchemaRetriever schemaRetriever = mock(SchemaRetriever.class);
     SchemaManager schemaManager = mock(SchemaManager.class);
     Map<TableId, Table> cache = new HashMap<>();
+    StorageApiBatchModeHandler storageApiBatchHandler = mock(StorageApiBatchModeHandler.class);
     BigQuerySinkTask testTask = new BigQuerySinkTask(
-            bigQuery, schemaRetriever, storage, schemaManager, cache, mockedStorageWriteApiDefaultStream);
+            bigQuery, schemaRetriever, storage, schemaManager, cache, mockedStorageWriteApiDefaultStream, storageApiBatchHandler);
 
     @Before
     public void setUp() {

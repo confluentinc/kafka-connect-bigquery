@@ -111,8 +111,9 @@ public class BigQueryStorageWriteApiErrorResponsesTest {
 
     @Test
     public void testHasInvalidStorageSchema() {
-        String storageError = "Failed to write records due to SCHEMA_MISMATCH_EXTRA_FIELDS";
-        boolean result = BigQueryStorageWriteApiErrorResponses.hasInvalidSchema(storageError);
+        Collection<String> errors = new ArrayList<>();
+        errors.add("Failed to write records due to SCHEMA_MISMATCH_EXTRA_FIELDS");
+        boolean result = BigQueryStorageWriteApiErrorResponses.hasInvalidSchema(errors);
         assertTrue(result);
     }
 

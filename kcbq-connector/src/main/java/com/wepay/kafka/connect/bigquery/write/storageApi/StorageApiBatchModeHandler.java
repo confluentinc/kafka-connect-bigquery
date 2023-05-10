@@ -41,16 +41,10 @@ public class StorageApiBatchModeHandler {
      * @param tableName Name of tha table in project/dataset/tablename format
      */
     private void createNewStreamForTable(String tableName) {
-        try {
-            if (streamApi.mayBeCreateStream(tableName, null)) {
-                logger.debug("Created new stream for table " + tableName);
-            } else {
-                logger.debug("Not creating new stream for table " + tableName);
-            }
-        } catch (Exception e) {
-            //Stream creation is a scheduled operation. If it fails for any reason we would rely on re-attempt by
-            // scheduler.
-            logger.warn("Stream creation failed for table {} due to {}", tableName, e.getMessage());
+        if (streamApi.mayBeCreateStream(tableName, null)) {
+            logger.debug("Created new stream for table " + tableName);
+        } else {
+            logger.debug("Not creating new stream for table " + tableName);
         }
     }
 

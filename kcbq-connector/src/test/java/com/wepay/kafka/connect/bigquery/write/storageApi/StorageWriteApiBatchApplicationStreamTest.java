@@ -9,6 +9,7 @@ import com.google.cloud.bigquery.storage.v1.TableSchema;
 
 import com.google.protobuf.Descriptors;
 import com.wepay.kafka.connect.bigquery.ErrantRecordHandler;
+import com.wepay.kafka.connect.bigquery.SchemaManager;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import io.grpc.StatusRuntimeException;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -18,6 +19,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.sink.ErrantRecordReporter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.json.JSONObject;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -80,16 +82,35 @@ public class StorageWriteApiBatchApplicationStreamTest {
             errorMapping);
     String malformedExceptionMessage = "Insertion failed at table t1 for following rows:" +
             " \n [row index 0] (Failure reason : f0 field is unknown) ";
+    SchemaManager mockedSchemaManager = mock(SchemaManager.class);
+    AppendRowsResponse badResponse = AppendRowsResponse.newBuilder()
+            .setUpdatedSchema(TableSchema.newBuilder().build())
+            .build();
+    ExecutionException schemaException = new ExecutionException(
+            new Throwable("Destination table schema mismatch due to SCHEMA_MISMATCH_EXTRA_FIELDS"));
+    ExecutionException noTable = new ExecutionException(
+            new Throwable("Destination Table is deleted"));
+    InterruptedException nonRetriableException = new InterruptedException("I am a non-retriable error");
+    List<Object[]> rows = new ArrayList<>();
+    ExecutionException exception = new ExecutionException(new StatusRuntimeException(
+            io.grpc.Status.fromCode(io.grpc.Status.Code.INTERNAL).withDescription("I am an INTERNAL error")
+    ));
+    ExecutionException streamFinalisedException = new ExecutionException(new StatusRuntimeException(
+            io.grpc.Status.fromThrowable(new Throwable())
+                    .withDescription("STREAM_FINALISED")
+    ));
 
     @Before
     public void setup() throws InterruptedException, Descriptors.DescriptorValidationException, IOException {
         mockedStream.tableLocks = new ConcurrentHashMap<>();
         mockedStream.streams = new ConcurrentHashMap<>();
         mockedStream.currentStreams = new ConcurrentHashMap<>();
-
+        mockedStream.schemaManager = mockedSchemaManager;
         errorMapping.put(0, "f0 field is unknown");
         mockedOffsets.put(new TopicPartition("t2", 0), new OffsetAndMetadata(100));
         mockedRows.add(new Object[]{mockedSinkRecord, new JSONObject()});
+        rows.add(new Object[]{mockedSinkRecord, new JSONObject()});
+        rows.add(new Object[]{mockedSinkRecord, new JSONObject()});
 
         doNothing().when(mockedApplicationStream1).closeStream();
         doNothing().when(mockedApplicationStream2).closeStream();
@@ -97,13 +118,12 @@ public class StorageWriteApiBatchApplicationStreamTest {
         doNothing().when(mockedApplicationStream2).markInactive();
         doNothing().when(mockedApplicationStream1).finalise();
         doNothing().when(mockedApplicationStream1).commit();
-        doNothing().when(mockedStream).attemptSchemaUpdate(any(), any());
-        doNothing().when(mockedStream).attemptTableCreation(any(), any());
-        doNothing().when(mockedStream).waitRandomTime(anyInt());
+        doNothing().when(mockedSchemaManager).updateSchema(any(), any());
+        doReturn(true).when(mockedSchemaManager).createTable(any(), any());
 
         when(mockedJsonWriter.append(any())).thenReturn(mockedResponse);
         when(mockedStream.getAutoCreateTables()).thenReturn(true);
-        when(mockedApplicationStream1.canBeMovedToNonActive()).thenReturn(true);
+        when(mockedApplicationStream1.canTransitionToNonActive()).thenReturn(true);
         when(mockedApplicationStream1.isInactive()).thenReturn(true);
         when(mockedApplicationStream2.isInactive()).thenReturn(false);
         when(mockedApplicationStream1.isReadyForOffsetCommit()).thenReturn(false);
@@ -112,6 +132,7 @@ public class StorageWriteApiBatchApplicationStreamTest {
         when(mockedApplicationStream1.writer()).thenReturn(mockedJsonWriter);
         when(mockedStream.getErrantRecordHandler()).thenReturn(mockedErrantRecordHandler);
         when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(mockedErrantReporter);
+        when(mockedApplicationStream1.areAllExpectedCallsCompleted()).thenReturn(true);
     }
 
     private void initialiseStreams() {
@@ -134,7 +155,7 @@ public class StorageWriteApiBatchApplicationStreamTest {
     @Test
     public void testShutdown() {
         initialiseStreams();
-        mockedStream.shutdown();
+        mockedStream.preShutdown();
         verify(mockedApplicationStream1, times(1)).closeStream();
         verify(mockedApplicationStream2, times(1)).closeStream();
     }
@@ -233,160 +254,73 @@ public class StorageWriteApiBatchApplicationStreamTest {
     @Test
     public void testAppendSuccess() throws Exception {
         initialiseStreams();
-
         mockedStream.currentStreams.put(mockedTable1.toString(), "newStream");
         when(mockedApplicationStream1.areAllExpectedCallsCompleted()).thenReturn(true);
         when(mockedResponse.get()).thenReturn(successResponse);
 
         mockedStream.appendRows(mockedTable1, mockedRows, mockedStreamName1);
 
-        verify(mockedApplicationStream1, times(1)).increaseAppendCallCount();
-        verify(mockedApplicationStream1, times(1)).increaseCompletedCallsCount();
-        verify(mockedApplicationStream1, times(1)).areAllExpectedCallsCompleted();
-        verify(mockedApplicationStream1, times(1)).finalise();
-        verify(mockedApplicationStream1, times(1)).commit();
+        verify(mockedApplicationStream1, times(1)).increaseAppendCall();
+        verifyAllStreamCalls();
     }
 
     @Test
     public void testAppendSchemaUpdateEventualSuccess() throws Exception {
         initialiseStreams();
-        AppendRowsResponse badResponse = AppendRowsResponse.newBuilder()
-                .setUpdatedSchema(TableSchema.newBuilder().build())
-                .build();
-        ExecutionException schemaException = new ExecutionException(
-                new Throwable("Destination table schema mismatch due to SCHEMA_MISMATCH_EXTRA_FIELDS"));
-
         mockedStream.currentStreams.put(mockedTable1.toString(), "newStream");
-        when(mockedApplicationStream1.areAllExpectedCallsCompleted()).thenReturn(true);
         when(mockedResponse.get()).thenReturn(badResponse).thenThrow(schemaException).thenReturn(successResponse);
 
         mockedStream.appendRows(mockedTable1, mockedRows, mockedStreamName1);
 
-        verify(mockedStream, times(1)).attemptSchemaUpdate(any(), any());
-        verify(mockedApplicationStream1, times(1)).increaseCompletedCallsCount();
-        verify(mockedApplicationStream1, times(1)).areAllExpectedCallsCompleted();
-        verify(mockedApplicationStream1, times(1)).finalise();
-        verify(mockedApplicationStream1, times(1)).commit();
+        verify(mockedSchemaManager, times(1)).updateSchema(any(), any());
+        verifyAllStreamCalls();
     }
 
     @Test
-    public void testAppendSchemaUpdateEventualFail() throws Exception {
-        initialiseStreams();
-        AppendRowsResponse badResponse = AppendRowsResponse.newBuilder()
-                .setUpdatedSchema(TableSchema.newBuilder().build())
-                .build();
-        ExecutionException schemaException = new ExecutionException(
-                new Throwable("Destination table schema mismatch due to SCHEMA_MISMATCH_EXTRA_FIELDS"));
-
-        when(mockedResponse.get()).thenReturn(badResponse).thenThrow(schemaException);
-
-        verifyException(exceeded30AttemptException);
-
-        verify(mockedStream, times(1)).attemptSchemaUpdate(any(), any());
-        verify(mockedApplicationStream1, times(0)).increaseCompletedCallsCount();
-    }
-
-    @Test
-    public void testAppendTableCreationEventualSuccess() throws Exception {
-        ExecutionException noTable = new ExecutionException(
-                new Throwable("Destination Table is deleted"));
-
+    public void testAppendTableCreation() throws Exception {
         initialiseStreams();
         mockedStream.currentStreams.put(mockedTable1.toString(), "newStream");
-        when(mockedApplicationStream1.areAllExpectedCallsCompleted()).thenReturn(true);
         when(mockedResponse.get()).thenThrow(noTable).thenReturn(successResponse);
 
         mockedStream.appendRows(mockedTable1, mockedRows, mockedStreamName1);
 
-        verify(mockedStream, times(1)).attemptTableCreation(any(), any());
-        verify(mockedApplicationStream1, times(1)).increaseCompletedCallsCount();
-        verify(mockedApplicationStream1, times(1)).areAllExpectedCallsCompleted();
-        verify(mockedApplicationStream1, times(1)).finalise();
-        verify(mockedApplicationStream1, times(1)).commit();
-    }
-
-    @Test
-    public void testAppendTableCreationEventualFail() throws Exception {
-        ExecutionException noTable = new ExecutionException(
-                new Throwable("Destination Table is deleted"));
-
-        initialiseStreams();
-        when(mockedResponse.get()).thenThrow(noTable);
-
-        verifyException(exceeded30AttemptException);
-
-        verify(mockedStream, times(1)).attemptTableCreation(any(), any());
-        verify(mockedApplicationStream1, times(0)).increaseCompletedCallsCount();
+        verify(mockedSchemaManager, times(1)).createTable(any(), any());
+        verifyAllStreamCalls();
     }
 
     @Test
     public void testAppendNonRetriable() throws Exception {
-        InterruptedException nonRetriableException = new InterruptedException("I am a non-retriable error");
-
         initialiseStreams();
         when(mockedResponse.get()).thenThrow(nonRetriableException);
-
         verifyException(baseErrorMessage + "I am a non-retriable error");
     }
 
     @Test
     public void testAppendRetriable() throws Exception {
-        ExecutionException exception = new ExecutionException(new StatusRuntimeException(
-                io.grpc.Status.fromCode(io.grpc.Status.Code.INTERNAL).withDescription("I am an INTERNAL error")
-        ));
-
         initialiseStreams();
         when(mockedResponse.get()).thenThrow(exception);
-
         verifyException(exceeded0AttemptException);
     }
 
     @Test
     public void testAppendStorageNonRetriable() throws Exception {
-        ExecutionException exception = new ExecutionException(new StatusRuntimeException(
-                io.grpc.Status.fromThrowable(new Throwable())
-                        .withDescription("STREAM_FINALISED")
-        ));
-
         initialiseStreams();
-        when(mockedResponse.get()).thenThrow(exception);
-
-        verifyException(baseErrorMessage + exception.getMessage());
+        when(mockedResponse.get()).thenThrow(streamFinalisedException);
+        verifyException(baseErrorMessage + streamFinalisedException.getMessage());
     }
 
     @Test
     public void testSendAllToDLQ() throws Exception {
-        ArgumentCaptor<Set<SinkRecord>> captorRecord = ArgumentCaptor.forClass(Set.class);
-        ArgumentCaptor<Exception> captorException = ArgumentCaptor.forClass(Exception.class);
-
         initialiseStreams();
         when(mockedResponse.get()).thenThrow(badRecordsException);
-
-        mockedStream.appendRows(mockedTable1, mockedRows, mockedStreamName1);
-
-        verify(mockedErrantRecordHandler, times(1))
-                .sendRecordsToDLQ(captorRecord.capture(), captorException.capture());
-        assertTrue(captorRecord.getValue().contains(mockedSinkRecord));
-        assertEquals(malformedExceptionMessage, captorException.getValue().getMessage());
-        verify(mockedApplicationStream1, times(1)).increaseCompletedCallsCount();
+        verifyDLQ(mockedRows);
     }
 
     @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testSendSomeToDLQ() throws Exception {
-        List<Object[]> rows = new ArrayList<>();
-        ArgumentCaptor<Set<SinkRecord>> captorRecord = ArgumentCaptor.forClass(Set.class);
-
         initialiseStreams();
-        rows.add(new Object[]{mockedSinkRecord, new JSONObject()});
-        rows.add(new Object[]{mockedSinkRecord, new JSONObject()});
         when(mockedResponse.get()).thenThrow(badRecordsException).thenReturn(successResponse);
-
-        mockedStream.appendRows(mockedTable1, rows, mockedStreamName1);
-
-        verify(mockedErrantRecordHandler, times(1))
-                .sendRecordsToDLQ(captorRecord.capture(), any());
-        assertTrue(captorRecord.getValue().contains(mockedSinkRecord));
-        verify(mockedApplicationStream1, times(1)).increaseCompletedCallsCount();
+        verifyDLQ(rows);
     }
 
     @Test
@@ -394,7 +328,26 @@ public class StorageWriteApiBatchApplicationStreamTest {
         initialiseStreams();
         when(mockedResponse.get()).thenThrow(badRecordsException);
         when(mockedErrantRecordHandler.getErrantRecordReporter()).thenReturn(null);
-
         verifyException(malformedExceptionMessage);
+    }
+
+    private void verifyDLQ(List<Object[]> rows) {
+        ArgumentCaptor<Map<SinkRecord, Throwable>> captorRecord = ArgumentCaptor.forClass(Map.class);
+
+        mockedStream.appendRows(mockedTable1, rows, mockedStreamName1);
+
+        verify(mockedErrantRecordHandler, times(1))
+                .sendRecordsToDLQ(captorRecord.capture());
+        Assert.assertTrue(captorRecord.getValue().containsKey(mockedSinkRecord));
+        Assert.assertTrue(captorRecord.getValue().get(mockedSinkRecord).getMessage().equals("f0 field is unknown"));
+        Assert.assertEquals(1, captorRecord.getValue().size());
+        verify(mockedApplicationStream1, times(1)).increaseCompletedCalls();
+    }
+
+    private void verifyAllStreamCalls() {
+        verify(mockedApplicationStream1, times(1)).increaseCompletedCalls();
+        verify(mockedApplicationStream1, times(1)).areAllExpectedCallsCompleted();
+        verify(mockedApplicationStream1, times(1)).finalise();
+        verify(mockedApplicationStream1, times(1)).commit();
     }
 }

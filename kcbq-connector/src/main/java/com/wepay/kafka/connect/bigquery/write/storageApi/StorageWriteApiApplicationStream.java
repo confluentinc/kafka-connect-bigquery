@@ -29,8 +29,6 @@ public abstract class StorageWriteApiApplicationStream extends StorageWriteApiBa
         super(retry, retryWait, writeSettings, autoCreateTables, errantRecordHandler, schemaManager);
     }
 
-    public abstract void preShutdown();
-
     public abstract Map<TopicPartition, OffsetAndMetadata> getCommitableOffsets();
 
     public abstract String updateOffsetsOnStream(String tableName, List<Object[]> rows);
