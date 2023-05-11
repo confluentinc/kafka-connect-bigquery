@@ -269,7 +269,7 @@ public class StorageWriteApiBatchApplicationStreamTest {
     public void testAppendSchemaUpdateEventualSuccess() throws Exception {
         initialiseStreams();
         mockedStream.currentStreams.put(mockedTable1.toString(), "newStream");
-        when(mockedResponse.get()).thenReturn(badResponse).thenThrow(schemaException).thenReturn(successResponse);
+        when(mockedResponse.get()).thenThrow(schemaException).thenReturn(successResponse);
 
         mockedStream.appendRows(mockedTable1, mockedRows, mockedStreamName1);
 

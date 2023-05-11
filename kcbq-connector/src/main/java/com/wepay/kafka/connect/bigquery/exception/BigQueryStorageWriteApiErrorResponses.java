@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Util for storage Write API error responses. This new API uses gRPC protocol.
@@ -28,15 +30,14 @@ public class BigQueryStorageWriteApiErrorResponses {
      Below list is taken from :
      https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1#storageerrorcode
      */
-    private static final String[] nonRetriableStreamFailureCodes = {
+    private static final Set<String> nonRetriableStreamFailureCodes = new HashSet<>(Arrays.asList(
             StorageError.StorageErrorCode.STREAM_FINALIZED.name(),
             StorageError.StorageErrorCode.STREAM_NOT_FOUND.name(),
             StorageError.StorageErrorCode.INVALID_STREAM_STATE.name(),
             StorageError.StorageErrorCode.INVALID_STREAM_TYPE.name(),
             StorageError.StorageErrorCode.STORAGE_ERROR_CODE_UNSPECIFIED.name(),
-            StorageError.StorageErrorCode.STREAM_ALREADY_COMMITTED.name(),
-    };
-
+            StorageError.StorageErrorCode.STREAM_ALREADY_COMMITTED.name()
+    ));
     private static final String UNKNOWN_FIELD = "The source object has fields unknown to BigQuery";
     private static final String MISSING_REQUIRED_FIELD = "JSONObject does not have the required field";
     private static final String STREAM_CLOSED = "StreamWriterClosedException";
@@ -120,7 +121,7 @@ public class BigQueryStorageWriteApiErrorResponses {
 
         logger.trace("Storage exception occurred with errorCode {} and errors {} ", errorCode, storageException.getErrors().toString());
 
-        return Arrays.asList(nonRetriableStreamFailureCodes).contains(errorCode);
+        return nonRetriableStreamFailureCodes.contains(errorCode);
     }
 
 }
