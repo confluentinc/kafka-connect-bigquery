@@ -24,7 +24,6 @@ public class BigQueryStorageWriteApiErrorResponses {
     private static final String NOT_FOUND = "Not found: table";
     private static final String TABLE_IS_DELETED = "Table is deleted";
     private static final String[] retriableCodes = {Code.INTERNAL.name(), Code.ABORTED.name(), Code.CANCELLED.name()};
-
     /*
      Below list is taken from :
      https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1#storageerrorcode
@@ -38,7 +37,7 @@ public class BigQueryStorageWriteApiErrorResponses {
             StorageError.StorageErrorCode.STREAM_ALREADY_COMMITTED.name(),
     };
 
-    private static final String UNKNOWN_FIELD = "JSONObject has fields unknown to BigQuery";
+    private static final String UNKNOWN_FIELD = "The source object has fields unknown to BigQuery";
     private static final String MISSING_REQUIRED_FIELD = "JSONObject does not have the required field";
     private static final String STREAM_CLOSED = "StreamWriterClosedException";
 
