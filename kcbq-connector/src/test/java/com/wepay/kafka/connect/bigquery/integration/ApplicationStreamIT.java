@@ -139,8 +139,6 @@ public class ApplicationStreamIT extends BaseConnectorIT {
                 throw new ConnectException("Failed to create table: ", ex);
             else
                 logger.info("Table {} already exist", table);
-        } catch (InterruptedException e) {
-            throw e;
         }
     }
 }
