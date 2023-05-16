@@ -153,7 +153,7 @@ public class BigQueryStorageApiBatchSinkTaskTest {
     }
 
 
-    @Test(expected = RejectedExecutionException.class)
+    @Test(expected = BigQueryStorageWriteApiConnectException.class)
     public void testStop() {
         testTask.stop();
 
