@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Plain JAVA class with all utility methods on Application streams.
@@ -49,7 +50,7 @@ public class ApplicationStream {
      * This is called by builder to capture maximum calls expected to append.
      */
     private final AtomicInteger maxCalls;
-    private final AtomicInteger totalRowsSent;
+    private final AtomicLong totalRowsSent;
     private List<String> committableStreams ;
 
     public ApplicationStream(String tableName, BigQueryWriteClient client) throws Exception {
@@ -59,7 +60,7 @@ public class ApplicationStream {
         this.appendCalls = new AtomicInteger();
         this.maxCalls = new AtomicInteger();
         this.completedCalls = new AtomicInteger();
-        this.totalRowsSent = new AtomicInteger();
+        this.totalRowsSent = new AtomicLong();
         this.committableStreams = new ArrayList<>();
         generateStream();
         currentState = StreamState.CREATED;
