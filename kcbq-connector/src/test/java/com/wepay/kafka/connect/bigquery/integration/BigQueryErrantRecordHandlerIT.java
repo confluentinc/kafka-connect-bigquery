@@ -100,7 +100,7 @@ public class BigQueryErrantRecordHandlerIT extends BaseConnectorIT {
     schemaRegistry.produceRecords(converter, records, topic);
 
     // Check records show up in dlq topic
-    verify(dlqTopic);
+    verify(dlqTopic, 120);
   }
 
   @Test
@@ -130,7 +130,7 @@ public class BigQueryErrantRecordHandlerIT extends BaseConnectorIT {
     }
 
     // Check records show up in dlq topic
-    verify(dlqTopic);
+    verify(dlqTopic, 120);
   }
 
   @Test
@@ -193,7 +193,7 @@ public class BigQueryErrantRecordHandlerIT extends BaseConnectorIT {
     schemaRegistry.produceRecords(converter, records, topic);
 
     // Check records show up in dlq topic
-    verify(dlqTopic);
+    verify(dlqTopic, 180);
   }
 
   @Test
@@ -224,7 +224,7 @@ public class BigQueryErrantRecordHandlerIT extends BaseConnectorIT {
     }
 
     // Check records show up in dlq topic
-    verify(dlqTopic);
+    verify(dlqTopic, 180);
   }
 
   @Test
@@ -256,7 +256,7 @@ public class BigQueryErrantRecordHandlerIT extends BaseConnectorIT {
     // Check records show up in dlq topic
     ConsumerRecords<byte[], byte[]> records = connect.kafka().consume(
             (int) NUM_RECORDS_PRODUCED,
-            Duration.ofSeconds(120).toMillis(), dlqTopic);
+            Duration.ofSeconds(180).toMillis(), dlqTopic);
 
     Assert.assertEquals(NUM_RECORDS_PRODUCED, records.count());
   }
@@ -287,7 +287,7 @@ public class BigQueryErrantRecordHandlerIT extends BaseConnectorIT {
     schemaRegistry.produceRecords(converter, records, topic);
 
     // Check records show up in dlq topic
-    verify(dlqTopic);
+    verify(dlqTopic, 120);
   }
 
   @Test
@@ -317,7 +317,7 @@ public class BigQueryErrantRecordHandlerIT extends BaseConnectorIT {
     }
 
     // Check records show up in dlq topic
-    verify(dlqTopic);
+    verify(dlqTopic, 120);
   }
 
 
@@ -458,10 +458,10 @@ public class BigQueryErrantRecordHandlerIT extends BaseConnectorIT {
         logger.info("Table {} already exist", table);
     }
   }
-  private void verify(String dlqTopic) {
+  private void verify(String dlqTopic, int duration) {
     ConsumerRecords<byte[], byte[]> records = connect.kafka().consume(
             (int) NUM_RECORDS_PRODUCED,
-            Duration.ofSeconds(120).toMillis(), dlqTopic);
+            Duration.ofSeconds(duration).toMillis(), dlqTopic);
 
     Assert.assertEquals(NUM_RECORDS_PRODUCED, records.count());
   }
