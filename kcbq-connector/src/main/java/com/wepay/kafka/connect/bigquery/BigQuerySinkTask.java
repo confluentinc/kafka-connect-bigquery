@@ -39,6 +39,7 @@ import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryStorageWriteApiConnectException;
 import com.wepay.kafka.connect.bigquery.exception.ConversionConnectException;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
+import com.wepay.kafka.connect.bigquery.metrics.jmx.BqSinkConnectorMetricsImpl;
 import com.wepay.kafka.connect.bigquery.utils.*;
 import com.wepay.kafka.connect.bigquery.write.batch.GCSBatchTableWriter;
 import com.wepay.kafka.connect.bigquery.write.batch.KCBQThreadPoolExecutor;
@@ -95,6 +96,7 @@ import static com.wepay.kafka.connect.bigquery.utils.TableNameUtils.intTable;
  */
 public class BigQuerySinkTask extends SinkTask {
   private static final Logger logger = LoggerFactory.getLogger(BigQuerySinkTask.class);
+  private volatile BqSinkConnectorMetricsImpl bqSinkConnectorMetrics;
 
   private AtomicReference<BigQuery> bigQuery;
   private AtomicReference<SchemaManager> schemaManager;
@@ -536,7 +538,8 @@ public class BigQuerySinkTask extends SinkTask {
                          schemaManager,
                          retry,
                          retryWait,
-                         autoCreateTables);
+                         autoCreateTables,
+                         bqSinkConnectorMetrics.getMetricsEventPublisher());
   }
 
   private SinkRecordConverter getConverter(BigQuerySinkTaskConfig config) {
@@ -556,6 +559,15 @@ public class BigQuerySinkTask extends SinkTask {
     logger.trace("task.start()");
     stopped = false;
     config = new BigQuerySinkTaskConfig(properties);
+
+    // register metrics
+    String taskId = String.valueOf(config.getInt(BigQuerySinkTaskConfig.TASK_ID_CONFIG));
+    if (taskId == null || taskId.isEmpty()) {
+      taskId = UUID.randomUUID().toString();
+    }
+    bqSinkConnectorMetrics = new BqSinkConnectorMetricsImpl(taskId);
+    bqSinkConnectorMetrics.register();
+
     autoCreateTables = config.getBoolean(BigQuerySinkConfig.TABLE_CREATE_CONFIG);
     upsertDelete = config.getBoolean(BigQuerySinkConfig.UPSERT_ENABLED_CONFIG)
         || config.getBoolean(BigQuerySinkConfig.DELETE_ENABLED_CONFIG);
@@ -701,7 +713,11 @@ public class BigQuerySinkTask extends SinkTask {
         ));
       }
     }
-    GCSToBQLoadRunnable loadRunnable = new GCSToBQLoadRunnable(getBigQuery(), bucket);
+    GCSToBQLoadRunnable loadRunnable = new GCSToBQLoadRunnable(
+            getBigQuery(),
+            bucket,
+            bqSinkConnectorMetrics.getMetricsEventPublisher()
+    );
 
     int intervalSec = config.getInt(BigQuerySinkConfig.BATCH_LOAD_INTERVAL_SEC_CONFIG);
     loadExecutor.scheduleAtFixedRate(loadRunnable, intervalSec, intervalSec, TimeUnit.SECONDS);
@@ -736,6 +752,9 @@ public class BigQuerySinkTask extends SinkTask {
       stopped = true;
     }
 
+    if (bqSinkConnectorMetrics != null) {
+      bqSinkConnectorMetrics.unregister();
+    }
     logger.trace("task.stop()");
   }
 
