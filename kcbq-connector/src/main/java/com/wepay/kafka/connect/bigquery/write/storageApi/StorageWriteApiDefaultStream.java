@@ -119,6 +119,13 @@ public class StorageWriteApiDefaultStream extends StorageWriteApiBase {
                 for (Object[] item : rows) {
                     jsonArr.put(item[1]);
                 }
+
+                // stream may get closed due to some network issues from bigquery server. handle closed stream gracefully
+                if(!writer.isUserClosed() && writer.isClosed()) {
+                    logger.warn("Write API default stream is already closed. Recreating a new write stream");
+                    closeAndDelete(tableName.toString());
+                    writer = getDefaultStream(tableName, rows);
+                }
                 logger.trace("Sending records to Storage API writer...");
                 JsonStreamWriter writer = getDefaultStream(tableName, rows);
                 ApiFuture<AppendRowsResponse> response = writer.append(jsonArr);
