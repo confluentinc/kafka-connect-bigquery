@@ -1,0 +1,5 @@
+sca-dlh-gcp-elt:
+    description: Supply Chain Analytics
+    repo: https://github.com/TAKEALOT/sca-dlh-elt
+    team: SCA
+    metrics: []
