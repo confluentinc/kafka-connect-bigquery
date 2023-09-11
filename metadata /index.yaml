@@ -1,5 +1,5 @@
-sca-dlh-gcp-elt:
-    description: Supply Chain Analytics
-    repo: https://github.com/TAKEALOT/sca-dlh-elt
-    team: SCA
+kafka-connect-bigquery:
+    description: kafka-connect-bigquery
+    repo: https://github.com/TAKEALOT/kafka-connect-bigquery
+    team: Kafka Connect
     metrics: []
