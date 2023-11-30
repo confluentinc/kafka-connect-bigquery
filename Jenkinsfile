@@ -22,4 +22,6 @@ common {
   nodeLabel = 'docker-oraclejdk8'
   publish = false
   downStreamValidate = false
+  sonarqubeScannerEnable = true
+  sonarqubeQualityCheck = true
 }
