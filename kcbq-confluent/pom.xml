@@ -34,6 +34,12 @@
 
     <properties>
         <main.dir>${project.parent.basedir}</main.dir>
+        <instruction.coverage.threshold>0.55</instruction.coverage.threshold>
+        <branch.coverage.threshold>0.80</branch.coverage.threshold>
+        <method.coverage.threshold>0.60</method.coverage.threshold>
+        <class.coverage.threshold>0.90</class.coverage.threshold>
+        <complexity.coverage.threshold>0.60</complexity.coverage.threshold>
+        <line.coverage.threshold>0.60</line.coverage.threshold>
     </properties>
 
     <dependencies>
@@ -91,10 +97,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
