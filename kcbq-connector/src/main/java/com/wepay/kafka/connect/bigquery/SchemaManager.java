@@ -53,6 +53,7 @@ import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -359,9 +360,10 @@ public class SchemaManager {
     // We add the destination table schema (if it exists) in case of periodic MERGE flushes. This ensures the order
     // of struct fields stays consistent under schema updates.
     Optional.ofNullable(parentTable).map(this::readTableSchema).ifPresent(parentSchema -> {
+      List<String> fieldsToRemove = Stream.of(kafkaKeyFieldName, kafkaDataFieldName).flatMap(Optional::stream).collect(Collectors.toList());
       com.google.cloud.bigquery.Schema parentSchemaWithoutKey = com.google.cloud.bigquery.Schema.of(
         parentSchema.getFields().stream()
-          .filter(f -> !Arrays.asList(BigQuerySinkConfig.KAFKA_KEY_FIELD_NAME_CONFIG, BigQuerySinkConfig.KAFKA_DATA_FIELD_NAME_CONFIG).contains(f.getName()))
+          .filter(f -> !fieldsToRemove.contains(f.getName()))
           .collect(Collectors.toList())
       );
       List<Field> schemaFields = getIntermediateSchemaFields(parentSchemaWithoutKey, schemaRetriever.retrieveKeySchema(records.get(0)));
