@@ -49,8 +49,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -231,13 +233,23 @@ public class SchemaManager {
    * @return whether the table had to be created; if the table already existed, will return false
    */
   public boolean createTable(TableId table, List<SinkRecord> records) {
+    return createTable(table, records, null);
+  }
+
+  /**
+   * Create a new table in BigQuery.
+   * @param table The BigQuery table to create.
+   * @param records The sink records used to determine the schema.
+   * @return whether the table had to be created; if the table already existed, will return false
+   */
+  public boolean createTable(TableId table, List<SinkRecord> records, TableId parentTableId) {
     synchronized (lock(tableCreateLocks, table)) {
       if (schemaCache.containsKey(table)) {
         // Table already exists; noop
         logger.debug("Skipping create of {} as it should already exist or appear very soon", table(table));
         return false;
       }
-      TableInfo tableInfo = getTableInfo(table, records, true);
+      TableInfo tableInfo = getTableInfo(table, records, true, intermediateTables ? parentTableId : null);
       logger.info("Attempting to create {} with schema {}",
           table(table), tableInfo.getDefinition().getSchema());
       try {
@@ -263,7 +275,7 @@ public class SchemaManager {
    */
   public void updateSchema(TableId table, List<SinkRecord> records) {
     synchronized (lock(tableUpdateLocks, table)) {
-      TableInfo tableInfo = getTableInfo(table, records, false);
+      TableInfo tableInfo = getTableInfo(table, records, false, null);
       if (!schemaCache.containsKey(table)) {
         schemaCache.put(table, readTableSchema(table));
       }
@@ -287,11 +299,11 @@ public class SchemaManager {
    * @param createSchema Flag to determine if we are creating a new table schema or updating an existing table schema
    * @return The resulting BigQuery table information
    */
-  private TableInfo getTableInfo(TableId table, List<SinkRecord> records, Boolean createSchema) {
+  private TableInfo getTableInfo(TableId table, List<SinkRecord> records, Boolean createSchema, TableId parentTableId) {
     com.google.cloud.bigquery.Schema proposedSchema;
     String tableDescription;
     try {
-      proposedSchema = getAndValidateProposedSchema(table, records);
+      proposedSchema = getAndValidateProposedSchema(table, records, parentTableId);
       tableDescription = getUnionizedTableDescription(records);
     } catch (BigQueryConnectException exception) {
       throw new BigQueryConnectException("Failed to unionize schemas of records for the table " + table, exception);
@@ -299,12 +311,18 @@ public class SchemaManager {
     return constructTableInfo(table, proposedSchema, tableDescription, createSchema);
   }
 
+
   @VisibleForTesting
   com.google.cloud.bigquery.Schema getAndValidateProposedSchema(
       TableId table, List<SinkRecord> records) {
+    return getAndValidateProposedSchema(table, records, null);
+  }
+
+  com.google.cloud.bigquery.Schema getAndValidateProposedSchema(
+      TableId table, List<SinkRecord> records, TableId parentTable) {
     com.google.cloud.bigquery.Schema result;
     if (allowSchemaUnionization) {
-      List<com.google.cloud.bigquery.Schema> bigQuerySchemas = getSchemasList(table, records);
+      List<com.google.cloud.bigquery.Schema> bigQuerySchemas = getSchemasList(table, records, parentTable);
       result = getUnionizedSchema(bigQuerySchemas);
     } else {
       com.google.cloud.bigquery.Schema existingSchema = readTableSchema(table);
@@ -332,11 +350,23 @@ public class SchemaManager {
    * Returns a list of BigQuery schemas of the specified table and the sink records
    * @param table The BigQuery table's schema to add to the list of schemas
    * @param records The sink records' schemas to add to the list of schemas
+   * @param parentTable The Bigquery destination table's schema to merge into in case of an intermediate table
    * @return List of BigQuery schemas
    */
-  private List<com.google.cloud.bigquery.Schema> getSchemasList(TableId table, List<SinkRecord> records) {
+  private List<com.google.cloud.bigquery.Schema> getSchemasList(TableId table, List<SinkRecord> records, TableId parentTable) {
     List<com.google.cloud.bigquery.Schema> bigQuerySchemas = new ArrayList<>();
     Optional.ofNullable(readTableSchema(table)).ifPresent(bigQuerySchemas::add);
+    // We add the destination table schema (if it exists) in case of periodic MERGE flushes. This ensures the order
+    // of struct fields stays consistent under schema updates.
+    Optional.ofNullable(parentTable).map(this::readTableSchema).ifPresent(parentSchema -> {
+      com.google.cloud.bigquery.Schema parentSchemaWithoutKey = com.google.cloud.bigquery.Schema.of(
+        parentSchema.getFields().stream()
+          .filter(f -> !Arrays.asList(BigQuerySinkConfig.KAFKA_KEY_FIELD_NAME_CONFIG, BigQuerySinkConfig.KAFKA_DATA_FIELD_NAME_CONFIG).contains(f.getName()))
+          .collect(Collectors.toList())
+      );
+      List<Field> schemaFields = getIntermediateSchemaFields(parentSchemaWithoutKey, schemaRetriever.retrieveKeySchema(records.get(0)));
+      bigQuerySchemas.add(com.google.cloud.bigquery.Schema.of(schemaFields));
+    });
     for (SinkRecord record : records) {
       Schema kafkaValueSchema = schemaRetriever.retrieveValueSchema(record);
       if (kafkaValueSchema == null) {

@@ -73,6 +73,8 @@ public class UpsertDeleteBigQueryWriter extends AdaptiveBigQueryWriter {
     try {
       // ... and update the destination table here
       schemaManager.updateSchema(intermediateToDestinationTables.get(tableId.getBaseTableId()), records);
+      // TODO Damit die Reihenfolge passt, hier eher sowas:
+      //schemaManager.updateSchema(intermediateToDestinationTables.get(tableId.getBaseTableId()), newIntermediateTableSchema);
     } catch (BigQueryException exception) {
       throw new BigQueryConnectException(
           "Failed to update destination table schema for: " + tableId.getBaseTableId(), exception);
@@ -82,12 +84,13 @@ public class UpsertDeleteBigQueryWriter extends AdaptiveBigQueryWriter {
   @Override
   protected void attemptTableCreate(TableId tableId, List<SinkRecord> records) {
     // Create the intermediate table here...
-    super.attemptTableCreate(tableId, records);
+    TableId parentTableId = intermediateToDestinationTables.get(tableId);
+    super.attemptTableCreate(tableId, records, parentTableId);
     if (autoCreateTables) {
       try {
         // ... and create or update the destination table here, if it doesn't already exist and auto
         // table creation is enabled
-        schemaManager.createOrUpdateTable(intermediateToDestinationTables.get(tableId), records);
+        schemaManager.createOrUpdateTable(parentTableId, records);
       } catch (BigQueryException exception) {
         throw new BigQueryConnectException(
             "Failed to create table " + tableId, exception);
