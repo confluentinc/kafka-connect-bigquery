@@ -241,16 +241,17 @@ public class SchemaManager {
    * Create a new table in BigQuery.
    * @param table The BigQuery table to create.
    * @param records The sink records used to determine the schema.
+   * @param parentTable The BigQuery destination table to consider in case of schema updates of intermediate tables.
    * @return whether the table had to be created; if the table already existed, will return false
    */
-  public boolean createTable(TableId table, List<SinkRecord> records, TableId parentTableId) {
+  public boolean createTable(TableId table, List<SinkRecord> records, TableId parentTable) {
     synchronized (lock(tableCreateLocks, table)) {
       if (schemaCache.containsKey(table)) {
         // Table already exists; noop
         logger.debug("Skipping create of {} as it should already exist or appear very soon", table(table));
         return false;
       }
-      TableInfo tableInfo = getTableInfo(table, records, true, intermediateTables ? parentTableId : null);
+      TableInfo tableInfo = getTableInfo(table, records, true, intermediateTables ? parentTable : null);
       logger.info("Attempting to create {} with schema {}",
           table(table), tableInfo.getDefinition().getSchema());
       try {
@@ -298,13 +299,14 @@ public class SchemaManager {
    * @param table The BigQuery table to return the table info
    * @param records The sink records used to determine the schema for constructing the table info
    * @param createSchema Flag to determine if we are creating a new table schema or updating an existing table schema
+   * @param parentTable The BigQuery destination table to consider for schema updates of intermediate tables
    * @return The resulting BigQuery table information
    */
-  private TableInfo getTableInfo(TableId table, List<SinkRecord> records, Boolean createSchema, TableId parentTableId) {
+  private TableInfo getTableInfo(TableId table, List<SinkRecord> records, Boolean createSchema, TableId parentTable) {
     com.google.cloud.bigquery.Schema proposedSchema;
     String tableDescription;
     try {
-      proposedSchema = getAndValidateProposedSchema(table, records, parentTableId);
+      proposedSchema = getAndValidateProposedSchema(table, records, parentTable);
       tableDescription = getUnionizedTableDescription(records);
     } catch (BigQueryConnectException exception) {
       throw new BigQueryConnectException("Failed to unionize schemas of records for the table " + table, exception);

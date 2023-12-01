@@ -73,8 +73,6 @@ public class UpsertDeleteBigQueryWriter extends AdaptiveBigQueryWriter {
     try {
       // ... and update the destination table here
       schemaManager.updateSchema(intermediateToDestinationTables.get(tableId.getBaseTableId()), records);
-      // TODO Damit die Reihenfolge passt, hier eher sowas:
-      //schemaManager.updateSchema(intermediateToDestinationTables.get(tableId.getBaseTableId()), newIntermediateTableSchema);
     } catch (BigQueryException exception) {
       throw new BigQueryConnectException(
           "Failed to update destination table schema for: " + tableId.getBaseTableId(), exception);
