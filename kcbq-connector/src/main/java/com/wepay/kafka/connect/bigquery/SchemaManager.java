@@ -49,7 +49,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -70,6 +69,7 @@ public class SchemaManager {
   private final boolean allowNewBQFields;
   private final boolean allowBQRequiredFieldRelaxation;
   private final boolean allowSchemaUnionization;
+  private final boolean useDestinationTableSchemaForIntermediateTableSchema;
   private final boolean sanitizeFieldNames;
   private final Optional<String> kafkaKeyFieldName;
   private final Optional<String> kafkaDataFieldName;
@@ -109,6 +109,7 @@ public class SchemaManager {
       boolean allowNewBQFields,
       boolean allowBQRequiredFieldRelaxation,
       boolean allowSchemaUnionization,
+      boolean useDestinationTableSchemaForIntermediateTableSchema,
       boolean sanitizeFieldNames,
       Optional<String> kafkaKeyFieldName,
       Optional<String> kafkaDataFieldName,
@@ -123,6 +124,7 @@ public class SchemaManager {
         allowNewBQFields,
         allowBQRequiredFieldRelaxation,
         allowSchemaUnionization,
+        useDestinationTableSchemaForIntermediateTableSchema,
         sanitizeFieldNames,
         kafkaKeyFieldName,
         kafkaDataFieldName,
@@ -143,6 +145,7 @@ public class SchemaManager {
       boolean allowNewBQFields,
       boolean allowBQRequiredFieldRelaxation,
       boolean allowSchemaUnionization,
+      boolean useDestinationTableSchemaForIntermediateTableSchema,
       boolean sanitizeFieldNames,
       Optional<String> kafkaKeyFieldName,
       Optional<String> kafkaDataFieldName,
@@ -160,6 +163,7 @@ public class SchemaManager {
     this.allowNewBQFields = allowNewBQFields;
     this.allowBQRequiredFieldRelaxation = allowBQRequiredFieldRelaxation;
     this.allowSchemaUnionization = allowSchemaUnionization;
+    this.useDestinationTableSchemaForIntermediateTableSchema = useDestinationTableSchemaForIntermediateTableSchema;
     this.sanitizeFieldNames = sanitizeFieldNames;
     this.kafkaKeyFieldName = kafkaKeyFieldName;
     this.kafkaDataFieldName = kafkaDataFieldName;
@@ -181,6 +185,7 @@ public class SchemaManager {
         allowNewBQFields,
         allowBQRequiredFieldRelaxation,
         allowSchemaUnionization,
+        useDestinationTableSchemaForIntermediateTableSchema,
         sanitizeFieldNames,
         kafkaKeyFieldName,
         kafkaDataFieldName,
@@ -359,18 +364,20 @@ public class SchemaManager {
   private List<com.google.cloud.bigquery.Schema> getSchemasList(TableId table, List<SinkRecord> records, TableId parentTable) {
     List<com.google.cloud.bigquery.Schema> bigQuerySchemas = new ArrayList<>();
     Optional.ofNullable(readTableSchema(table)).ifPresent(bigQuerySchemas::add);
-    // We add the destination table schema (if it exists) in case of periodic MERGE flushes. This ensures the order
-    // of struct fields stays consistent under schema updates.
-    Optional.ofNullable(parentTable).map(this::readTableSchema).ifPresent(parentSchema -> {
-      List<String> fieldsToRemove = Stream.of(kafkaKeyFieldName, kafkaDataFieldName).flatMap(Optional::stream).collect(Collectors.toList());
-      com.google.cloud.bigquery.Schema parentSchemaWithoutKey = com.google.cloud.bigquery.Schema.of(
-        parentSchema.getFields().stream()
-          .filter(f -> !fieldsToRemove.contains(f.getName()))
-          .collect(Collectors.toList())
-      );
-      List<Field> schemaFields = getIntermediateSchemaFields(parentSchemaWithoutKey, schemaRetriever.retrieveKeySchema(records.get(0)));
-      bigQuerySchemas.add(com.google.cloud.bigquery.Schema.of(schemaFields));
-    });
+    if(intermediateTables && useDestinationTableSchemaForIntermediateTableSchema) {
+      // We add the destination table schema (if it exists) in case of periodic MERGE flushes. This ensures the order
+      // of struct fields stays consistent under schema updates.
+      Optional.ofNullable(parentTable).map(this::readTableSchema).ifPresent(parentSchema -> {
+        List<String> fieldsToRemove = Stream.of(kafkaKeyFieldName, kafkaDataFieldName).flatMap(Optional::stream).collect(Collectors.toList());
+        com.google.cloud.bigquery.Schema parentSchemaWithoutKey = com.google.cloud.bigquery.Schema.of(
+          parentSchema.getFields().stream()
+            .filter(f -> !fieldsToRemove.contains(f.getName()))
+            .collect(Collectors.toList())
+        );
+        List<Field> schemaFields = getIntermediateSchemaFields(parentSchemaWithoutKey, schemaRetriever.retrieveKeySchema(records.get(0)));
+        bigQuerySchemas.add(com.google.cloud.bigquery.Schema.of(schemaFields));
+      });
+    }
     for (SinkRecord record : records) {
       Schema kafkaValueSchema = schemaRetriever.retrieveValueSchema(record);
       if (kafkaValueSchema == null) {
