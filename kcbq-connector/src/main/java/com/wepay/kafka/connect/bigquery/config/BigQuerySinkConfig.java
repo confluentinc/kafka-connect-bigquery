@@ -21,6 +21,9 @@ package com.wepay.kafka.connect.bigquery.config;
 
 import com.google.cloud.bigquery.Schema;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
 
 import com.wepay.kafka.connect.bigquery.convert.BigQueryRecordConverter;
@@ -39,11 +42,7 @@ import org.apache.kafka.connect.sink.SinkConnector;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -430,10 +429,32 @@ public class BigQuerySinkConfig extends AbstractConfig {
   }
 
   protected BigQuerySinkConfig(ConfigDef config, Map<String, String> properties) {
-    super(config, properties);
+    super(config, filterFieldsFromKeyfile(properties));
   }
 
   public BigQuerySinkConfig(Map<String, String> properties) {
     super(config, properties);
+  }
+
+  public static Map<String, String> filterFieldsFromKeyfile(Map<String, String> properties) {
+    String credsConfig = "keyfile";
+    if(properties.containsKey(credsConfig)) {
+      Set<String> requiredKeys =
+              new HashSet<>(Arrays.asList("type", "project_id", "private_key_id",
+                      "private_key", "client_email", "client_id"));
+      String credsValue = properties.get(credsConfig);
+      Gson gson = new Gson();
+      JsonObject jsonObject = gson.fromJson(credsValue, JsonObject.class);
+
+      for (Map.Entry<String, JsonElement> obj: jsonObject.entrySet()) {
+        if(!requiredKeys.contains(obj.getKey())){
+          jsonObject.remove(obj.getKey());
+        }
+      }
+
+      String filteredCreds = gson.toJson(jsonObject);
+      properties.put(credsConfig, filteredCreds);
+    }
+    return properties;
   }
 }
