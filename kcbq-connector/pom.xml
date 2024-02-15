@@ -72,6 +72,11 @@
             <groupId>com.wepay.kcbq</groupId>
             <artifactId>kcbq-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>junit</groupId>
