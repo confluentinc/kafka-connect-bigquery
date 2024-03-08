@@ -368,7 +368,10 @@ public class SchemaManager {
       // We add the destination table schema (if it exists) in case of periodic MERGE flushes. This ensures the order
       // of struct fields stays consistent under schema updates.
       Optional.ofNullable(parentTable).map(this::readTableSchema).ifPresent(parentSchema -> {
-        List<String> fieldsToRemove = Stream.of(kafkaKeyFieldName, kafkaDataFieldName).flatMap(Optional::stream).collect(Collectors.toList());
+        List<String> fieldsToRemove = Stream.of(kafkaKeyFieldName, kafkaDataFieldName)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toList());
         com.google.cloud.bigquery.Schema parentSchemaWithoutKey = com.google.cloud.bigquery.Schema.of(
           parentSchema.getFields().stream()
             .filter(f -> !fieldsToRemove.contains(f.getName()))
