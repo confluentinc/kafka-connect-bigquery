@@ -284,7 +284,8 @@ public class BigQuerySinkTask extends SinkTask {
                 recordConverter);
           } else {
             TableWriter.Builder simpleTableWriterBuilder =
-                new TableWriter.Builder(bigQueryWriter, table, recordConverter);
+                new TableWriter.Builder(bigQueryWriter, table, recordConverter,
+                        config.getInt(BigQuerySinkConfig.BQ_STREAMING_MAX_ROWS_PER_REQUEST_CONFIG));
             if (upsertDelete) {
               simpleTableWriterBuilder.onFinish(rows ->
                   mergeBatches.onRowWrites(table.getBaseTableId(), rows));
