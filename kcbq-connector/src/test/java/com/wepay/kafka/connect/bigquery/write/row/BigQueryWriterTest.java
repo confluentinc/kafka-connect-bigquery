@@ -143,7 +143,7 @@ public class BigQueryWriterTest {
             Collections.singletonList(spoofSinkRecord(topic, 0, 0, "some_field", "some_value")));
     testTask.flush(Collections.emptyMap());
 
-    verify(schemaManager, times(1)).createTable(anyObject(), anyObject());
+    verify(schemaManager, times(1)).createTable(anyObject(), anyObject(), anyObject());
     verify(bigQuery, times(2)).insertAll(anyObject());
   }
 
