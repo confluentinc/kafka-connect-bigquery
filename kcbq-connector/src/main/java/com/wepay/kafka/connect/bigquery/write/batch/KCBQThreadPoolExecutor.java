@@ -19,6 +19,7 @@
 
 package com.wepay.kafka.connect.bigquery.write.batch;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.exception.ExpectedInterruptException;
@@ -54,7 +55,10 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
           config.getInt(BigQuerySinkTaskConfig.THREAD_POOL_SIZE_CONFIG),
           // the following line is irrelevant because the core and max thread counts are the same.
           1, TimeUnit.SECONDS,
-          workQueue);
+          workQueue,
+          new ThreadFactoryBuilder().setUncaughtExceptionHandler((t, e) ->
+                          logger.error("BQ Sink: The exception in thread `" + t.getName() + "` went unhandled", e))
+                    .setNameFormat("bigquery-tpool-%d").build());
   }
 
   @Override
