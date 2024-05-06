@@ -37,6 +37,7 @@ import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.convert.KafkaDataBuilder;
 import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
+import com.wepay.kafka.connect.bigquery.exception.ConversionConnectException;
 import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import com.wepay.kafka.connect.bigquery.utils.TableNameUtils;
 import org.apache.kafka.connect.data.Schema;
@@ -367,8 +368,16 @@ public class SchemaManager {
   private com.google.cloud.bigquery.Schema convertRecordSchema(SinkRecord record) {
     Schema kafkaValueSchema = schemaRetriever.retrieveValueSchema(record);
     Schema kafkaKeySchema = kafkaKeyFieldName.isPresent() ? schemaRetriever.retrieveKeySchema(record) : null;
-    com.google.cloud.bigquery.Schema result = getBigQuerySchema(kafkaKeySchema, kafkaValueSchema);
-    return result;
+    try {
+      return getBigQuerySchema(kafkaKeySchema, kafkaValueSchema);
+    } catch (Exception e) {
+      throw new ConversionConnectException(
+              String.format("Failed to convert schema(s) for record with topic: %s, partition: %s, offset: %s",
+                      record.topic(),
+                      record.kafkaPartition(),
+                      record.kafkaOffset()),
+              e);
+    }
   }
 
   /**

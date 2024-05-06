@@ -109,11 +109,12 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
   public com.google.cloud.bigquery.Schema convertSchema(Schema kafkaConnectSchema) {
     // TODO: Permit non-struct keys
     if (kafkaConnectSchema.type() != Schema.Type.STRUCT) {
-      throw new
-          ConversionConnectException("Top-level Kafka Connect schema must be of type 'struct'");
+      throw new ConversionConnectException(
+              String.format("Top-level Kafka Connect schema %s must be of type 'struct'",
+                      kafkaConnectSchema.name()));
     }
 
-    throwOnCycle(kafkaConnectSchema, new ArrayList<>());
+    throwOnCycle(kafkaConnectSchema.name(), null, kafkaConnectSchema, new ArrayList<>());
 
     List<com.google.cloud.bigquery.Field> fields = kafkaConnectSchema.fields().stream()
         .flatMap(kafkaConnectField ->
@@ -127,26 +128,29 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
     return com.google.cloud.bigquery.Schema.of(fields);
   }
 
-  private void throwOnCycle(Schema kafkaConnectSchema, List<Schema> seenSoFar) {
+  private void throwOnCycle(String topLevelSchemaName, String contextSchemaName,
+                            Schema kafkaConnectSchema, List<Schema> seenSoFar) {
     if (PRIMITIVE_TYPE_MAP.containsKey(kafkaConnectSchema.type())) {
       return;
     }
 
     if (seenSoFar.contains(kafkaConnectSchema)) {
-      throw new ConversionConnectException("Kafka Connect schema contains cycle");
+      throw new ConversionConnectException(
+              String.format("Kafka Connect schema %s contains cycle. The attribute %s is defined recursively.",
+                      topLevelSchemaName, contextSchemaName));
     }
 
     seenSoFar.add(kafkaConnectSchema);
     switch(kafkaConnectSchema.type()) {
       case ARRAY:
-        throwOnCycle(kafkaConnectSchema.valueSchema(), seenSoFar);
+        throwOnCycle(topLevelSchemaName, contextSchemaName, kafkaConnectSchema.valueSchema(), seenSoFar);
         break;
       case MAP:
-        throwOnCycle(kafkaConnectSchema.keySchema(), seenSoFar);
-        throwOnCycle(kafkaConnectSchema.valueSchema(), seenSoFar);
+        throwOnCycle(topLevelSchemaName, contextSchemaName, kafkaConnectSchema.keySchema(), seenSoFar);
+        throwOnCycle(topLevelSchemaName, contextSchemaName, kafkaConnectSchema.valueSchema(), seenSoFar);
         break;
       case STRUCT:
-        kafkaConnectSchema.fields().forEach(f -> throwOnCycle(f.schema(), seenSoFar));
+        kafkaConnectSchema.fields().forEach(f -> throwOnCycle(topLevelSchemaName, f.name(), f.schema(), seenSoFar));
         break;
       default:
         throw new ConversionConnectException(
