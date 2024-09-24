@@ -1,0 +1,5 @@
+kafka-connect-bigquery:
+  description: kafka-connect-bigquery
+  repo: https://github.com/TAKEALOT/kafka-connect-bigquery
+  team: Kafka Connect
+  metrics: []
