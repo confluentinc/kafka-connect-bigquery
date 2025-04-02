@@ -27,6 +27,9 @@ import java.util.Map;
  * Class for task-specific configuration properties.
  */
 public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
+
+  private final int taskId;
+  private final String connectorName;
   
   public static final String GCS_BQ_TASK_CONFIG = "GCSBQTask";
   private static final ConfigDef.Type GCS_BQ_TASK_TYPE = ConfigDef.Type.BOOLEAN;
@@ -62,5 +65,15 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
    */
   public BigQuerySinkTaskConfig(Map<String, String> properties) {
     super(config(), properties);
+    taskId = getInt(TASK_ID_CONFIG);
+    connectorName = originalsStrings().get("name");
+  }
+
+  public int taskNumber() {
+    return taskId;
+  }
+
+  public String connectorName() {
+    return connectorName;
   }
 }
