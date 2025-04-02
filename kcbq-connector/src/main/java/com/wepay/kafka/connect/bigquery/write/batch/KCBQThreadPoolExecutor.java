@@ -28,8 +28,11 @@ import org.slf4j.LoggerFactory;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -49,12 +52,22 @@ public class KCBQThreadPoolExecutor extends ThreadPoolExecutor {
    * @param workQueue the queue for storing tasks.
    */
   public KCBQThreadPoolExecutor(BigQuerySinkTaskConfig config,
-                                BlockingQueue<Runnable> workQueue) {
+                                BlockingQueue<Runnable> workQueue,
+                                String taskThreadName) {
     super(config.getInt(BigQuerySinkTaskConfig.THREAD_POOL_SIZE_CONFIG),
           config.getInt(BigQuerySinkTaskConfig.THREAD_POOL_SIZE_CONFIG),
           // the following line is irrelevant because the core and max thread counts are the same.
           1, TimeUnit.SECONDS,
-          workQueue);
+          workQueue, new ThreadFactory() {
+            private final AtomicInteger threadNumber = new AtomicInteger(1);
+            @Override
+            public Thread newThread(Runnable r) {
+              Thread thread = Executors.defaultThreadFactory().newThread(r);
+              thread.setName(taskThreadName + "-bigquery-writer-"
+                  + threadNumber.getAndIncrement());
+              return thread;
+            }
+          });
   }
 
   @Override
