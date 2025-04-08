@@ -77,6 +77,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -121,6 +122,9 @@ public class BigQuerySinkTask extends SinkTask {
   private Map<String, String> topic2TableMap;
   private int remainingRetries;
   private boolean enableRetries;
+
+  private String connectorName;
+  private int taskId;
 
   private ErrantRecordHandler errantRecordHandler;
 
@@ -513,6 +517,9 @@ public class BigQuerySinkTask extends SinkTask {
     stopped = false;
     config = new BigQuerySinkTaskConfig(properties);
 
+    connectorName = config.connectorName();
+    taskId = config.taskNumber();
+
     upsertDelete = config.getBoolean(BigQuerySinkConfig.UPSERT_ENABLED_CONFIG)
         || config.getBoolean(BigQuerySinkConfig.DELETE_ENABLED_CONFIG);
 
@@ -543,7 +550,8 @@ public class BigQuerySinkTask extends SinkTask {
     cache = getCache();
     bigQueryWriter = getBigQueryWriter(errantRecordHandler);
     gcsToBQWriter = getGcsWriter();
-    executor = new KCBQThreadPoolExecutor(config, new LinkedBlockingQueue<>());
+    executor = new KCBQThreadPoolExecutor(config, new LinkedBlockingQueue<>(),
+        connectorName + "-" + taskId);
     topicPartitionManager = new TopicPartitionManager();
     useMessageTimeDatePartitioning =
         config.getBoolean(BigQuerySinkConfig.BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG);
@@ -567,7 +575,14 @@ public class BigQuerySinkTask extends SinkTask {
 
   private void startGCSToBQLoadTask() {
     logger.info("Attempting to start GCS Load Executor.");
-    loadExecutor = Executors.newScheduledThreadPool(1);
+    loadExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+      @Override
+      public Thread newThread(Runnable r) {
+        Thread thread = Executors.defaultThreadFactory().newThread(r);
+        thread.setName(connectorName + "-" + taskId + "-bigquery-test-storage-write");
+        return thread;
+      }
+    });
     String bucketName = config.getString(BigQuerySinkConfig.GCS_BUCKET_NAME_CONFIG);
     Storage gcs = getGcs();
     // get the bucket, or create it if it does not exist.
@@ -599,7 +614,14 @@ public class BigQuerySinkTask extends SinkTask {
       return;
     }
     logger.info("Attempting to start upsert/delete load executor");
-    loadExecutor = Executors.newScheduledThreadPool(1);
+    loadExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+      @Override
+      public Thread newThread(Runnable r) {
+        Thread thread = Executors.defaultThreadFactory().newThread(r);
+        thread.setName(connectorName + "-" + taskId + "-bigquery-test-storage-write");
+        return thread;
+      }
+    });
     loadExecutor.scheduleAtFixedRate(
         mergeQueries::mergeFlushAll, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
   }
