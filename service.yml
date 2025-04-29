@@ -8,9 +8,8 @@ codeowners:
 semaphore:
   enable: true
   pipeline_type: cp
-  cve_scan: true
   extra_secrets:
-  - kcbq_gcp
+    - kcbq_gcp
   extra_deploy_args: "-Pjenkins"
   extra_build_args: "-Pjenkins"
   generate_connect_changelogs: true
