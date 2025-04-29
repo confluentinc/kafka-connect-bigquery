@@ -8,18 +8,14 @@ name: build-test-release
 agent:
   machine:
     type: s1-prod-ubuntu24-04-amd64-1
-
 fail_fast:
   cancel:
     when: "true"
-
 execution_time_limit:
   hours: 2
-
 queue:
   - when: "branch != 'master' and branch !~ '[0-9]+\\.[0-9]+\\.x'"
     processing: parallel
-
 global_job_config:
   prologue:
     commands:
@@ -28,7 +24,6 @@ global_job_config:
       - . vault-sem-get-secret kcbq_gcp
       - sem-version java 8
       - . cache-maven restore
-
 blocks:
   - name: Test
     dependencies: []
@@ -46,8 +41,10 @@ blocks:
             - echo "Check go/connector-dev-vuln-remediation for fixing or suppressing vulnerabilities found by trivy"
             - trivy --skip-files "*.zip" rootfs --scanners vuln --db-repository public.ecr.aws/aquasecurity/trivy-db --java-db-repository public.ecr.aws/aquasecurity/trivy-java-db --ignore-unfixed --ignorefile
               .trivyignore --exit-code 1 --severity CRITICAL target/components/packages
+              .trivyignore --exit-code 1 --severity CRITICAL kcbq-connector/target/components/packages
             - trivy --skip-files "*.zip" rootfs --scanners vuln --db-repository public.ecr.aws/aquasecurity/trivy-db --java-db-repository public.ecr.aws/aquasecurity/trivy-java-db --ignore-unfixed --ignorefile
               .trivyignore --severity HIGH,LOW,MEDIUM target/components/packages
+              .trivyignore --severity HIGH,LOW,MEDIUM kcbq-connector/target/components/packages
             - . cache-maven store
       epilogue:
         always:
@@ -55,7 +52,6 @@ blocks:
             - . publish-test-results
             - artifact push workflow target/test-results
             - artifact push workflow target
-
   - name: Release
     dependencies: ["Test"]
     run:
@@ -65,6 +61,8 @@ blocks:
         - name: Release
           commands:
             - mvn -Pjenkins -U -Dmaven.wagon.http.retryHandler.count=10 --batch-mode -DaltDeploymentRepository=confluent-codeartifact-internal::default::https://confluent-519856050701.d.codeartifact.us-west-2.amazonaws.com/maven/maven-snapshots/
+            - mvn -Pjenkins -U -Dmaven.wagon.http.retryHandler.count=10 --batch-mode
+            - -DaltDeploymentRepository=confluent-codeartifact-internal::default::https://confluent-519856050701.d.codeartifact.us-west-2.amazonaws.com/maven/maven-snapshots/
               -DrepositoryId=confluent-codeartifact-internal deploy -DskipTests
   - name: Release Notes
     dependencies: []
@@ -76,7 +74,6 @@ blocks:
           commands:
             - git clone --branch master --single-branch git@github.com:confluentinc/connect-releases.git
             - ./connect-releases/tasks/release-connect-plugins/generate-connect-changelogs.sh
-
 after_pipeline:
   task:
     agent:
