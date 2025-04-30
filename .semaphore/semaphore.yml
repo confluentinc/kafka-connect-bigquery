@@ -70,7 +70,7 @@ blocks:
   - name: Release Notes
     dependencies: []
     run:
-      when: "branch =~ '[0-9]+\\.[0-9]+\\.x'"
+      when: "true"
     task:
       jobs:
         - name: Generate Release Notes
