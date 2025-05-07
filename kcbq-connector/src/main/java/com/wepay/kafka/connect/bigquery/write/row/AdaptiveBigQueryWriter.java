@@ -160,8 +160,12 @@ public class AdaptiveBigQueryWriter extends BigQueryWriter {
   }
 
   protected void attemptTableCreate(TableId tableId, List<SinkRecord> records) {
+    attemptTableCreate(tableId, records, null);
+  }
+
+  protected void attemptTableCreate(TableId tableId, List<SinkRecord> records, TableId parentTableId) {
     try {
-      schemaManager.createTable(tableId, records);
+      schemaManager.createTable(tableId, records, parentTableId);
     } catch (BigQueryException exception) {
       throw new BigQueryConnectException(
               "Failed to create table " + tableId, exception);

@@ -28,7 +28,6 @@ import com.wepay.kafka.connect.bigquery.convert.BigQuerySchemaConverter;
 import com.wepay.kafka.connect.bigquery.convert.RecordConverter;
 import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
 import com.wepay.kafka.connect.bigquery.retrieve.IdentitySchemaRetriever;
-import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
@@ -309,6 +308,14 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final String ALLOW_SCHEMA_UNIONIZATION_DOC =
           "If true, the existing table schema (if one is present) will be unionized with new "
               + "record schemas during schema updates";
+
+  public static final String USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_CONFIG = "useDestinationTableSchemaForIntermediateTableSchema";
+  private static final ConfigDef.Type USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_TYPE =             ConfigDef.Type.BOOLEAN;
+  public static final Boolean USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_DEFAULT =                  true;
+  private static final ConfigDef.Importance USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_IMPORTANCE = ConfigDef.Importance.LOW;
+  private static final String USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_DOC =
+          "If true, the destination table schema will be considered when creating intermediate tables in upsert/delete mode, "
+                  + "ensuring consistent order of nested fields under schema updates";
 
   public static final String UPSERT_ENABLED_CONFIG =                    "upsertEnabled";
   private static final ConfigDef.Type UPSERT_ENABLED_TYPE =             ConfigDef.Type.BOOLEAN;
@@ -704,6 +711,12 @@ public class BigQuerySinkConfig extends AbstractConfig {
             ALLOW_SCHEMA_UNIONIZATION_DEFAULT,
             ALLOW_SCHEMA_UNIONIZATION_IMPORTANCE,
             ALLOW_SCHEMA_UNIONIZATION_DOC
+        ).define(
+            USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_CONFIG,
+            USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_TYPE,
+            USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_DEFAULT,
+            USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_IMPORTANCE,
+            USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_DOC
         ).define(
             UPSERT_ENABLED_CONFIG,
             UPSERT_ENABLED_TYPE,

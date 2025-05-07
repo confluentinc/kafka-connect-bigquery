@@ -94,7 +94,7 @@ public class SchemaManagerTest {
     Optional<String> kafkaKeyFieldName = Optional.of("kafkaKey");
     Optional<String> kafkaDataFieldName = Optional.of("kafkaData");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, kafkaKeyFieldName, kafkaDataFieldName,
+        mockBigQuery, false, false, false, false, false, kafkaKeyFieldName, kafkaDataFieldName,
         Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(TimePartitioning.Type.DAY));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -115,7 +115,7 @@ public class SchemaManagerTest {
   public void testTimestampPartitionSet() {
     Optional<String> testField = Optional.of("testField");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), testField,
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), testField,
         Optional.empty(), Optional.empty(), Optional.of(TimePartitioning.Type.DAY));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -139,7 +139,7 @@ public class SchemaManagerTest {
   @Test
   public void testAlternativeTimestampPartitionType() {
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), Optional.empty(),
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), Optional.empty(),
         Optional.empty(), Optional.empty(), Optional.of(TimePartitioning.Type.HOUR));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -158,7 +158,7 @@ public class SchemaManagerTest {
   @Test
   public void testNoTimestampPartitionType() {
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), Optional.empty(),
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), Optional.empty(),
         Optional.empty(), Optional.empty(), Optional.empty());
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -177,7 +177,7 @@ public class SchemaManagerTest {
   public void testUpdateTimestampPartitionNull() {
     Optional<String> testField = Optional.of("testField");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), testField,
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), testField,
         Optional.empty(), Optional.empty(), Optional.of(TimePartitioning.Type.DAY));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -196,7 +196,7 @@ public class SchemaManagerTest {
   public void testUpdateTimestampPartitionNotSet() {
     Optional<String> testField = Optional.of("testField");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), testField,
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), testField,
         Optional.empty(), Optional.empty(), Optional.of(TimePartitioning.Type.DAY));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -215,7 +215,7 @@ public class SchemaManagerTest {
 
     Optional<String> updateField = Optional.of("testUpdateField");
     schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), updateField, Optional.empty(), Optional.empty(),
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), updateField, Optional.empty(), Optional.empty(),
         Optional.of(TimePartitioning.Type.DAY));
 
     tableInfo = schemaManager
@@ -229,7 +229,7 @@ public class SchemaManagerTest {
   public void testPartitionExpirationSetWithoutFieldName() {
     Optional<Long> testExpirationMs = Optional.of(86400000L);
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), Optional.empty(),
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), Optional.empty(),
         testExpirationMs, Optional.empty(), Optional.of(TimePartitioning.Type.DAY));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -253,7 +253,7 @@ public class SchemaManagerTest {
     Optional<Long> testExpirationMs = Optional.of(86400000L);
     Optional<String> testField = Optional.of("testField");
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), testField,
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), testField,
         testExpirationMs, Optional.empty(), Optional.of(TimePartitioning.Type.DAY));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -278,7 +278,7 @@ public class SchemaManagerTest {
     Optional<String> timestampPartitionFieldName = Optional.of("testField");
     Optional<List<String>> testField = Optional.of(Arrays.asList("column1", "column2"));
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName,
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName,
         Optional.empty(), testField, Optional.of(TimePartitioning.Type.DAY));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -301,7 +301,7 @@ public class SchemaManagerTest {
     Optional<String> timestampPartitionFieldName = Optional.of("testField");
     Optional<List<String>> testField = Optional.of(Arrays.asList("column1", "column2"));
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName,
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName,
         Optional.empty(), testField, Optional.of(TimePartitioning.Type.DAY));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -321,7 +321,7 @@ public class SchemaManagerTest {
     Optional<String> timestampPartitionFieldName = Optional.of("testField");
     Optional<List<String>> testField = Optional.of(Arrays.asList("column1", "column2"));
     SchemaManager schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName,
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName,
         Optional.empty(), testField, Optional.of(TimePartitioning.Type.DAY));
 
     when(mockSchemaConverter.convertSchema(mockKafkaSchema)).thenReturn(fakeBigQuerySchema);
@@ -340,7 +340,7 @@ public class SchemaManagerTest {
 
     Optional<List<String>> updateTestField = Optional.of(Arrays.asList("column3", "column4"));
     schemaManager = new SchemaManager(mockSchemaRetriever, mockSchemaConverter,
-        mockBigQuery, false, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName,
+        mockBigQuery, false, false, false, false, false, Optional.empty(), Optional.empty(), timestampPartitionFieldName,
         Optional.empty(), updateTestField, Optional.of(TimePartitioning.Type.DAY));
 
     tableInfo = schemaManager
@@ -743,7 +743,7 @@ public class SchemaManagerTest {
   private SchemaManager createSchemaManager(
       boolean allowNewFields, boolean allowFieldRelaxation, boolean allowUnionization, boolean sanitizeFieldNames, SchemaConverter<com.google.cloud.bigquery.Schema> converter) {
     return new SchemaManager(new IdentitySchemaRetriever(), converter, mockBigQuery,
-        allowNewFields, allowFieldRelaxation, allowUnionization, sanitizeFieldNames,
+        allowNewFields, allowFieldRelaxation, allowUnionization, false, sanitizeFieldNames,
         Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
         Optional.of(TimePartitioning.Type.DAY));
   }
@@ -751,7 +751,7 @@ public class SchemaManagerTest {
   private SchemaManager createSchemaManager(
       boolean allowNewFields, boolean allowFieldRelaxation, boolean allowUnionization) {
     return new SchemaManager(new IdentitySchemaRetriever(), mockSchemaConverter, mockBigQuery,
-        allowNewFields, allowFieldRelaxation, allowUnionization, false,
+        allowNewFields, allowFieldRelaxation, allowUnionization, false, false,
         Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
         Optional.of(TimePartitioning.Type.DAY));
   }
