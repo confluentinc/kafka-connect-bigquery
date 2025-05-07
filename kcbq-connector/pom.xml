@@ -71,6 +71,8 @@
         <dependency>
             <groupId>com.wepay.kcbq</groupId>
             <artifactId>kcbq-api</artifactId>
+            <scope>system</scope>
+            <systemPath>${basedir}/../kcbq-api/target/kcbq-api-2.3.0-SNAPSHOT.jar</systemPath>
         </dependency>
 
         <dependency>
