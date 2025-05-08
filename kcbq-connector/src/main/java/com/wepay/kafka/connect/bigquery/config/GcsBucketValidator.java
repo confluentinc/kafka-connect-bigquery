@@ -33,6 +33,7 @@ import java.util.Optional;
 import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.AUTO_CREATE_BUCKET_CONFIG;
 import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.ENABLE_BATCH_CONFIG;
 import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.GCS_BUCKET_NAME_CONFIG;
+import static com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig.ENABLE_BATCH_REGEX_CONFIG;
 
 public class GcsBucketValidator extends MultiPropertyValidator<BigQuerySinkConfig> {
 
@@ -68,7 +69,10 @@ public class GcsBucketValidator extends MultiPropertyValidator<BigQuerySinkConfi
   @VisibleForTesting
   Optional<String> doValidate(Storage gcs, BigQuerySinkConfig config) {
     List<String> batchLoadedTopics = config.getList(ENABLE_BATCH_CONFIG);
-    if (batchLoadedTopics ==  null || batchLoadedTopics.isEmpty()) {
+    String batchRegex = config.getString(ENABLE_BATCH_REGEX_CONFIG);
+    
+    if ((batchLoadedTopics == null || batchLoadedTopics.isEmpty()) && 
+        (batchRegex == null || batchRegex.isEmpty())) {
       // Batch loading is disabled; no need to validate the GCS bucket
       return Optional.empty();
     }

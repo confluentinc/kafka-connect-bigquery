@@ -81,6 +81,15 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final String ENABLE_BATCH_DOC =
       "Beta Feature; use with caution: The sublist of topics to be batch loaded through GCS";
 
+  public static final String ENABLE_BATCH_REGEX_CONFIG =                   "enableBatchLoad.regex";
+  private static final ConfigDef.Type ENABLE_BATCH_REGEX_TYPE =            ConfigDef.Type.STRING;
+  private static final String ENABLE_BATCH_REGEX_DEFAULT =                 "";
+  private static final ConfigDef.Importance ENABLE_BATCH_REGEX_IMPORTANCE = ConfigDef.Importance.LOW;
+  private static final String ENABLE_BATCH_REGEX_DOC =
+      "Beta Feature; use with caution: Regular expression pattern for topics to be batch loaded through GCS. " +
+      "Under the hood, the regex is compiled to a <code>java.util.regex.Pattern</code>. " +
+      "Only one of " + ENABLE_BATCH_CONFIG + " or " + ENABLE_BATCH_REGEX_CONFIG + " should be specified.";
+
   public static final String BATCH_LOAD_INTERVAL_SEC_CONFIG =             "batchLoadIntervalSec";
   private static final ConfigDef.Type BATCH_LOAD_INTERVAL_SEC_TYPE =      ConfigDef.Type.INT;
   private static final Integer BATCH_LOAD_INTERVAL_SEC_DEFAULT =          120;
@@ -575,6 +584,12 @@ public class BigQuerySinkConfig extends AbstractConfig {
             ENABLE_BATCH_IMPORTANCE,
             ENABLE_BATCH_DOC
         ).define(
+            ENABLE_BATCH_REGEX_CONFIG,
+            ENABLE_BATCH_REGEX_TYPE,
+            ENABLE_BATCH_REGEX_DEFAULT,
+            ENABLE_BATCH_REGEX_IMPORTANCE,
+            ENABLE_BATCH_REGEX_DOC
+        ).define(
             BATCH_LOAD_INTERVAL_SEC_CONFIG,
             BATCH_LOAD_INTERVAL_SEC_TYPE,
             BATCH_LOAD_INTERVAL_SEC_DEFAULT,
@@ -720,7 +735,6 @@ public class BigQuerySinkConfig extends AbstractConfig {
             INTERMEDIATE_TABLE_SUFFIX_CONFIG,
             INTERMEDIATE_TABLE_SUFFIX_TYPE,
             INTERMEDIATE_TABLE_SUFFIX_DEFAULT,
-            INTERMEDIATE_TABLE_SUFFIX_VALIDATOR,
             INTERMEDIATE_TABLE_SUFFIX_IMPORTANCE,
             INTERMEDIATE_TABLE_SUFFIX_DOC
         ).define(
@@ -1111,5 +1125,19 @@ public class BigQuerySinkConfig extends AbstractConfig {
 
   public BigQuerySinkConfig(Map<String, String> properties) {
     this(getConfig(), properties);
+    validateBatchLoadingConfig();
+  }
+
+  private void validateBatchLoadingConfig() {
+    List<String> batchTopics = getList(ENABLE_BATCH_CONFIG);
+    String batchRegex = getString(ENABLE_BATCH_REGEX_CONFIG);
+    
+    if (!batchTopics.isEmpty() && !batchRegex.isEmpty()) {
+      throw new ConfigException(
+          String.format("Only one of %s or %s should be specified",
+              ENABLE_BATCH_CONFIG,
+              ENABLE_BATCH_REGEX_CONFIG)
+      );
+    }
   }
 }
