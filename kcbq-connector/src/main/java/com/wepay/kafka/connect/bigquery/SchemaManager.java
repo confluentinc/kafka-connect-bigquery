@@ -64,28 +64,29 @@ public class SchemaManager {
   private final SchemaRetriever schemaRetriever;
   private final SchemaConverter<com.google.cloud.bigquery.Schema> schemaConverter;
   private final BigQuery bigQuery;
-  private final boolean allowNewBQFields;
-  private final boolean allowBQRequiredFieldRelaxation;
+  private final boolean allowNewBigQueryFields;
+  private final boolean allowRequiredFieldRelaxation;
   private final boolean allowSchemaUnionization;
   private final boolean sanitizeFieldNames;
   private final Optional<String> kafkaKeyFieldName;
   private final Optional<String> kafkaDataFieldName;
   private final Optional<String> timestampPartitionFieldName;
   private final Optional<Long> partitionExpiration;
-  private final Optional<List<String>> clusteringFieldName;
+  private final Optional<List<String>> clusteringFieldNames;
   private final Optional<TimePartitioning.Type> timePartitioningType;
   private final boolean intermediateTables;
   private final ConcurrentMap<TableId, Object> tableCreateLocks;
   private final ConcurrentMap<TableId, Object> tableUpdateLocks;
   private final ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache;
+  private final Map<String, LegacySQLTypeName> fieldTypeOverrides;
 
   /**
    * @param schemaRetriever Used to determine the Kafka Connect Schema that should be used for a
    *                        given table.
    * @param schemaConverter Used to convert Kafka Connect Schemas into BigQuery format.
    * @param bigQuery Used to communicate create/update requests to BigQuery.
-   * @param allowNewBQFields If set to true, allows new fields to be added to BigQuery Schema.
-   * @param allowBQRequiredFieldRelaxation If set to true, allows changing field mode from REQUIRED to NULLABLE
+   * @param allowNewBigQueryFields If set to true, allows new fields to be added to BigQuery Schema.
+   * @param allowRequiredFieldRelaxation If set to true, allows changing field mode from REQUIRED to NULLABLE
    * @param allowSchemaUnionization If set to true, allows existing and new schemas to be unionized
    * @param sanitizeFieldNames If true, sanitizes field names to adhere to BigQuery column name restrictions
    * @param kafkaKeyFieldName The name of kafka key field to be used in BigQuery.
@@ -96,78 +97,82 @@ public class SchemaManager {
    *                                    partitioning in BigQuery.
    *                                    If set to null, ingestion time-based partitioning will be
    *                                    used instead.
-   * @param clusteringFieldName
+   * @param clusteringFieldNames
    * @param timePartitioningType The time partitioning type (HOUR, DAY, etc.) to use for created tables.
    */
   public SchemaManager(
       SchemaRetriever schemaRetriever,
       SchemaConverter<com.google.cloud.bigquery.Schema> schemaConverter,
       BigQuery bigQuery,
-      boolean allowNewBQFields,
-      boolean allowBQRequiredFieldRelaxation,
+      boolean allowNewBigQueryFields,
+      boolean allowRequiredFieldRelaxation,
       boolean allowSchemaUnionization,
       boolean sanitizeFieldNames,
       Optional<String> kafkaKeyFieldName,
       Optional<String> kafkaDataFieldName,
       Optional<String> timestampPartitionFieldName,
       Optional<Long> partitionExpiration,
-      Optional<List<String>> clusteringFieldName,
-      Optional<TimePartitioning.Type> timePartitioningType) {
+      Optional<List<String>> clusteringFieldNames,
+      Optional<TimePartitioning.Type> timePartitioningType,
+      Map<String, LegacySQLTypeName> fieldTypeOverrides) {
     this(
         schemaRetriever,
         schemaConverter,
         bigQuery,
-        allowNewBQFields,
-        allowBQRequiredFieldRelaxation,
+        allowNewBigQueryFields,
+        allowRequiredFieldRelaxation,
         allowSchemaUnionization,
         sanitizeFieldNames,
         kafkaKeyFieldName,
         kafkaDataFieldName,
         timestampPartitionFieldName,
         partitionExpiration,
-        clusteringFieldName,
+        clusteringFieldNames,
         timePartitioningType,
         false,
         new ConcurrentHashMap<>(),
         new ConcurrentHashMap<>(),
-        new ConcurrentHashMap<>());
+        new ConcurrentHashMap<>(),
+        fieldTypeOverrides);
   }
 
   private SchemaManager(
       SchemaRetriever schemaRetriever,
       SchemaConverter<com.google.cloud.bigquery.Schema> schemaConverter,
       BigQuery bigQuery,
-      boolean allowNewBQFields,
-      boolean allowBQRequiredFieldRelaxation,
+      boolean allowNewBigQueryFields,
+      boolean allowRequiredFieldRelaxation,
       boolean allowSchemaUnionization,
       boolean sanitizeFieldNames,
       Optional<String> kafkaKeyFieldName,
       Optional<String> kafkaDataFieldName,
       Optional<String> timestampPartitionFieldName,
       Optional<Long> partitionExpiration,
-      Optional<List<String>> clusteringFieldName,
+      Optional<List<String>> clusteringFieldNames,
       Optional<TimePartitioning.Type> timePartitioningType,
       boolean intermediateTables,
       ConcurrentMap<TableId, Object> tableCreateLocks,
       ConcurrentMap<TableId, Object> tableUpdateLocks,
-      ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache) {
+      ConcurrentMap<TableId, com.google.cloud.bigquery.Schema> schemaCache,
+      Map<String, LegacySQLTypeName> fieldTypeOverrides) {
     this.schemaRetriever = schemaRetriever;
     this.schemaConverter = schemaConverter;
     this.bigQuery = bigQuery;
-    this.allowNewBQFields = allowNewBQFields;
-    this.allowBQRequiredFieldRelaxation = allowBQRequiredFieldRelaxation;
+    this.allowNewBigQueryFields = allowNewBigQueryFields;
+    this.allowRequiredFieldRelaxation = allowRequiredFieldRelaxation;
     this.allowSchemaUnionization = allowSchemaUnionization;
     this.sanitizeFieldNames = sanitizeFieldNames;
     this.kafkaKeyFieldName = kafkaKeyFieldName;
     this.kafkaDataFieldName = kafkaDataFieldName;
     this.timestampPartitionFieldName = timestampPartitionFieldName;
     this.partitionExpiration = partitionExpiration;
-    this.clusteringFieldName = clusteringFieldName;
+    this.clusteringFieldNames = clusteringFieldNames;
     this.timePartitioningType = timePartitioningType;
     this.intermediateTables = intermediateTables;
     this.tableCreateLocks = tableCreateLocks;
     this.tableUpdateLocks = tableUpdateLocks;
     this.schemaCache = schemaCache;
+    this.fieldTypeOverrides = fieldTypeOverrides;
   }
 
   public SchemaManager forIntermediateTables() {
@@ -175,20 +180,21 @@ public class SchemaManager {
         schemaRetriever,
         schemaConverter,
         bigQuery,
-        allowNewBQFields,
-        allowBQRequiredFieldRelaxation,
+        allowNewBigQueryFields,
+        allowRequiredFieldRelaxation,
         allowSchemaUnionization,
         sanitizeFieldNames,
         kafkaKeyFieldName,
         kafkaDataFieldName,
         timestampPartitionFieldName,
         partitionExpiration,
-        clusteringFieldName,
+        clusteringFieldNames,
         timePartitioningType,
         true,
         tableCreateLocks,
         tableUpdateLocks,
-        schemaCache
+        schemaCache,
+        fieldTypeOverrides
     );
   }
 
@@ -320,7 +326,7 @@ public class SchemaManager {
       result = convertRecordSchema(recordToConvert);
       if (existingSchema != null) {
         validateSchemaChange(existingSchema, result);
-        if (allowBQRequiredFieldRelaxation) {
+        if (allowRequiredFieldRelaxation) {
           result = relaxFieldsWhereNecessary(existingSchema, result);
         }
       }
@@ -480,7 +486,7 @@ public class SchemaManager {
               " is true if " + entry.getKey() + " has mode REQUIRED in order to update the Schema");
         }
       } else if (isFieldRelaxation(earliestSchemaFields.get(entry.getKey()), entry.getValue())) {
-        if (!allowBQRequiredFieldRelaxation) {
+        if (!allowRequiredFieldRelaxation) {
           throw new BigQueryConnectException( entry.getKey() + " has mode REQUIRED. Set "
               + BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG
               + " to true, to change the mode to NULLABLE");
@@ -495,10 +501,10 @@ public class SchemaManager {
   }
 
   private boolean isValidFieldAddition(Field newField) {
-    return allowNewBQFields && (
+    return allowNewBigQueryFields && (
         newField.getMode().equals(Field.Mode.NULLABLE) ||
         newField.getMode().equals(Field.Mode.REPEATED) ||
-        (newField.getMode().equals(Field.Mode.REQUIRED) && allowBQRequiredFieldRelaxation));
+        (newField.getMode().equals(Field.Mode.REQUIRED) && allowRequiredFieldRelaxation));
   }
 
   private com.google.cloud.bigquery.Schema relaxFieldsWhereNecessary(
@@ -584,9 +590,9 @@ public class SchemaManager {
   
         builder.setTimePartitioning(timePartitioningBuilder.build());
   
-        if (timestampPartitionFieldName.isPresent() && clusteringFieldName.isPresent()) {
+        if (timestampPartitionFieldName.isPresent() && clusteringFieldNames.isPresent()) {
           Clustering clustering = Clustering.newBuilder()
-              .setFields(clusteringFieldName.get())
+              .setFields(clusteringFieldNames.get())
               .build();
           builder.setClustering(clustering);
         }

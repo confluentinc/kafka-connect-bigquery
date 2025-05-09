@@ -30,8 +30,11 @@ import com.wepay.kafka.connect.bigquery.exception.ConversionConnectException;
 
 import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import org.apache.kafka.connect.data.Schema;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +47,7 @@ import java.util.stream.Stream;
  * {@link com.google.cloud.bigquery.Schema BigQuery Schemas}.
  */
 public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud.bigquery.Schema> {
+  private static final Logger logger = LoggerFactory.getLogger(BigQuerySchemaConverter.class);
 
   /**
    * The name of the field that contains keys from a converted Kafka Connect map.
@@ -85,15 +89,26 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
 
   private final boolean allFieldsNullable;
   private final boolean sanitizeFieldNames;
+  private final Map<String, LegacySQLTypeName> fieldTypeOverrides;
 
   // visible for testing
   BigQuerySchemaConverter(boolean allFieldsNullable) {
-    this(allFieldsNullable, false);
+    this(allFieldsNullable, false, Collections.emptyMap());
   }
 
-  public BigQuerySchemaConverter(boolean allFieldsNullable, boolean sanitizeFieldNames) {
+  public BigQuerySchemaConverter(boolean allFieldsNullable, boolean sanitizeFieldNames,
+                                Map<String, LegacySQLTypeName> fieldTypeOverrides) {
     this.allFieldsNullable = allFieldsNullable;
     this.sanitizeFieldNames = sanitizeFieldNames;
+    this.fieldTypeOverrides = fieldTypeOverrides;
+
+    if (!fieldTypeOverrides.isEmpty()) {
+      logger.info("Configured field type overrides:");
+      fieldTypeOverrides.forEach((field, type) ->
+          logger.info("  {} -> {}", field, type));
+    } else {
+      logger.info("No field type overrides");
+    }
   }
 
   /**
@@ -162,6 +177,14 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
     Schema.Type kafkaConnectSchemaType = kafkaConnectSchema.type();
     if (sanitizeFieldNames) {
       fieldName = FieldNameSanitizer.sanitizeName(fieldName);
+    }
+
+    // Check for field type override first
+    if (fieldTypeOverrides.containsKey(fieldName)) {
+      LegacySQLTypeName overrideType = fieldTypeOverrides.get(fieldName);
+      logger.info("Applying type override for field '{}': {} -> {}",
+          fieldName, kafkaConnectSchemaType, overrideType);
+      return Optional.of(com.google.cloud.bigquery.Field.newBuilder(fieldName, overrideType));
     }
 
     if (LogicalConverterRegistry.isRegisteredLogicalType(kafkaConnectSchema.name())) {

@@ -21,6 +21,7 @@ package com.wepay.kafka.connect.bigquery.config;
 
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.TimePartitioning;
+import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.wepay.kafka.connect.bigquery.GcpClientBuilder;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
 import com.wepay.kafka.connect.bigquery.convert.BigQueryRecordConverter;
@@ -37,6 +38,8 @@ import org.apache.kafka.common.config.ConfigValue;
 import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkConnector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -50,6 +53,7 @@ import java.util.stream.Stream;
  * Base class for connector and task configs; contains properties shared between the two of them.
  */
 public class BigQuerySinkConfig extends AbstractConfig {
+  private static final Logger logger = LoggerFactory.getLogger(BigQuerySinkConfig.class);
   // Values taken from https://github.com/apache/kafka/blob/1.1.1/connect/runtime/src/main/java/org/apache/kafka/connect/runtime/SinkConnectorConfig.java#L33
   public static final String TOPICS_CONFIG =                     SinkConnector.TOPICS_CONFIG;
   private static final ConfigDef.Type TOPICS_TYPE =              ConfigDef.Type.LIST;
@@ -325,7 +329,7 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final ConfigDef.Importance UPSERT_ENABLED_IMPORTANCE = ConfigDef.Importance.LOW;
   private static final String UPSERT_ENABLED_DOC =
       "Enable upsert functionality on the connector through the use of record keys, intermediate "
-      + "tables, and periodic merge flushes. Row-matching will be performed based on the contents " 
+      + "tables, and periodic merge flushes. Row-matching will be performed based on the contents "
       + "of record keys.";
 
   public static final String DELETE_ENABLED_CONFIG =                    "deleteEnabled";
@@ -333,8 +337,8 @@ public class BigQuerySinkConfig extends AbstractConfig {
   public static final boolean DELETE_ENABLED_DEFAULT =                  false;
   private static final ConfigDef.Importance DELETE_ENABLED_IMPORTANCE = ConfigDef.Importance.LOW;
   private static final String DELETE_ENABLED_DOC =
-      "Enable delete functionality on the connector through the use of record keys, intermediate " 
-      + "tables, and periodic merge flushes. A delete will be performed when a record with a null " 
+      "Enable delete functionality on the connector through the use of record keys, intermediate "
+      + "tables, and periodic merge flushes. A delete will be performed when a record with a null "
       + "value (i.e., a tombstone record) is read.";
 
   public static final String INTERMEDIATE_TABLE_SUFFIX_CONFIG =                     "intermediateTableSuffix";
@@ -343,10 +347,10 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final ConfigDef.Validator INTERMEDIATE_TABLE_SUFFIX_VALIDATOR =    new ConfigDef.NonEmptyString();
   private static final ConfigDef.Importance INTERMEDIATE_TABLE_SUFFIX_IMPORTANCE = ConfigDef.Importance.LOW;
   private static final String INTERMEDIATE_TABLE_SUFFIX_DOC =
-      "A suffix that will be appended to the names of destination tables to create the names for " 
-      + "the corresponding intermediate tables. Multiple intermediate tables may be created for a " 
-      + "single destination table, but their names will always start with the name of the " 
-      + "destination table, followed by this suffix, and possibly followed by an additional " 
+      "A suffix that will be appended to the names of destination tables to create the names for "
+      + "the corresponding intermediate tables. Multiple intermediate tables may be created for a "
+      + "single destination table, but their names will always start with the name of the "
+      + "destination table, followed by this suffix, and possibly followed by an additional "
       + "suffix.";
 
   public static final String MERGE_INTERVAL_MS_CONFIG =                    "mergeIntervalMs";
@@ -394,7 +398,7 @@ public class BigQuerySinkConfig extends AbstractConfig {
   );
   private static final ConfigDef.Importance MERGE_RECORDS_THRESHOLD_IMPORTANCE = ConfigDef.Importance.LOW;
   private static final String MERGE_RECORDS_THRESHOLD_DOC =
-      "How many records to write to an intermediate table before performing a merge flush, if " 
+      "How many records to write to an intermediate table before performing a merge flush, if "
       + "upsert/delete is enabled. Can be set to -1 to disable record count-based flushing. Either "
               + MERGE_INTERVAL_MS_CONFIG + " or " + MERGE_RECORDS_THRESHOLD_CONFIG + ", or both must be enabled.";
 
@@ -550,6 +554,16 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final ConfigDef.Type ENABLE_RETRIES_TYPE = ConfigDef.Type.BOOLEAN;
   public static final Boolean ENABLE_RETRIES_DEFAULT = true;
   private static final ConfigDef.Importance ENABLE_RETRIES_IMPORTANCE = ConfigDef.Importance.MEDIUM;
+
+  public static final String FIELD_TYPE_OVERRIDES_CONFIG = "fieldTypeOverrides";
+  private static final ConfigDef.Type FIELD_TYPE_OVERRIDES_TYPE = ConfigDef.Type.STRING;
+  private static final String FIELD_TYPE_OVERRIDES_DEFAULT = "";
+  private static final ConfigDef.Importance FIELD_TYPE_OVERRIDES_IMPORTANCE = ConfigDef.Importance.LOW;
+  private static final String FIELD_TYPE_OVERRIDES_DOC =
+      "Comma-separated list of field type overrides in the format 'fieldName:type'. " +
+      "Supported types: STRING, BYTES, INTEGER, FLOAT, BOOLEAN, TIMESTAMP, DATE, TIME, DATETIME, JSON. " +
+      "Example: 'data:JSON,created_at:TIMESTAMP'";
+
   /**
    * Return the ConfigDef object used to define this config's fields.
    *
@@ -864,6 +878,12 @@ public class BigQuerySinkConfig extends AbstractConfig {
             ENABLE_RETRIES_TYPE,
             ENABLE_RETRIES_DEFAULT,
             ENABLE_RETRIES_IMPORTANCE
+        ).define(
+            FIELD_TYPE_OVERRIDES_CONFIG,
+            FIELD_TYPE_OVERRIDES_TYPE,
+            FIELD_TYPE_OVERRIDES_DEFAULT,
+            FIELD_TYPE_OVERRIDES_IMPORTANCE,
+            FIELD_TYPE_OVERRIDES_DOC
         );
   }
 
@@ -955,7 +975,7 @@ public class BigQuerySinkConfig extends AbstractConfig {
   public SchemaConverter<Schema> getSchemaConverter() {
     return new BigQuerySchemaConverter(
         getBoolean(ALL_BQ_FIELDS_NULLABLE_CONFIG),
-        getBoolean(SANITIZE_FIELD_NAME_CONFIG));
+        getBoolean(SANITIZE_FIELD_NAME_CONFIG), getFieldTypeOverrides());
   }
 
   /**
@@ -1119,6 +1139,42 @@ public class BigQuerySinkConfig extends AbstractConfig {
         .filter(l -> !l.isEmpty());
   }
 
+  public Map<String, LegacySQLTypeName> getFieldTypeOverrides() {
+    String overridesStr = getString(FIELD_TYPE_OVERRIDES_CONFIG);
+    logger.info("Parsing field types overrides: {}", overridesStr);
+    if (overridesStr == null || overridesStr.trim().isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    Map<String, LegacySQLTypeName> overrides = new HashMap<>();
+    for (String override : overridesStr.split(",")) {
+      String[] parts = override.trim().split(":");
+      if (parts.length != 2) {
+        throw new ConfigException(
+            FIELD_TYPE_OVERRIDES_CONFIG,
+            override,
+            "Field type override must be in the format 'fieldName:type'"
+        );
+      }
+
+      String fieldName = parts[0].trim();
+      String typeStr = parts[1].trim().toUpperCase();
+
+      try {
+        LegacySQLTypeName type = LegacySQLTypeName.valueOf(typeStr);
+        overrides.put(fieldName, type);
+      } catch (IllegalArgumentException e) {
+        throw new ConfigException(
+            FIELD_TYPE_OVERRIDES_CONFIG,
+            typeStr,
+            "Invalid BigQuery type. Supported types: " +
+            Arrays.toString(LegacySQLTypeName.values())
+        );
+      }
+    }
+    return overrides;
+  }
+
   protected BigQuerySinkConfig(ConfigDef config, Map<String, String> properties) {
     super(config, properties);
   }
@@ -1131,7 +1187,7 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private void validateBatchLoadingConfig() {
     List<String> batchTopics = getList(ENABLE_BATCH_CONFIG);
     String batchRegex = getString(ENABLE_BATCH_REGEX_CONFIG);
-    
+
     if (!batchTopics.isEmpty() && !batchRegex.isEmpty()) {
       throw new ConfigException(
           String.format("Only one of %s or %s should be specified",

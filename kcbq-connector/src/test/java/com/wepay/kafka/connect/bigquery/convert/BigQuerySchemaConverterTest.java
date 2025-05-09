@@ -38,6 +38,8 @@ import org.junit.Test;
 
 import io.confluent.connect.avro.AvroData;
 
+import java.util.HashMap;
+
 public class BigQuerySchemaConverterTest {
 
   @Test(expected = ConversionConnectException.class)
@@ -440,7 +442,7 @@ public class BigQuerySchemaConverterTest {
         .build();
 
     com.google.cloud.bigquery.Schema bigQueryTestSchema =
-        new BigQuerySchemaConverter(false, true).convertSchema(kafkaConnectTestSchema);
+        new BigQuerySchemaConverter(false, true, new HashMap<>()).convertSchema(kafkaConnectTestSchema);
     assertEquals(bigQueryExpectedSchema, bigQueryTestSchema);
   }
 

@@ -22,6 +22,7 @@ package com.wepay.kafka.connect.bigquery;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.InsertAllRequest.RowToInsert;
+import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
@@ -129,6 +130,8 @@ public class BigQuerySinkTask extends SinkTask {
 
   private ErrantRecordHandler errantRecordHandler;
   private Pattern batchLoadRegex;
+
+  private Map<String, LegacySQLTypeName> fieldTypeOverrides;
 
   /**
    * Create a new BigquerySinkTask.
@@ -457,11 +460,13 @@ public class BigQuerySinkTask extends SinkTask {
     boolean allowReqFieldRelaxation = config.getBoolean(BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG);
     boolean allowSchemaUnionization = config.getBoolean(BigQuerySinkConfig.ALLOW_SCHEMA_UNIONIZATION_CONFIG);
     boolean sanitizeFieldNames = config.getBoolean(BigQuerySinkConfig.SANITIZE_FIELD_NAME_CONFIG);
+    fieldTypeOverrides = config.getFieldTypeOverrides();
     return new SchemaManager(schemaRetriever, schemaConverter, getBigQuery(),
                              allowNewBQFields, allowReqFieldRelaxation, allowSchemaUnionization,
                              sanitizeFieldNames,
                              kafkaKeyFieldName, kafkaDataFieldName,
-                             timestampPartitionFieldName, partitionExpiration, clusteringFieldName, timePartitioningType);
+                             timestampPartitionFieldName, partitionExpiration, clusteringFieldName, timePartitioningType,
+                             fieldTypeOverrides);
   }
 
   private BigQueryWriter getBigQueryWriter(ErrantRecordHandler errantRecordHandler) {
