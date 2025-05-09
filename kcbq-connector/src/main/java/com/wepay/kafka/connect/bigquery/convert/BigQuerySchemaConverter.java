@@ -182,8 +182,27 @@ public class BigQuerySchemaConverter implements SchemaConverter<com.google.cloud
     // Check for field type override first
     if (fieldTypeOverrides.containsKey(fieldName)) {
       LegacySQLTypeName overrideType = fieldTypeOverrides.get(fieldName);
-      logger.info("Applying type override for field '{}': {} -> {}",
+      logger.info("Applying type override for field '{}': {} -> {}", 
           fieldName, kafkaConnectSchemaType, overrideType);
+      
+      // Special handling for JSON type
+      if (overrideType == LegacySQLTypeName.JSON) {
+        // For JSON type, we need to ensure the field is treated as a native JSON type
+        // This means we need to set the mode to NULLABLE and ensure the field is properly
+        // configured for JSON storage
+        com.google.cloud.bigquery.Field.Builder builder = com.google.cloud.bigquery.Field.newBuilder(fieldName, overrideType);
+        builder.setMode(com.google.cloud.bigquery.Field.Mode.NULLABLE);
+        
+        // If the field is a string type, we need to ensure it's treated as a JSON string
+        if (kafkaConnectSchemaType == Schema.Type.STRING) {
+          logger.info("Converting string field '{}' to JSON type", fieldName);
+          // The field will be treated as a JSON string that needs to be parsed
+          builder.setDescription("JSON string that will be parsed into a native JSON type");
+        }
+        
+        return Optional.of(builder);
+      }
+      
       return Optional.of(com.google.cloud.bigquery.Field.newBuilder(fieldName, overrideType));
     }
 

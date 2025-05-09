@@ -983,7 +983,11 @@ public class BigQuerySinkConfig extends AbstractConfig {
    * @return a {@link RecordConverter} for BigQuery.
    */
   public RecordConverter<Map<String, Object>> getRecordConverter() {
-    return new BigQueryRecordConverter(getBoolean(CONVERT_DOUBLE_SPECIAL_VALUES_CONFIG), getBoolean(CONVERT_DEBEZIUM_TIMESTAMP_TO_INTEGER_CONFIG));
+    return new BigQueryRecordConverter(
+        getBoolean(CONVERT_DOUBLE_SPECIAL_VALUES_CONFIG),
+        getBoolean(CONVERT_DEBEZIUM_TIMESTAMP_TO_INTEGER_CONFIG),
+        getFieldTypeOverrides()
+    );
   }
 
   /**

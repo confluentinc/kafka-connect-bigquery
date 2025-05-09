@@ -20,6 +20,7 @@
 package com.wepay.kafka.connect.bigquery.convert;
 
 import com.google.cloud.bigquery.InsertAllRequest.RowToInsert;
+import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.wepay.kafka.connect.bigquery.api.KafkaSchemaRecordType;
 import com.wepay.kafka.connect.bigquery.convert.logicaltype.DebeziumLogicalConverters;
 import com.wepay.kafka.connect.bigquery.convert.logicaltype.KafkaLogicalConverters;
@@ -30,23 +31,32 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 
 /**
  * Class for converting from {@link SinkRecord SinkRecords} and BigQuery rows, which are represented
  * as {@link Map Maps} from {@link String Strings} to {@link Object Objects}.
  */
 public class BigQueryRecordConverter implements RecordConverter<Map<String, Object>> {
+  private static final Logger logger = LoggerFactory.getLogger(BigQueryRecordConverter.class);
+  private static final Gson gson = new Gson();
+  private static final JsonParser jsonParser = new JsonParser();
 
   private static final Set<Class<?>> BASIC_TYPES = new HashSet<>(
           Arrays.asList(
@@ -55,6 +65,7 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
           );
   private final boolean shouldConvertSpecialDouble;
   private boolean shouldConvertDebeziumTimestampToInteger;
+  private final Map<String, LegacySQLTypeName> fieldTypeOverrides;
 
   static {
     // force registration
@@ -63,8 +74,14 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
   }
 
   public BigQueryRecordConverter(boolean shouldConvertDoubleSpecial, boolean shouldConvertDebeziumTimestampToInteger) {
+    this(shouldConvertDoubleSpecial, shouldConvertDebeziumTimestampToInteger, Collections.emptyMap());
+  }
+
+  public BigQueryRecordConverter(boolean shouldConvertDoubleSpecial, boolean shouldConvertDebeziumTimestampToInteger,
+                                Map<String, LegacySQLTypeName> fieldTypeOverrides) {
     this.shouldConvertSpecialDouble = shouldConvertDoubleSpecial;
     this.shouldConvertDebeziumTimestampToInteger = shouldConvertDebeziumTimestampToInteger;
+    this.fieldTypeOverrides = fieldTypeOverrides;
   }
 
   /**
@@ -132,7 +149,7 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
         " found in schemaless record data. Can't convert record to bigQuery format");
   }
 
-  private Object convertObject(Object kafkaConnectObject, Schema kafkaConnectSchema) {
+  private Object convertObject(Object kafkaConnectObject, Schema kafkaConnectSchema, String fieldName) {
     if (kafkaConnectObject == null) {
       if (kafkaConnectSchema.isOptional()) {
         // short circuit converting the object
@@ -142,6 +159,22 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
             kafkaConnectSchema.name() + " is not optional, but converting object had null value");
       }
     }
+
+    // Check for JSON type override
+    if (fieldTypeOverrides.containsKey(fieldName) && fieldTypeOverrides.get(fieldName) == LegacySQLTypeName.JSON) {
+      if (kafkaConnectObject instanceof String) {
+        try {
+          // Parse the JSON string into a JsonElement
+          JsonElement jsonElement = jsonParser.parse((String) kafkaConnectObject);
+          // Convert to a native JSON object
+          return gson.fromJson(jsonElement, Object.class);
+        } catch (Exception e) {
+          logger.warn("Failed to parse JSON string for field '{}': {}", fieldName, e.getMessage());
+          return kafkaConnectObject;
+        }
+      }
+    }
+
     if (LogicalConverterRegistry.isRegisteredLogicalType(kafkaConnectSchema.name())) {
       return convertLogical(kafkaConnectObject, kafkaConnectSchema);
     }
@@ -181,7 +214,8 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
       if (!isEmptyStruct) {
         Object bigQueryObject = convertObject(
             kafkaConnectStruct.get(kafkaConnectField.name()),
-            kafkaConnectField.schema()
+            kafkaConnectField.schema(),
+            kafkaConnectField.name()
         );
         if (bigQueryObject != null) {
           bigQueryRecord.put(kafkaConnectField.name(), bigQueryObject);
@@ -198,7 +232,7 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
     List<Object> bigQueryList = new ArrayList<>();
     List<Object> kafkaConnectList = (List<Object>) kafkaConnectObject;
     for (Object kafkaConnectElement : kafkaConnectList) {
-      Object bigQueryValue = convertObject(kafkaConnectElement, kafkaConnectValueSchema);
+      Object bigQueryValue = convertObject(kafkaConnectElement, kafkaConnectValueSchema, "array_element");
       bigQueryList.add(bigQueryValue);
     }
     return bigQueryList;
@@ -209,23 +243,17 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
                                                Schema kafkaConnectSchema) {
     Schema kafkaConnectKeySchema = kafkaConnectSchema.keySchema();
     Schema kafkaConnectValueSchema = kafkaConnectSchema.valueSchema();
-    List<Map<String, Object>> bigQueryEntryList = new ArrayList<>();
+    List<Map<String, Object>> bigQueryList = new ArrayList<>();
     Map<Object, Object> kafkaConnectMap = (Map<Object, Object>) kafkaConnectObject;
-    for (Map.Entry<Object, Object> kafkaConnectMapEntry : kafkaConnectMap.entrySet()) {
+    for (Map.Entry<Object, Object> kafkaConnectEntry : kafkaConnectMap.entrySet()) {
       Map<String, Object> bigQueryEntry = new HashMap<>();
-      Object bigQueryKey = convertObject(
-          kafkaConnectMapEntry.getKey(),
-          kafkaConnectKeySchema
-      );
-      Object bigQueryValue = convertObject(
-          kafkaConnectMapEntry.getValue(),
-          kafkaConnectValueSchema
-      );
-      bigQueryEntry.put(BigQuerySchemaConverter.MAP_KEY_FIELD_NAME, bigQueryKey);
-      bigQueryEntry.put(BigQuerySchemaConverter.MAP_VALUE_FIELD_NAME, bigQueryValue);
-      bigQueryEntryList.add(bigQueryEntry);
+      Object bigQueryKey = convertObject(kafkaConnectEntry.getKey(), kafkaConnectKeySchema, "map_key");
+      Object bigQueryValue = convertObject(kafkaConnectEntry.getValue(), kafkaConnectValueSchema, "map_value");
+      bigQueryEntry.put("key", bigQueryKey);
+      bigQueryEntry.put("value", bigQueryValue);
+      bigQueryList.add(bigQueryEntry);
     }
-    return bigQueryEntryList;
+    return bigQueryList;
   }
 
   private Object convertLogical(Object kafkaConnectObject,
