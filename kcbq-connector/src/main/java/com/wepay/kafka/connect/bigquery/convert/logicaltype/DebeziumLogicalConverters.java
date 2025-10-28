@@ -71,7 +71,8 @@ public class DebeziumLogicalConverters {
 
     @Override
     public String convert(Object kafkaConnectObject) {
-      LocalDate date = EPOCH.plusDays((int)kafkaConnectObject);
+      int days = (Integer) kafkaConnectObject;
+      LocalDate date = EPOCH.plusDays(days);
       return date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
     }
   }
