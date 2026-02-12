@@ -388,6 +388,7 @@ under the License.
                         </dependency>
                     </dependencies>
                     <configuration>
+                        <excludedGroups>org.apache.kafka.test.IntegrationTest</excludedGroups>
                         <skip>${skip.unit.tests}</skip>
                     </configuration>
                 </plugin>
