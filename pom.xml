@@ -36,14 +36,14 @@
         <java.version>8</java.version>
         <com.google.guava.version>32.0.1-jre</com.google.guava.version>
         <com.google.re2j.version>1.7</com.google.re2j.version>
-        <confluent.version>6.0.10</confluent.version>
+        <confluent.version>7.7.0</confluent.version>
         <debezium.version>0.6.2</debezium.version>
         <google.auth.version>0.21.1</google.auth.version>
         <google.cloud.version>2.10.9</google.cloud.version>
         <google.cloud.storage.version>1.113.4</google.cloud.storage.version>
         <google.protobuf.version>3.25.5</google.protobuf.version>
         <jackson.version>2.16.2</jackson.version>
-        <kafka.version>2.6.0</kafka.version>
+        <kafka.version>3.9.1</kafka.version>
         <kafka.scala.version>2.12</kafka.scala.version>
         <slf4j.version>1.7.26</slf4j.version>
         <caffeine.version>2.8.6</caffeine.version>
@@ -59,7 +59,7 @@
         <kafka.connect.plugin.version>0.11.1</kafka.connect.plugin.version>
         <release.plugin.version>2.5.3</release.plugin.version>
         <site.plugin.version>3.7.1</site.plugin.version>
-        <surefire.plugin.version>3.0.0-M4</surefire.plugin.version>
+        <surefire.plugin.version>2.22.2</surefire.plugin.version>
         <jacoco.plugin.version>0.8.11</jacoco.plugin.version>
         <instruction.coverage.threshold>0.84</instruction.coverage.threshold>
         <branch.coverage.threshold>0.74</branch.coverage.threshold>
@@ -256,6 +256,26 @@
                 <scope>test</scope>
             </dependency>
             <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-server-common</artifactId>
+                <version>${kafka.version}</version>
+                <classifier>test</classifier>
+                <type>test-jar</type>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>5.9.3</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>5.9.3</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
                 <groupId>io.confluent</groupId>
                 <artifactId>kafka-schema-registry</artifactId>
                 <version>${confluent.version}</version>
@@ -360,6 +380,13 @@ under the License.
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${surefire.plugin.version}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.maven.surefire</groupId>
+                            <artifactId>surefire-junit47</artifactId>
+                            <version>${surefire.plugin.version}</version>
+                        </dependency>
+                    </dependencies>
                     <configuration>
                         <excludedGroups>org.apache.kafka.test.IntegrationTest</excludedGroups>
                         <skip>${skip.unit.tests}</skip>
@@ -369,6 +396,13 @@ under the License.
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${surefire.plugin.version}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.maven.surefire</groupId>
+                            <artifactId>surefire-junit47</artifactId>
+                            <version>${surefire.plugin.version}</version>
+                        </dependency>
+                    </dependencies>
                     <executions>
                         <execution>
                             <id>embedded-integration-test</id>
