@@ -52,6 +52,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.utils.Utils;
 import org.apache.kafka.connect.runtime.AbstractStatus;
 import org.apache.kafka.connect.runtime.WorkerConfig;
+import org.apache.kafka.connect.runtime.isolation.PluginDiscoveryMode;
 import org.apache.kafka.connect.runtime.rest.entities.ConnectorStateInfo;
 import org.apache.kafka.connect.util.clusters.EmbeddedConnectCluster;
 import org.apache.kafka.test.IntegrationTest;
@@ -99,6 +100,8 @@ public abstract class BaseConnectorIT {
     // Allow per-connector consumer configuration for throughput testing
     workerProps.put(
         WorkerConfig.CONNECTOR_CLIENT_POLICY_CLASS_CONFIG, "All");
+    // Set plugin discovery to hybrid_warn to avoid ServiceLoader manifest errors with Kafka 3.9.1
+    workerProps.put(WorkerConfig.PLUGIN_DISCOVERY_CONFIG, PluginDiscoveryMode.HYBRID_WARN.toString());
 
     connect = new EmbeddedConnectCluster.Builder()
         .name("kcbq-connect-cluster")
