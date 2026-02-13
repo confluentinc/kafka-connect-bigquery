@@ -36,7 +36,7 @@
         <java.version>11</java.version>
         <com.google.guava.version>32.0.1-jre</com.google.guava.version>
         <com.google.re2j.version>1.7</com.google.re2j.version>
-        <confluent.version>7.9.0</confluent.version>
+        <confluent.version>7.9.5</confluent.version>
         <debezium.version>2.3.0.Final</debezium.version>
         <google.auth.version>0.21.1</google.auth.version>
         <google.cloud.version>2.10.9</google.cloud.version>
