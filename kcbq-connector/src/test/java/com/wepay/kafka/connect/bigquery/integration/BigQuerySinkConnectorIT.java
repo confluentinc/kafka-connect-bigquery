@@ -27,7 +27,6 @@ import com.wepay.kafka.connect.bigquery.retrieve.IdentitySchemaRetriever;
 import com.wepay.kafka.connect.bigquery.utils.FieldNameSanitizer;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.formatter.AvroMessageReader;
-import kafka.common.MessageReader;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -51,6 +50,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -256,18 +256,17 @@ public class BigQuerySinkConnectorIT {
     messageReaderProps.put("topic", topic);
     InputStream dataStream = BigQuerySinkConnectorIT.class.getClassLoader()
         .getResourceAsStream(testCaseDir + "data.json");
-    MessageReader messageReader = new AvroMessageReader();
-    messageReader.init(dataStream, messageReaderProps);
+    AvroMessageReader messageReader = new AvroMessageReader();
+    messageReader.init(messageReaderProps);
 
-    ProducerRecord<byte[], byte[]> message = messageReader.readMessage();
-    while (message != null) {
+    Iterator<ProducerRecord<byte[], byte[]>> records = messageReader.readRecords(dataStream);
+    while (records.hasNext()) {
       try {
-        valueProducer.send(message).get(1, TimeUnit.SECONDS);
+        valueProducer.send(records.next()).get(1, TimeUnit.SECONDS);
         numRecordsProduced++;
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
         throw new RuntimeException(e);
       }
-      message = messageReader.readMessage();
     } 
   }
 
