@@ -1,6 +1,6 @@
 name: kafka-connect-bigquery
 lang: java
-lang_version: 11
+lang_version: 8
 git:
   enable: true
 codeowners:
