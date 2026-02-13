@@ -26,7 +26,7 @@ global_job_config:
       - checkout
       - . vault-setup
       - . vault-sem-get-secret kcbq_gcp
-      - sem-version java 11
+      - sem-version java 8
       - . cache-maven restore
 
 blocks:
