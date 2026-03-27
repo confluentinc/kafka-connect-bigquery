@@ -37,12 +37,12 @@
         <com.google.guava.version>32.0.1-jre</com.google.guava.version>
         <com.google.re2j.version>1.7</com.google.re2j.version>
         <confluent.version>7.9.5</confluent.version>
-        <debezium.version>0.6.2</debezium.version>
+        <debezium.version>2.3.0.Alpha1</debezium.version>
         <google.auth.version>0.21.1</google.auth.version>
         <google.cloud.version>2.10.9</google.cloud.version>
         <google.cloud.storage.version>1.113.4</google.cloud.storage.version>
         <google.protobuf.version>3.25.5</google.protobuf.version>
-        <jackson.version>2.16.2</jackson.version>
+        <jackson.version>2.18.6</jackson.version>
         <kafka.version>3.9.1</kafka.version>
         <kafka.scala.version>2.12</kafka.scala.version>
         <slf4j.version>1.7.26</slf4j.version>
@@ -305,6 +305,16 @@
                 <groupId>com.google.re2j</groupId>
                 <artifactId>re2j</artifactId>
                 <version>${com.google.re2j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-beanutils</groupId>
+                <artifactId>commons-beanutils</artifactId>
+                <version>1.11.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bitbucket.b_c</groupId>
+                <artifactId>jose4j</artifactId>
+                <version>0.9.6</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
