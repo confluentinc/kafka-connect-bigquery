@@ -173,6 +173,8 @@ public class MergeQueries {
             logger.warn("Serialize access error while merging from {} to {}, retry attempt {}", intermediateTable, destinationTable, ++attempt);
           } else if (BigQueryErrorResponses.isJobInternalError(e)) {
             logger.warn("Job internal error while merging from {} to {}, retry attempt {}", intermediateTable, destinationTable, ++attempt);
+          } else if (BigQueryErrorResponses.isQuotaExceededError(e)) {
+            logger.warn("Quota exceeded error while merging from {} to {}, retry attempt {}", intermediateTable, destinationTable, ++attempt);
           } else {
             throw e;
           }
