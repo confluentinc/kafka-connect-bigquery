@@ -22,6 +22,7 @@ package com.wepay.kafka.connect.bigquery;
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.storage.Storage;
@@ -29,7 +30,6 @@ import com.google.cloud.storage.StorageOptions;
 import com.google.common.annotations.VisibleForTesting;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
-import com.wepay.kafka.connect.bigquery.filter.GcpCredsFilter;
 import com.wepay.kafka.connect.bigquery.utils.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +38,7 @@ import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
@@ -55,6 +56,10 @@ public abstract class GcpClientBuilder<Client> {
   private static final Logger logger = LoggerFactory.getLogger(GcpClientBuilder.class);
   private static final String USER_AGENT_HEADER_KEY = "user-agent";
   private static final String USER_AGENT_HEADER_FORMAT = "%s (GPN: Confluent;) Google BigQuery Sink/%s";
+  // ServiceAccountCredentials.fromStream() honors a token_uri field from the input JSON, so we
+  // override it with Google's default endpoint to prevent SSRF via attacker-controlled token URIs.
+  private static final URI DEFAULT_TOKEN_SERVER_URI =
+      URI.create("https://oauth2.googleapis.com/token");
   private HeaderProvider headerProvider = null;
   private String project = null;
   private KeySource keySource = null;
@@ -107,34 +112,41 @@ public abstract class GcpClientBuilder<Client> {
     Objects.requireNonNull(keySource, "Key source must be defined to build a GCP client");
     Objects.requireNonNull(project, "Project must be defined to build a GCP client");
 
-    InputStream credentialsStream;
-    String keyfileConfig;
-    switch (keySource) {
-      case JSON:
-        keyfileConfig = GcpCredsFilter.filterCreds(key, false);
-        break;
-      case FILE:
-        keyfileConfig = GcpCredsFilter.filterCreds(key, true);
-        break;
-      case APPLICATION_DEFAULT:
-        try {
+    try {
+      switch (keySource) {
+        case JSON:
+          logger.debug("Attempting to authenticate with BigQuery using json key");
+          try (InputStream stream =
+                   new ByteArrayInputStream(key.getBytes(StandardCharsets.UTF_8))) {
+            return credentialsFromStream(stream);
+          }
+        case FILE:
+          logger.debug("Attempting to authenticate with BigQuery using credentials file");
+          try (InputStream stream = new FileInputStream(key)) {
+            return credentialsFromStream(stream);
+          }
+        case APPLICATION_DEFAULT:
           logger.debug("Attempting to use application default credentials");
           return GoogleCredentials.getApplicationDefault();
-        } catch (IOException e) {
-          throw new BigQueryConnectException("Failed to create Application Default Credentials", e);
-        }
-      default:
-        throw new IllegalArgumentException("Unexpected value for KeySource enum: " + keySource);
-    }
-
-    logger.debug("Attempting to authenticate with BigQuery using filtered json key");
-    credentialsStream = new ByteArrayInputStream(keyfileConfig.getBytes(StandardCharsets.UTF_8));
-
-    try {
-      return GoogleCredentials.fromStream(credentialsStream);
+        default:
+          throw new IllegalArgumentException("Unexpected value for KeySource enum: " + keySource);
+      }
     } catch (IOException e) {
-      throw new BigQueryConnectException("Failed to create credentials from input stream", e);
+      throw new BigQueryConnectException("Failed to create credentials", e);
     }
+  }
+
+  /**
+   * Parse GCP service account credentials from the given stream, pinning the token server URI to
+   * Google's default endpoint. Using the type-specific {@link ServiceAccountCredentials#fromStream}
+   * loader (rather than filtering fields manually) and overriding {@code token_uri} prevents SSRF
+   * via attacker-controlled token endpoints in the supplied credential JSON.
+   */
+  private static GoogleCredentials credentialsFromStream(InputStream stream) throws IOException {
+    return ServiceAccountCredentials.fromStream(stream)
+        .toBuilder()
+        .setTokenServerUri(DEFAULT_TOKEN_SERVER_URI)
+        .build();
   }
 
   protected abstract Client doBuild(String project, GoogleCredentials credentials, HeaderProvider userAgent);
