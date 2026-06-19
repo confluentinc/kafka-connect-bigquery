@@ -45,7 +45,7 @@
         <jackson.version>2.18.6</jackson.version>
         <kafka.version>3.9.1</kafka.version>
         <kafka.scala.version>2.12</kafka.scala.version>
-        <slf4j.version>1.7.26</slf4j.version>
+        <slf4j.version>1.7.36</slf4j.version>
         <caffeine.version>2.8.6</caffeine.version>
 
         <junit.version>4.13</junit.version>
