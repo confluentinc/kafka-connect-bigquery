@@ -112,27 +112,31 @@ public abstract class GcpClientBuilder<Client> {
     Objects.requireNonNull(keySource, "Key source must be defined to build a GCP client");
     Objects.requireNonNull(project, "Project must be defined to build a GCP client");
 
-    try {
-      switch (keySource) {
-        case JSON:
-          logger.debug("Attempting to authenticate with BigQuery using json key");
-          try (InputStream stream =
-                   new ByteArrayInputStream(key.getBytes(StandardCharsets.UTF_8))) {
-            return credentialsFromStream(stream);
-          }
-        case FILE:
-          logger.debug("Attempting to authenticate with BigQuery using credentials file");
-          try (InputStream stream = new FileInputStream(key)) {
-            return credentialsFromStream(stream);
-          }
-        case APPLICATION_DEFAULT:
+    switch (keySource) {
+      case JSON:
+        logger.debug("Attempting to authenticate with BigQuery using json key");
+        try (InputStream stream =
+                 new ByteArrayInputStream(key.getBytes(StandardCharsets.UTF_8))) {
+          return credentialsFromStream(stream);
+        } catch (IOException e) {
+          throw new BigQueryConnectException("Failed to create credentials from JSON key", e);
+        }
+      case FILE:
+        logger.debug("Attempting to authenticate with BigQuery using credentials file");
+        try (InputStream stream = new FileInputStream(key)) {
+          return credentialsFromStream(stream);
+        } catch (IOException e) {
+          throw new BigQueryConnectException("Failed to access credentials file", e);
+        }
+      case APPLICATION_DEFAULT:
+        try {
           logger.debug("Attempting to use application default credentials");
           return GoogleCredentials.getApplicationDefault();
-        default:
-          throw new IllegalArgumentException("Unexpected value for KeySource enum: " + keySource);
-      }
-    } catch (IOException e) {
-      throw new BigQueryConnectException("Failed to create credentials", e);
+        } catch (IOException e) {
+          throw new BigQueryConnectException("Failed to create Application Default Credentials", e);
+        }
+      default:
+        throw new IllegalArgumentException("Unexpected value for KeySource enum: " + keySource);
     }
   }
 
