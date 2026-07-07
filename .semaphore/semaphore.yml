@@ -24,8 +24,7 @@ global_job_config:
   prologue:
     commands:
       - checkout
-      - . vault-setup
-      - . vault-sem-get-secret kcbq_gcp
+      - . vault-get-secret kcbq_gcp
       - sem-version java 11
       - . cache-maven restore
 
