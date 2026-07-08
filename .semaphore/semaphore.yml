@@ -25,6 +25,11 @@ global_job_config:
     commands:
       - checkout
       - . vault-get-secret connect/kcbq_gcp
+      # vault-get-secret exports KCBQ_TEST_KEYFILE as the raw keyfile JSON; the
+      # integration tests expect a file path (keySource=FILE), so materialize it
+      # to a file and repoint the env var (v1 vault-sem-get-secret did this).
+      - printf '%s' "$KCBQ_TEST_KEYFILE" > /tmp/kcbq_gcp_keyfile.json
+      - export KCBQ_TEST_KEYFILE=/tmp/kcbq_gcp_keyfile.json
       - sem-version java 11
       - . cache-maven restore
 
