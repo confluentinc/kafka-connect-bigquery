@@ -48,7 +48,7 @@ public class GcpClientBuilderTest {
    */
   private static class CapturingBuilder extends GcpClientBuilder<GoogleCredentials> {
     @Override
-    protected GoogleCredentials doBuild(String project, GoogleCredentials credentials,
+    protected GoogleCredentials doBuild(String project, String universeDomain, GoogleCredentials credentials,
                                         HeaderProvider userAgent) {
       return credentials;
     }

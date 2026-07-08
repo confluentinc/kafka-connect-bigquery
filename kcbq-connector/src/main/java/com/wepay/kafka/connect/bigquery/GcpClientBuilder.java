@@ -62,11 +62,13 @@ public abstract class GcpClientBuilder<Client> {
       URI.create("https://oauth2.googleapis.com/token");
   private HeaderProvider headerProvider = null;
   private String project = null;
+  private String universeDomain = null;
   private KeySource keySource = null;
   private String key = null;
 
   public GcpClientBuilder<Client> withConfig(BigQuerySinkConfig config) {
     return withProject(config.getString(PROJECT_CONFIG))
+        .withUniverseDomain(config.getUniverseDomain())
         .withKeySource(config.getKeySource())
         .withKey(config.getKey())
         .withUserAgent(config.getString(CONNECTOR_RUNTIME_PROVIDER_CONFIG));
@@ -75,6 +77,11 @@ public abstract class GcpClientBuilder<Client> {
   public GcpClientBuilder<Client> withProject(String project) {
     Objects.requireNonNull(project, "Project cannot be null");
     this.project = project;
+    return this;
+  }
+
+  public GcpClientBuilder<Client> withUniverseDomain(String universeDomain) {
+    this.universeDomain = universeDomain;
     return this;
   }
 
@@ -101,7 +108,7 @@ public abstract class GcpClientBuilder<Client> {
   }
 
   public Client build() {
-    return doBuild(project, credentials(), headerProvider);
+    return doBuild(project, universeDomain, credentials(), headerProvider);
   }
 
   private GoogleCredentials credentials() {
@@ -153,14 +160,18 @@ public abstract class GcpClientBuilder<Client> {
         .build();
   }
 
-  protected abstract Client doBuild(String project, GoogleCredentials credentials, HeaderProvider userAgent);
+  protected abstract Client doBuild(String project, String universeDomain, GoogleCredentials credentials, HeaderProvider userAgent);
 
   public static class BigQueryBuilder extends GcpClientBuilder<BigQuery> {
     @Override
-    protected BigQuery doBuild(String project, GoogleCredentials credentials, HeaderProvider headerProvider) {
+    protected BigQuery doBuild(String project, String universeDomain, GoogleCredentials credentials, HeaderProvider headerProvider) {
       BigQueryOptions.Builder builder = BigQueryOptions.newBuilder()
           .setProjectId(project)
           .setHeaderProvider(headerProvider);
+
+      if (universeDomain != null && !universeDomain.isEmpty()) {
+        builder.setUniverseDomain(universeDomain);
+      }
 
       if (credentials != null) {
         builder.setCredentials(credentials);
@@ -174,10 +185,14 @@ public abstract class GcpClientBuilder<Client> {
 
   public static class GcsBuilder extends GcpClientBuilder<Storage> {
     @Override
-    protected Storage doBuild(String project, GoogleCredentials credentials, HeaderProvider headerProvider) {
+    protected Storage doBuild(String project, String universeDomain, GoogleCredentials credentials, HeaderProvider headerProvider) {
       StorageOptions.Builder builder = StorageOptions.newBuilder()
           .setProjectId(project)
           .setHeaderProvider(headerProvider);
+
+      if (universeDomain != null && !universeDomain.isEmpty()) {
+        builder.setUniverseDomain(universeDomain);
+      }
 
       if (credentials != null) {
         builder.setCredentials(credentials);
