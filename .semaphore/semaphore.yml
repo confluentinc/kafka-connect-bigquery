@@ -24,8 +24,10 @@ global_job_config:
   prologue:
     commands:
       - checkout
-      - . vault-setup
-      - . vault-sem-get-secret kcbq_gcp
+      - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-key.json
+      - . vault-get-secret connect/kcbq_gcp --secret-key=GOOGLE_APPLICATION_CREDENTIALS --save-as=$GOOGLE_APPLICATION_CREDENTIALS
+      - export KCBQ_TEST_KEYFILE=/tmp/kcbq-test-keyfile.json
+      - . vault-get-secret connect/kcbq_gcp --secret-key=KCBQ_TEST_KEYFILE --save-as=$KCBQ_TEST_KEYFILE
       - sem-version java 11
       - . cache-maven restore
 
