@@ -24,7 +24,6 @@ global_job_config:
   prologue:
     commands:
       - checkout
-      - . vault-get-secret kcbq_gcp
       - sem-version java 11
       - . cache-maven restore
 
@@ -35,6 +34,12 @@ blocks:
       # don't run the tests on non-functional changes...
       when: "change_in('/', {exclude: ['/.deployed-versions/', '.github/'], default_branch: 'master'})"
     task:
+      prologue:
+        commands:
+          # Vault v3: fetch the GCP keyfile secret and write it to a file (no
+          # key content is printed); integration tests read it as a file path.
+          - . vault-get-secret connect/kcbq_gcp --secret-key KCBQ_TEST_KEYFILE --save-as /tmp/kcbq_gcp_keyfile.json
+          - export KCBQ_TEST_KEYFILE=/tmp/kcbq_gcp_keyfile.json
       jobs:
         - name: Test
           commands:
