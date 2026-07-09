@@ -55,28 +55,32 @@ public class TableWriter implements Runnable {
   private final PartitionedTableId table;
   private final SortedMap<SinkRecord, RowToInsert> rows;
   private final Consumer<Collection<RowToInsert>> onFinish;
+  private int bqStreamingMaxRowsPerRequest;
 
   /**
-   * @param writer the {@link BigQueryWriter} to use.
-   * @param table the BigQuery table to write to.
-   * @param rows the rows to write.
-   * @param onFinish a callback to invoke after all rows have been written successfully, which is
-   *                 called with all the rows written by the writer
+   * @param writer                the {@link BigQueryWriter} to use.
+   * @param table                 the BigQuery table to write to.
+   * @param rows                  the rows to write.
+   * @param onFinish              a callback to invoke after all rows have been written successfully, which is
+   *                              called with all the rows written by the writer
+   * @param bqStreamingMaxRowsPerRequest max rows per InsertAll request
    */
   public TableWriter(BigQueryWriter writer,
                      PartitionedTableId table,
                      SortedMap<SinkRecord, RowToInsert> rows,
-                     Consumer<Collection<RowToInsert>> onFinish) {
+                     Consumer<Collection<RowToInsert>> onFinish,
+                     int bqStreamingMaxRowsPerRequest) {
     this.writer = writer;
     this.table = table;
     this.rows = rows;
     this.onFinish = onFinish;
+    this.bqStreamingMaxRowsPerRequest = bqStreamingMaxRowsPerRequest;
   }
 
   @Override
   public void run() {
     int currentIndex = 0;
-    int currentBatchSize = rows.size();
+    int currentBatchSize = Math.min(bqStreamingMaxRowsPerRequest, rows.size());
     int successCount = 0;
     int failureCount = 0;
 
@@ -95,9 +99,9 @@ public class TableWriter implements Runnable {
           successCount++;
         } catch (BigQueryException err) {
           logger.warn(
-              "Could not write batch of size {} to BigQuery. "
+              "Could not write batch of size {} to BigQuery table `{}`. "
                   + "Error code: {}, underlying error (if present): {}",
-              currentBatchList.size(), err.getCode(), err.getError(), err);
+              currentBatchList.size(), table, err.getCode(), err.getError(), err);
           if (isBatchSizeError(err)) {
             failureCount++;
             currentBatchSize = getNewBatchSize(currentBatchSize, err);
@@ -114,11 +118,11 @@ public class TableWriter implements Runnable {
     // Common case is 1 successful call and 0 failed calls:
     // Write to info if uncommon case,
     // Write to debug if common case
-    String logMessage = "Wrote {} rows over {} successful calls and {} failed calls.";
+    String logMessage = "Wrote {} rows over {} successful calls and {} failed calls for table {}.";
     if (successCount + failureCount > 1) {
-      logger.info(logMessage, rows.size(), successCount, failureCount);
+      logger.info(logMessage, rows.size(), successCount, failureCount, table);
     } else {
-      logger.debug(logMessage, rows.size(), successCount, failureCount);
+      logger.debug(logMessage, rows.size(), successCount, failureCount, table);
     }
 
     onFinish.accept(rows.values());
@@ -170,6 +174,7 @@ public class TableWriter implements Runnable {
   public static class Builder implements TableWriterBuilder {
     private final BigQueryWriter writer;
     private final PartitionedTableId table;
+    private final int bqStreamingMaxRowsPerRequest;
 
     private SortedMap<SinkRecord, RowToInsert> rows;
     private SinkRecordConverter recordConverter;
@@ -180,9 +185,11 @@ public class TableWriter implements Runnable {
      * @param table the BigQuery table to write to.
      * @param recordConverter the record converter used to convert records to rows
      */
-    public Builder(BigQueryWriter writer, PartitionedTableId table, SinkRecordConverter recordConverter) {
+    public Builder(BigQueryWriter writer, PartitionedTableId table, SinkRecordConverter recordConverter,
+                   int bqStreamingMaxRowsPerRequest) {
       this.writer = writer;
       this.table = table;
+      this.bqStreamingMaxRowsPerRequest = bqStreamingMaxRowsPerRequest;
 
       this.rows = new TreeMap<>(Comparator.comparing(SinkRecord::kafkaPartition)
               .thenComparing(SinkRecord::kafkaOffset));
@@ -211,7 +218,7 @@ public class TableWriter implements Runnable {
 
     @Override
     public TableWriter build() {
-      return new TableWriter(writer, table, rows, onFinish != null ? onFinish : n -> { });
+      return new TableWriter(writer, table, rows, onFinish != null ? onFinish : n -> { }, bqStreamingMaxRowsPerRequest);
     }
   }
 }
