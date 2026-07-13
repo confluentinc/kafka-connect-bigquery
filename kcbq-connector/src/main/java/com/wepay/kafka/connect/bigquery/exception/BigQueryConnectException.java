@@ -52,12 +52,15 @@ public class BigQueryConnectException extends ConnectException {
     messageBuilder.append(String.format("table: %s insertion failed for the following rows:", tableInfo));
     for (Map.Entry<Long, List<BigQueryError>> errorsEntry : errorsMap.entrySet()) {
       for (BigQueryError error : errorsEntry.getValue()) {
+        // Note: BigQueryError.getMessage() is intentionally omitted. BigQuery's per-row error
+        // message can embed the raw rejected record value, which would leak Kafka record field
+        // contents into ERROR logs (see CC-42851). Only the safe fields (row index, location =
+        // field name, reason = error code) are included here.
         messageBuilder.append(String.format(
-            "%n\t[row index %d] (location %s, reason: %s): %s",
+            "%n\t[row index %d] (location %s, reason: %s)",
             errorsEntry.getKey(),
             error.getLocation(),
-            error.getReason(),
-            error.getMessage()
+            error.getReason()
         ));
       }
     }
