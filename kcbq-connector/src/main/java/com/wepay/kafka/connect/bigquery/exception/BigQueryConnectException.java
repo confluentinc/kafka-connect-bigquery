@@ -52,12 +52,12 @@ public class BigQueryConnectException extends ConnectException {
     messageBuilder.append(String.format("table: %s insertion failed for the following rows:", tableInfo));
     for (Map.Entry<Long, List<BigQueryError>> errorsEntry : errorsMap.entrySet()) {
       for (BigQueryError error : errorsEntry.getValue()) {
+        // getMessage() omitted: it can embed the raw rejected record value (CC-42851)
         messageBuilder.append(String.format(
-            "%n\t[row index %d] (location %s, reason: %s): %s",
+            "%n\t[row index %d] (location %s, reason: %s)",
             errorsEntry.getKey(),
             error.getLocation(),
-            error.getReason(),
-            error.getMessage()
+            error.getReason()
         ));
       }
     }
