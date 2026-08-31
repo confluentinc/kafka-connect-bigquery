@@ -19,6 +19,7 @@
 
 package com.wepay.kafka.connect.bigquery.write.batch;
 
+import com.google.cloud.bigquery.BigQueryError;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.InsertAllRequest.RowToInsert;
 
@@ -94,10 +95,18 @@ public class TableWriter implements Runnable {
           currentIndex += currentBatchSize;
           successCount++;
         } catch (BigQueryException err) {
+          // Log only the BigQuery error code, reason, and field location. The full
+          // BigQueryError object and BigQueryException can echo a rejected record value in
+          // their message (see CC-42851, which removed it from the per-row path); keep
+          // record-derived data out of the logs.
+          BigQueryError error = err.getError();
           logger.warn(
               "Could not write batch of size {} to BigQuery. "
-                  + "Error code: {}, underlying error (if present): {}",
-              currentBatchList.size(), err.getCode(), err.getError(), err);
+                  + "Error code: {}, reason: {}, location: {}",
+              currentBatchList.size(),
+              err.getCode(),
+              error != null ? error.getReason() : null,
+              error != null ? error.getLocation() : null);
           if (isBatchSizeError(err)) {
             failureCount++;
             currentBatchSize = getNewBatchSize(currentBatchSize, err);
