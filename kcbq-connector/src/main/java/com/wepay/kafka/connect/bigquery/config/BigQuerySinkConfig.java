@@ -112,6 +112,13 @@ public class BigQuerySinkConfig extends AbstractConfig {
   private static final String PROJECT_DOC =
       "The BigQuery project to write to";
 
+  public static final String UNIVERSE_DOMAIN_CONFIG = "universe_domain";
+  private static final ConfigDef.Type UNIVERSE_DOMAIN_TYPE = ConfigDef.Type.STRING;
+  private static final Object UNIVERSE_DOMAIN_DEFAULT = null;
+  private static final ConfigDef.Importance UNIVERSE_DOMAIN_IMPORTANCE = ConfigDef.Importance.MEDIUM;
+  private static final String UNIVERSE_DOMAIN_DOC =
+      "The universe domain of the BigQuery environment. Can also be set via GOOGLE_CLOUD_UNIVERSE_DOMAIN environment variable.";
+
   public static final String DEFAULT_DATASET_CONFIG =             "defaultDataset";
   private static final ConfigDef.Type DEFAULT_DATASET_TYPE =       ConfigDef.Type.STRING;
   private static final Object DEFAULT_DATASET_DEFAULT =             ConfigDef.NO_DEFAULT_VALUE;
@@ -598,6 +605,12 @@ public class BigQuerySinkConfig extends AbstractConfig {
             PROJECT_IMPORTANCE,
             PROJECT_DOC
         ).define(
+            UNIVERSE_DOMAIN_CONFIG,
+            UNIVERSE_DOMAIN_TYPE,
+            UNIVERSE_DOMAIN_DEFAULT,
+            UNIVERSE_DOMAIN_IMPORTANCE,
+            UNIVERSE_DOMAIN_DOC
+        ).define(
             DEFAULT_DATASET_CONFIG,
             DEFAULT_DATASET_TYPE,
             DEFAULT_DATASET_DEFAULT,
@@ -899,6 +912,17 @@ public class BigQuerySinkConfig extends AbstractConfig {
    */
   public String getKey() {
     return Optional.ofNullable(getPassword(KEYFILE_CONFIG)).map(Password::value).orElse(null);
+  }
+
+  /**
+   * @return the universe domain, fetched from config or environment variable
+   */
+  public String getUniverseDomain() {
+    String universeDomain = getString(UNIVERSE_DOMAIN_CONFIG);
+    if (universeDomain == null || universeDomain.isEmpty()) {
+      universeDomain = System.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN");
+    }
+    return universeDomain;
   }
 
   /**
