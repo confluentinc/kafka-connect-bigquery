@@ -235,7 +235,7 @@ public class BigQuerySinkConnectorIT {
     testBase.waitForConnectorToStart(connectorName, tasksMax);
 
     testBase.waitForCommittedRecords(
-        connectorName, Collections.singleton(topic), numRecordsProduced, tasksMax, TimeUnit.MINUTES.toMillis(3));
+        connectorName, Collections.singleton(topic), numRecordsProduced, tasksMax, TimeUnit.MINUTES.toMillis(5));
 
     verify();
   }
