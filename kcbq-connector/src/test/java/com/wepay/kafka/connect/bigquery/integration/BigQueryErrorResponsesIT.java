@@ -138,7 +138,7 @@ public class BigQueryErrorResponsesIT extends BaseConnectorIT {
             return false;
           }
         },
-        300_000L,
+        120_000L,
         "Never succeeded to write to just-recreated table"
     );
   }
