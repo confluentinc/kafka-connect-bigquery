@@ -38,6 +38,9 @@
         <com.google.re2j.version>1.7</com.google.re2j.version>
         <confluent.version>7.9.5</confluent.version>
         <debezium.version>2.3.0.Alpha1</debezium.version>
+        <google.api.client.version>2.9.2</google.api.client.version>
+        <google.api.services.bigquery.version>v2-rev20220716-2.0.0</google.api.services.bigquery.version>
+        <google.api.services.storage.version>v1-rev20220705-2.0.0</google.api.services.storage.version>
         <google.auth.version>0.21.1</google.auth.version>
         <google.cloud.version>2.10.9</google.cloud.version>
         <google.cloud.storage.version>1.113.4</google.cloud.storage.version>
@@ -166,6 +169,21 @@
                 <groupId>com.google.auth</groupId>
                 <artifactId>google-auth-library-oauth2-http</artifactId>
                 <version>${google.auth.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.api-client</groupId>
+                <artifactId>google-api-client</artifactId>
+                <version>${google.api.client.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.apis</groupId>
+                <artifactId>google-api-services-bigquery</artifactId>
+                <version>${google.api.services.bigquery.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.apis</groupId>
+                <artifactId>google-api-services-storage</artifactId>
+                <version>${google.api.services.storage.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
