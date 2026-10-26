@@ -21,13 +21,6 @@ package com.wepay.kafka.connect.bigquery.convert.logicaltype;
 
 import com.google.cloud.bigquery.LegacySQLTypeName;
 
-import io.debezium.time.Date;
-import io.debezium.time.MicroTime;
-import io.debezium.time.MicroTimestamp;
-import io.debezium.time.Time;
-import io.debezium.time.Timestamp;
-import io.debezium.time.ZonedTimestamp;
-
 import org.apache.kafka.connect.data.Schema;
 
 import java.text.SimpleDateFormat;
@@ -42,12 +35,12 @@ import java.util.concurrent.TimeUnit;
 public class DebeziumLogicalConverters {
 
   static {
-    LogicalConverterRegistry.register(Date.SCHEMA_NAME, new DateConverter());
-    LogicalConverterRegistry.register(MicroTime.SCHEMA_NAME, new MicroTimeConverter());
-    LogicalConverterRegistry.register(MicroTimestamp.SCHEMA_NAME, new MicroTimestampConverter());
-    LogicalConverterRegistry.register(Time.SCHEMA_NAME, new TimeConverter());
-    LogicalConverterRegistry.register(ZonedTimestamp.SCHEMA_NAME, new ZonedTimestampConverter());
-    LogicalConverterRegistry.register(Timestamp.SCHEMA_NAME, new TimestampConverter());
+    LogicalConverterRegistry.register("io.debezium.time.Date", new DateConverter());
+    LogicalConverterRegistry.register("io.debezium.time.MicroTime", new MicroTimeConverter());
+    LogicalConverterRegistry.register("io.debezium.time.MicroTimestamp", new MicroTimestampConverter());
+    LogicalConverterRegistry.register("io.debezium.time.Time", new TimeConverter());
+    LogicalConverterRegistry.register("io.debezium.time.ZonedTimestamp", new ZonedTimestampConverter());
+    LogicalConverterRegistry.register("io.debezium.time.Timestamp", new TimestampConverter());
   }
 
   private static final int MICROS_IN_SEC = 1000000;
@@ -61,7 +54,7 @@ public class DebeziumLogicalConverters {
      * Create a new DateConverter.
      */
     public DateConverter() {
-      super(Date.SCHEMA_NAME,
+      super("io.debezium.time.Date",
             Schema.Type.INT32,
             LegacySQLTypeName.DATE);
     }
@@ -83,7 +76,7 @@ public class DebeziumLogicalConverters {
      * Create a new MicroTimeConverter.
      */
     public MicroTimeConverter() {
-      super(MicroTime.SCHEMA_NAME,
+      super("io.debezium.time.MicroTime",
             Schema.Type.INT64,
             LegacySQLTypeName.TIME);
     }
@@ -114,7 +107,7 @@ public class DebeziumLogicalConverters {
      * Create a new MicroTimestampConverter.
      */
     public MicroTimestampConverter() {
-      super(MicroTimestamp.SCHEMA_NAME,
+      super("io.debezium.time.MicroTimestamp",
             Schema.Type.INT64,
             LegacySQLTypeName.TIMESTAMP);
     }
@@ -145,7 +138,7 @@ public class DebeziumLogicalConverters {
      * Create a new TimeConverter.
      */
     public TimeConverter() {
-      super(Time.SCHEMA_NAME,
+      super("io.debezium.time.Time",
             Schema.Type.INT32,
             LegacySQLTypeName.TIME);
     }
@@ -165,7 +158,7 @@ public class DebeziumLogicalConverters {
      * Create a new TimestampConverter.
      */
     public TimestampConverter() {
-      super(Timestamp.SCHEMA_NAME,
+      super("io.debezium.time.Timestamp",
             Schema.Type.INT64,
             LegacySQLTypeName.TIMESTAMP);
     }
@@ -185,14 +178,14 @@ public class DebeziumLogicalConverters {
      * Create a new ZoneTimestampConverter.
      */
     public ZonedTimestampConverter() {
-      super(ZonedTimestamp.SCHEMA_NAME,
+      super("io.debezium.time.ZonedTimestamp",
             Schema.Type.STRING,
             LegacySQLTypeName.TIMESTAMP);
     }
 
     @Override
     public String convert(Object kafkaConnectObject) {
-      TemporalAccessor parsedTime = ZonedTimestamp.FORMATTER.parse((String) kafkaConnectObject);
+      TemporalAccessor parsedTime = DateTimeFormatter.ISO_OFFSET_DATE_TIME.parse((String) kafkaConnectObject);
       DateTimeFormatter bqZonedTimestampFormat =
           new DateTimeFormatterBuilder()
               .append(DateTimeFormatter.ISO_LOCAL_DATE)
