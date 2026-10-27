@@ -30,6 +30,7 @@ import com.wepay.kafka.connect.bigquery.convert.logicaltype.DebeziumLogicalConve
 import com.wepay.kafka.connect.bigquery.convert.logicaltype.DebeziumLogicalConverters.TimeConverter;
 import com.wepay.kafka.connect.bigquery.convert.logicaltype.DebeziumLogicalConverters.TimestampConverter;
 import com.wepay.kafka.connect.bigquery.convert.logicaltype.DebeziumLogicalConverters.ZonedTimestampConverter;
+import com.wepay.kafka.connect.bigquery.convert.logicaltype.DebeziumLogicalConverters.JsonConverter;
 
 import org.apache.kafka.connect.data.Schema;
 
@@ -153,5 +154,18 @@ public class DebeziumLogicalConvertersTest {
 
     String formattedTimestamp = converter.convert("2017-03-01T14:20:38.808-08:00");
     assertEquals("2017-03-01 14:20:38.808-08:00", formattedTimestamp);
+  }
+
+  @Test
+  public void testJsonConversion() {
+    JsonConverter converter = new JsonConverter();
+
+    assertEquals(LegacySQLTypeName.JSON, converter.getBQSchemaType());
+
+    try {
+      converter.checkEncodingType(Schema.Type.STRING);
+    } catch (Exception ex) {
+      fail("Expected encoding type check to succeed.");
+    }
   }
 }
