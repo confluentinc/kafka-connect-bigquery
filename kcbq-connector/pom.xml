@@ -83,6 +83,7 @@
         <dependency>
             <groupId>io.debezium</groupId>
             <artifactId>debezium-core</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
