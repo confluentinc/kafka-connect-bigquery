@@ -24,6 +24,7 @@ import com.google.cloud.bigquery.LegacySQLTypeName;
 import org.apache.kafka.connect.data.Schema;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.TemporalAccessor;
@@ -43,6 +44,8 @@ public class DebeziumLogicalConverters {
     LogicalConverterRegistry.register("io.debezium.time.Timestamp", new TimestampConverter());
   }
 
+  public static final LocalDate EPOCH = LocalDate.of(1970, 1, 1);
+
   private static final int MICROS_IN_SEC = 1000000;
   private static final int MICROS_IN_MILLI = 1000;
 
@@ -61,10 +64,9 @@ public class DebeziumLogicalConverters {
 
     @Override
     public String convert(Object kafkaConnectObject) {
-      Integer daysSinceEpoch = (Integer) kafkaConnectObject;
-      long msSinceEpoch = TimeUnit.DAYS.toMillis(daysSinceEpoch);
-      java.util.Date date = new java.util.Date(msSinceEpoch);
-      return getBQDateFormat().format(date);
+      int days = (Integer) kafkaConnectObject;
+      LocalDate date = EPOCH.plusDays(days);
+      return date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
     }
   }
 

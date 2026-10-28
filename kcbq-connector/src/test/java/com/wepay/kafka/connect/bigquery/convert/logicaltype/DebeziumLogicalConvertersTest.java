@@ -19,6 +19,7 @@
 
 package com.wepay.kafka.connect.bigquery.convert.logicaltype;
 
+import static com.wepay.kafka.connect.bigquery.convert.logicaltype.DebeziumLogicalConverters.EPOCH;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -34,15 +35,89 @@ import com.wepay.kafka.connect.bigquery.convert.logicaltype.DebeziumLogicalConve
 import org.apache.kafka.connect.data.Schema;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.Collection;
+
+@RunWith(Parameterized.class)
 public class DebeziumLogicalConvertersTest {
 
-  //corresponds to March 1 2017, 22:20:38.808(123) UTC
-  //              (March 1 2017, 14:20:38.808(123)-8:00)
-  private static final Integer DAYS_TIMESTAMP = 17226;
   private static final Integer MILLI_TIMESTAMP_INT = 1488406838;
   private static final Long MILLI_TIMESTAMP = 1488406838808L;
   private static final Long MICRO_TIMESTAMP = 1488406838808123L;
+
+  private final String underTestDate;
+
+  @Parameterized.Parameters
+  public static Collection<String> data() {
+    return Arrays.asList(
+            "0100-02-28",
+            "0100-03-01",
+            "0200-02-28",
+            "0200-03-01",
+            "0300-02-28",
+            "0300-03-01",
+            "0400-02-28",
+            "0400-02-29",
+            "0400-03-01",
+            "0500-02-28",
+            "0500-03-01",
+            "0600-02-28",
+            "0600-03-01",
+            "0700-02-28",
+            "0700-03-01",
+            "0800-02-28",
+            "0800-02-29",
+            "0800-03-01",
+            "0900-02-28",
+            "0900-03-01",
+            "1000-02-28",
+            "1000-03-01",
+            "1100-02-28",
+            "1100-03-01",
+            "1200-02-28",
+            "1200-02-29",
+            "1200-03-01",
+            "1300-02-28",
+            "1300-03-01",
+            "1400-02-28",
+            "1400-03-01",
+            "1500-02-28",
+            "1500-03-01",
+            "1582-10-01",
+            "1582-10-02",
+            "1582-10-03",
+            "1582-10-04",
+            "1582-10-15",
+            "1582-10-16",
+            "1582-10-17",
+            "1582-10-18",
+            "1582-10-19",
+            "1582-10-20",
+            "1582-10-21",
+            "1582-10-22",
+            "1582-10-23",
+            "1582-10-24",
+            "1582-10-25",
+            "1582-10-26",
+            "1582-10-27",
+            "1582-10-28",
+            "1582-10-29",
+            "1582-10-30",
+            "1582-10-31",
+
+            "2017-03-01"
+    );
+  }
+
+  public DebeziumLogicalConvertersTest(String underTestDate) {
+    this.underTestDate = underTestDate;
+  }
 
   @Test
   public void testDateConversion() {
@@ -55,9 +130,11 @@ public class DebeziumLogicalConvertersTest {
     } catch (Exception ex) {
       fail("Expected encoding type check to succeed.");
     }
-    
-    String formattedDate = converter.convert(DAYS_TIMESTAMP);
-    assertEquals("2017-03-01", formattedDate);
+
+    int epochDays = convertDateToNumberOfDaysPassedFromEpoch(underTestDate);
+
+    String formattedDate = converter.convert(epochDays);
+    assertEquals(underTestDate, formattedDate);
   }
 
   @Test
@@ -154,4 +231,11 @@ public class DebeziumLogicalConvertersTest {
     String formattedTimestamp = converter.convert("2017-03-01T14:20:38.808-08:00");
     assertEquals("2017-03-01 14:20:38.808-08:00", formattedTimestamp);
   }
+
+  private int convertDateToNumberOfDaysPassedFromEpoch(String underTestDate) {
+    // This is similar to conversion that happens in Debezium. For any date before 1970-01-01 the number of day is negative
+    LocalDate date = LocalDate.parse(underTestDate, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    return (int) ChronoUnit.DAYS.between(EPOCH, date);
+  }
+
 }
