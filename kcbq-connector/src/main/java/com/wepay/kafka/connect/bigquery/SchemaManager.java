@@ -25,6 +25,7 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Clustering;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Field.Mode;
+import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.TableId;
@@ -49,9 +50,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -317,7 +321,7 @@ public class SchemaManager {
         logger.debug(errorMessage + " Will fall back to existing schema.");
         return existingSchema;
       }
-      result = convertRecordSchema(recordToConvert);
+      result = convertRecordSchema(recordToConvert, existingSchema);
       if (existingSchema != null) {
         validateSchemaChange(existingSchema, result);
         if (allowBQRequiredFieldRelaxation) {
@@ -336,13 +340,14 @@ public class SchemaManager {
    */
   private List<com.google.cloud.bigquery.Schema> getSchemasList(TableId table, List<SinkRecord> records) {
     List<com.google.cloud.bigquery.Schema> bigQuerySchemas = new ArrayList<>();
-    Optional.ofNullable(readTableSchema(table)).ifPresent(bigQuerySchemas::add);
+    Optional<com.google.cloud.bigquery.Schema> existingSchema = Optional.ofNullable(readTableSchema(table));
+    existingSchema.ifPresent(bigQuerySchemas::add);
     for (SinkRecord record : records) {
       Schema kafkaValueSchema = schemaRetriever.retrieveValueSchema(record);
       if (kafkaValueSchema == null) {
         continue;
       }
-      bigQuerySchemas.add(convertRecordSchema(record));
+      bigQuerySchemas.add(convertRecordSchema(record, existingSchema.orElse(null)));
     }
     return bigQuerySchemas;
   }
@@ -364,10 +369,10 @@ public class SchemaManager {
     return null;
   }
 
-  private com.google.cloud.bigquery.Schema convertRecordSchema(SinkRecord record) {
+  private com.google.cloud.bigquery.Schema convertRecordSchema(SinkRecord record, com.google.cloud.bigquery.Schema bqExistingSchema) {
     Schema kafkaValueSchema = schemaRetriever.retrieveValueSchema(record);
     Schema kafkaKeySchema = kafkaKeyFieldName.isPresent() ? schemaRetriever.retrieveKeySchema(record) : null;
-    com.google.cloud.bigquery.Schema result = getBigQuerySchema(kafkaKeySchema, kafkaValueSchema);
+    com.google.cloud.bigquery.Schema result = getBigQuerySchema(kafkaKeySchema, kafkaValueSchema, bqExistingSchema);
     return result;
   }
 
@@ -581,9 +586,9 @@ public class SchemaManager {
         TimePartitioning.Builder timePartitioningBuilder = TimePartitioning.of(partitioningType).toBuilder();
         timestampPartitionFieldName.ifPresent(timePartitioningBuilder::setField);
         partitionExpiration.ifPresent(timePartitioningBuilder::setExpirationMs);
-  
+
         builder.setTimePartitioning(timePartitioningBuilder.build());
-  
+
         if (timestampPartitionFieldName.isPresent() && clusteringFieldName.isPresent()) {
           Clustering clustering = Clustering.newBuilder()
               .setFields(clusteringFieldName.get())
@@ -605,14 +610,17 @@ public class SchemaManager {
     return tableInfoBuilder.build();
   }
 
-  private com.google.cloud.bigquery.Schema getBigQuerySchema(Schema kafkaKeySchema, Schema kafkaValueSchema) {
+  private com.google.cloud.bigquery.Schema getBigQuerySchema(Schema kafkaKeySchema, Schema kafkaValueSchema,
+                                                             com.google.cloud.bigquery.Schema bqExistingSchema) {
     com.google.cloud.bigquery.Schema valueSchema = schemaConverter.convertSchema(kafkaValueSchema);
 
     List<Field> schemaFields = intermediateTables
         ? getIntermediateSchemaFields(valueSchema, kafkaKeySchema)
         : getRegularSchemaFields(valueSchema, kafkaKeySchema);
 
-    return com.google.cloud.bigquery.Schema.of(schemaFields);
+    List<Field> validatedSchemaFields = validateAndRestoreFieldTypes(schemaFields, bqExistingSchema.getFields());
+
+    return com.google.cloud.bigquery.Schema.of(validatedSchemaFields);
   }
 
   private List<Field> getIntermediateSchemaFields(com.google.cloud.bigquery.Schema valueSchema, Schema kafkaKeySchema) {
@@ -689,6 +697,42 @@ public class SchemaManager {
     }
 
     return result;
+  }
+
+  private List<Field> validateAndRestoreFieldTypes(List<Field> proposedFields, FieldList existingFields) {
+    checkNotNull(proposedFields);
+    if (existingFields == null) {
+      return proposedFields;
+    }
+    Set<String> existingFieldNames = existingFields.stream().map(Field::getName).collect(Collectors.toSet());
+    return proposedFields.stream().map(proposedField -> {
+      if (!existingFieldNames.contains(proposedField.getName())) {
+        return proposedField;
+      }
+      Field existingField = existingFields.get(proposedField.getName());
+      if (existingField.getType() == LegacySQLTypeName.RECORD) {
+        if (proposedField.getType() == LegacySQLTypeName.RECORD) {
+          Field.Builder updatedField = existingField.toBuilder();
+          List<Field> updatedSubfields = validateAndRestoreFieldTypes(proposedField.getSubFields(), existingField.getSubFields());
+          updatedField.setType(LegacySQLTypeName.RECORD, FieldList.of(updatedSubfields));
+          return updatedField.build();
+        }
+      } else {
+        if (isCompatibleFieldTypes(proposedField.getType(), existingField.getType())) {
+          return existingField;
+        }
+      }
+      throw new BigQueryConnectException(String.format(
+              "Incompatible field types: field '%s' in BigQuery has type '%s', but in kafka message it has type '%'",
+              existingField.getName(), existingField.getType(), proposedField.getType()
+      ));
+    }).collect(Collectors.toList());
+  }
+
+  private boolean isCompatibleFieldTypes(LegacySQLTypeName proposedType, LegacySQLTypeName existingType) {
+    return proposedType == existingType
+            || (proposedType == LegacySQLTypeName.TIMESTAMP && existingType == LegacySQLTypeName.DATETIME)
+            || (proposedType == LegacySQLTypeName.DATETIME && existingType == LegacySQLTypeName.TIMESTAMP);
   }
 
   private String table(TableId table) {
