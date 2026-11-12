@@ -444,9 +444,11 @@ public class BigQuerySinkTask extends SinkTask {
     boolean allowNewBQFields = config.getBoolean(BigQuerySinkConfig.ALLOW_NEW_BIGQUERY_FIELDS_CONFIG);
     boolean allowReqFieldRelaxation = config.getBoolean(BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG);
     boolean allowSchemaUnionization = config.getBoolean(BigQuerySinkConfig.ALLOW_SCHEMA_UNIONIZATION_CONFIG);
+    boolean useDestinationTableSchemaForIntermediateTableSchema = config.getBoolean(BigQuerySinkConfig.USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_CONFIG);
     boolean sanitizeFieldNames = config.getBoolean(BigQuerySinkConfig.SANITIZE_FIELD_NAME_CONFIG);
     return new SchemaManager(schemaRetriever, schemaConverter, getBigQuery(),
                              allowNewBQFields, allowReqFieldRelaxation, allowSchemaUnionization,
+                             useDestinationTableSchemaForIntermediateTableSchema,
                              sanitizeFieldNames,
                              kafkaKeyFieldName, kafkaDataFieldName,
                              timestampPartitionFieldName, partitionExpiration, clusteringFieldName, timePartitioningType);

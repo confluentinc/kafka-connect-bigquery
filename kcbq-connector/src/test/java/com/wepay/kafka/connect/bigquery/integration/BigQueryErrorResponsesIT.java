@@ -105,7 +105,7 @@ public class BigQueryErrorResponsesIT extends BaseConnectorIT {
     TestUtils.waitForCondition(
         () -> bigQuery.getTable(table) == null,
         60_000L,
-        "Table still appears to exist  one minute after issuing delete request"
+        "Table still appears to exist one minute after issuing delete request"
     );
     logger.info("Deleted {} successfully", table(table));
 
