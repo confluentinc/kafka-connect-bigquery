@@ -34,6 +34,7 @@ import com.google.cloud.storage.StorageException;
 
 import com.google.re2j.Matcher;
 import com.google.re2j.Pattern;
+import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.write.row.GCSToBQWriter;
 
 import org.slf4j.Logger;
@@ -233,8 +234,13 @@ public class GCSToBQLoadRunnable implements Runnable {
       logger.debug("Checking next job: {}", job.getJobId());
 
       try {
+        // Reload the job to get the latest status
+        job = job.reload();
         if (job.isDone()) {
           logger.trace("Job is marked done: id={}, status={}", job.getJobId(), job.getStatus());
+          if (job.getStatus().getError() != null || job.getStatus().getExecutionErrors() != null){
+            throw new BigQueryConnectException("Job is done with errors.");
+          }
           List<BlobId> blobIdsToDelete = jobEntry.getValue();
           jobIterator.remove();
           logger.trace("Job is removed from iterator: {}", job.getJobId());
