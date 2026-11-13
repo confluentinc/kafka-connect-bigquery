@@ -94,14 +94,18 @@ public class TableWriter implements Runnable {
           currentIndex += currentBatchSize;
           successCount++;
         } catch (BigQueryException err) {
-          logger.warn(
-              "Could not write batch of size {} to BigQuery. "
-                  + "Error code: {}, underlying error (if present): {}",
-              currentBatchList.size(), err.getCode(), err.getError(), err);
           if (isBatchSizeError(err)) {
+            logger.warn(
+                    "Retriable: could not write batch of size {} to BigQuery. Retrying with half the items in the batch"
+                            + "Error code: {}, underlying error (if present): {}",
+                    currentBatchList.size(), err.getCode(), err.getError(), err);
             failureCount++;
             currentBatchSize = getNewBatchSize(currentBatchSize, err);
           } else {
+            logger.warn(
+                    "Could not write batch of size {} to BigQuery. "
+                            + "Error code: {}, underlying error (if present): {}",
+                    currentBatchList.size(), err.getCode(), err.getError(), err);
             // Throw exception on write errors such as 403.
             throw new BigQueryConnectException("Failed to write to table", err);
           }
