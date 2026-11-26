@@ -183,8 +183,9 @@ public class TableWriter implements Runnable {
     public Builder(BigQueryWriter writer, PartitionedTableId table, SinkRecordConverter recordConverter) {
       this.writer = writer;
       this.table = table;
-
-      this.rows = new TreeMap<>(Comparator.comparing(SinkRecord::kafkaPartition)
+      this.rows = new TreeMap<>(Comparator
+              .comparing(SinkRecord::topic)
+              .thenComparing(SinkRecord::kafkaPartition)
               .thenComparing(SinkRecord::kafkaOffset));
       this.recordConverter = recordConverter;
 
