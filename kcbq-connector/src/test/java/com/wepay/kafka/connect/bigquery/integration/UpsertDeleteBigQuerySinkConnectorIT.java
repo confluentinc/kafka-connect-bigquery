@@ -27,12 +27,16 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.json.JsonConverterConfig;
+import org.apache.kafka.connect.runtime.AbstractStatus;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.SinkConnectorConfig;
+import org.apache.kafka.connect.runtime.rest.entities.ConnectorStateInfo;
 import org.apache.kafka.connect.storage.Converter;
 import org.apache.kafka.test.IntegrationTest;
+import org.apache.kafka.test.NoRetryException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -41,18 +45,14 @@ import org.junit.experimental.categories.Category;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static org.apache.kafka.connect.runtime.ConnectorConfig.KEY_CONVERTER_CLASS_CONFIG;
 import static org.apache.kafka.connect.runtime.ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 @Category(IntegrationTest.class)
 public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
@@ -368,6 +368,162 @@ public class UpsertDeleteBigQuerySinkConnectorIT extends BaseConnectorIT {
             Collections.singletonList(i * 2 / 4)))
         .collect(Collectors.toList());
     assertEquals(expectedRows, allRows);
+  }
+
+  @Test
+  public void testUpsertWithSchemaUpdate() throws Throwable {
+    // create topic in Kafka
+    final String topic = suffixedTableOrTopic("test-upsert" + System.nanoTime());
+    // Make sure each task gets to read from at least one partition
+    connect.kafka().createTopic(topic, TASKS_MAX);
+
+    final String table = sanitizedTable(topic);
+    TableClearer.clearTables(bigQuery, dataset(), table);
+
+    // setup props for the sink connector
+    Map<String, String> props = baseConnectorProps(TASKS_MAX);
+    props.put(SinkConnectorConfig.TOPICS_CONFIG, topic);
+
+    props.put(BigQuerySinkConfig.SANITIZE_TOPICS_CONFIG, "true");
+    props.put(BigQuerySinkConfig.SCHEMA_RETRIEVER_CONFIG, IdentitySchemaRetriever.class.getName());
+    props.put(BigQuerySinkConfig.TABLE_CREATE_CONFIG, "true");
+    props.put(BigQuerySinkConfig.ALLOW_NEW_BIGQUERY_FIELDS_CONFIG, "true");
+    props.put(BigQuerySinkConfig.ALLOW_BIGQUERY_REQUIRED_FIELD_RELAXATION_CONFIG, "true");
+    props.put(BigQuerySinkConfig.ALLOW_SCHEMA_UNIONIZATION_CONFIG, "true");
+
+    // Enable only upsert and not delete, and merge flush every record
+    props.putAll(upsertDeleteProps(true, false, 1));
+    // First run: Disable consulting destination table schema for intermediate table creation, expect exception
+    props.put(BigQuerySinkConfig.USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_CONFIG,
+        "false");
+
+    // start a sink connector
+    connect.configureConnector(CONNECTOR_NAME, props);
+
+    // wait for tasks to spin up
+    waitForConnectorToStart(CONNECTOR_NAME, TASKS_MAX);
+
+    // Instantiate the converters we'll use to send records to the connector
+    Converter keyConverter = converter(true);
+    Converter valueConverter = converter(false);
+
+    Schema schema1 = SchemaBuilder.struct()
+        .field("obj",
+            SchemaBuilder.struct()
+                .optional()
+                .field("f1", Schema.STRING_SCHEMA)
+                .field("f3", Schema.BOOLEAN_SCHEMA)
+                .field("f4", Schema.FLOAT64_SCHEMA)
+                .build()
+        )
+        .name("schema1")
+        .version(1)
+        .build();
+
+    // Send records to Kafka
+    for (int i = 0; i < 2; i++) {
+      // Each pair of records will share a key. Only the second record of each pair should be
+      // present in the table at the end of the test
+      String kafkaKey = key(keyConverter, topic, i);
+
+      Struct struct = new Struct(schema1)
+          .put("obj", new Struct(schema1.field("obj").schema())
+              .put("f1", "schema1")
+              .put("f3", i % 2 == 0)
+              .put("f4", i * 1.0));
+
+      String kafkaValue = new String(valueConverter.fromConnectData(topic, schema1, struct));
+      logger.debug("Sending message with key '{}' and value '{}' to topic '{}'", kafkaKey,
+          kafkaValue, topic);
+      connect.kafka().produce(topic, kafkaKey, kafkaValue);
+    }
+
+    // wait for tasks to write to BigQuery and commit offsets for their records
+    waitForCommittedRecords(CONNECTOR_NAME, topic, 2, TASKS_MAX);
+
+    // delete connector to trigger deletion of intermediate tables, then start again
+    connect.deleteConnector(CONNECTOR_NAME);
+    connect.configureConnector(CONNECTOR_NAME, props);
+    waitForConnectorToStart(CONNECTOR_NAME, TASKS_MAX);
+
+    assertThrows(NoRetryException.class, () -> {
+      runConnectorWithUpdatedSchema(topic, table, keyConverter, valueConverter);
+    });
+
+    ConnectorStateInfo info = connect.connectorStatus(CONNECTOR_NAME);
+    System.out.println(info);
+    assertTrue(info.tasks().stream()
+        .allMatch(s -> s.state().equals(AbstractStatus.State.FAILED.toString())));
+    String expectedErrorMsg =
+        "com.google.cloud.bigquery.BigQueryException: Value of type STRUCT<f1 STRING, f2 STRING, f3 BOOL, ...> cannot be assigned to dstTableAlias.obj, which has type STRUCT<f1 STRING, f3 BOOL, f4 FLOAT64, ...>";
+    assertTrue(info.tasks().stream().anyMatch(s -> s.trace().contains(expectedErrorMsg)));
+
+    // Second run: Enable consulting destination table schema for intermediate table creation, expect success
+    props.put(BigQuerySinkConfig.USE_DESTINATION_TABLE_SCHEMA_FOR_INTERMEDIATE_TABLE_SCHEMA_CONFIG,
+        "true");
+    // delete connector to trigger deletion of intermediate tables, then start again
+    connect.deleteConnector(CONNECTOR_NAME);
+    // delete connector to trigger deletion of intermediate tables, then start again
+    connect.configureConnector(CONNECTOR_NAME, props);
+    waitForConnectorToStart(CONNECTOR_NAME, TASKS_MAX);
+
+    List<List<Object>> allRows =
+        runConnectorWithUpdatedSchema(topic, table, keyConverter, valueConverter);
+    List<List<Object>> expectedRows = Arrays.asList(
+        Arrays.asList(
+            Arrays.asList(
+                "schema2",
+                true,
+                0.0,
+                "new field added in schema2"
+            ),
+            Collections.singletonList(0L)
+        ),
+        Arrays.asList(
+            Arrays.asList(
+                "schema1",
+                false,
+                1.0,
+                null
+            ),
+            Collections.singletonList(1L)
+        )
+    );
+    assertEquals(expectedRows, allRows);
+  }
+
+  private List<List<Object>> runConnectorWithUpdatedSchema(String topic, String table, Converter keyConverter, Converter valueConverter) throws InterruptedException {
+    Schema schema2 = SchemaBuilder.struct()
+            .field("obj",
+                    SchemaBuilder.struct()
+                            .optional()
+                            .field("f1", Schema.STRING_SCHEMA)
+                            .field("f2", Schema.STRING_SCHEMA)
+                            .field("f3", Schema.BOOLEAN_SCHEMA)
+                            .field("f4", Schema.FLOAT64_SCHEMA)
+                            .build()
+            )
+            .name("schema2")
+            .version(2)
+            .build();
+
+    // Upsert single record with new schema to Kafka
+    String kafkaKey = key(keyConverter, topic, 0);
+    Struct struct = new Struct(schema2)
+            .put("obj", new Struct(schema2.field("obj").schema())
+                    .put("f1", "schema2")
+                    .put("f2", "new field added in schema2")
+                    .put("f3", true)
+                    .put("f4", 0.0));
+
+    String kafkaValue = new String(valueConverter.fromConnectData(topic, schema2, struct));
+    logger.debug("Sending message with key '{}' and value '{}' to topic '{}'", kafkaKey, kafkaValue, topic);
+    connect.kafka().produce(topic, kafkaKey, kafkaValue);
+
+    // wait for tasks to write to BigQuery and commit offsets for their records
+    waitForCommittedRecords(CONNECTOR_NAME, topic, 3, TASKS_MAX);
+
+    return readAllRows(bigQuery, table, KAFKA_FIELD_NAME + ".k1");
   }
 
   private Converter converter(boolean isKey) {
