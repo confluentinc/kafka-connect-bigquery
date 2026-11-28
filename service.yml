@@ -1,6 +1,6 @@
 name: kafka-connect-bigquery
 lang: java
-lang_version: "8"
+lang_version: '8'
 git:
   enable: true
 codeowners:
@@ -8,10 +8,8 @@ codeowners:
 semaphore:
   enable: true
   pipeline_type: cp
-  extra_secrets:
-    - kcbq_gcp
-  extra_deploy_args: "-Pjenkins"
-  extra_build_args: "-Pjenkins"
+  extra_deploy_args: -Pjenkins
+  extra_build_args: -Pjenkins
   generate_connect_changelogs: true
   github_write_targets:
     - confluentinc/docs-kafka-connect-bigquery
